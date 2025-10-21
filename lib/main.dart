@@ -10,7 +10,7 @@ import 'screens/weather/weather_screen.dart';
 import 'screens/knowledge/knowledge_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/profile/profile_screen.dart';
-import 'screens/marketplace/sell_item_screen.dart';
+import 'screens/marketplace/sell_product_screen.dart';
 
 // Theme
 import 'theme/theme.dart';
@@ -42,7 +42,7 @@ class PamojaApp extends StatelessWidget {
         '/onboarding': (_) => const OnboardingScreen(),
         '/home': (_) => const MainShell(),
         '/profile': (_) => const ProfileScreen(),
-        '/sell-item': (_) => const SellItemScreen(),
+        '/sell-item': (_) => const SellProductScreen(),
       },
     );
   }
