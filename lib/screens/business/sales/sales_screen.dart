@@ -113,6 +113,17 @@ class _SalesScreenState extends State<SalesScreen> {
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        title: Text(
+            "Sales",
+          style: theme.textTheme.titleLarge?.copyWith(
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: theme.cardTheme.color,
+        elevation: 0,
+      ),
       body: CustomScrollView(
         slivers: [
           // Header Section

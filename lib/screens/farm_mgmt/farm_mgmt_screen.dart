@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/screens/farm_mgmt/inventory/inventory_screen.dart';
 import 'package:pamoja_twalima/screens/farm_mgmt/overview_screen.dart';
 import 'package:pamoja_twalima/screens/farm_mgmt/crops/crops_screen.dart';
 import 'package:pamoja_twalima/screens/farm_mgmt/animals/animals_screen.dart';
-import 'package:pamoja_twalima/screens/farm_mgmt/sales/sales_screen.dart';
 import 'package:pamoja_twalima/screens/farm_mgmt/tasks/tasks_screen.dart';
 
 class FarmMgmtScreen extends StatefulWidget {
@@ -20,27 +18,21 @@ class _FarmMgmtScreenState extends State<FarmMgmtScreen> {
     OverviewScreen(),
     CropsScreen(),
     AnimalsScreen(),
-    InventoryScreen(),
     TasksScreen(),
-    SalesScreen(),
   ];
 
   final List<String> _categories = [
     "Overview",
     "Crops",
     "Animals",
-    "Inventory",
     "Tasks",
-    "Sales",
   ];
 
   final List<IconData> _icons = [
     Icons.dashboard,
     Icons.agriculture,
     Icons.pets,
-    Icons.inventory,
     Icons.task,
-    Icons.paid,
   ];
 
   @override
@@ -64,7 +56,7 @@ class _FarmMgmtScreenState extends State<FarmMgmtScreen> {
         children: [
           // 🏷️ Chip-style navigation (like MarketplaceScreen)
           Container(
-            color: theme.cardTheme.color,
+            color: theme.colorScheme.surface,
             padding: const EdgeInsets.all(16),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,

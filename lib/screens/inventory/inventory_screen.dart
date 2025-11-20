@@ -120,6 +120,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        title: Text(
+          "Inventory",
+          style: theme.textTheme.titleLarge?.copyWith(
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: theme.cardTheme.color,
+        elevation: 0,
+      ),
       body: CustomScrollView(
         slivers: [
           // Collapsible header section (alerts + filters)

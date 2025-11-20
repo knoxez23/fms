@@ -1,5 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:pamoja_twalima/screens/business/sales/sales_screen.dart';
+import 'package:pamoja_twalima/screens/inventory/inventory_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Screens
@@ -60,26 +62,26 @@ class _MainShellState extends State<MainShell> {
 
   final _pages = const [
     HomeScreen(),
-    MarketplaceScreen(),
+    // MarketplaceScreen(),
     FarmMgmtScreen(),
-    WeatherScreen(),
-    KnowledgeScreen(),
+    InventoryScreen(),
+    SalesScreen(),
   ];
 
   final _icons = [
     Icons.home,
-    Icons.storefront,
+    // Icons.storefront,
     Icons.agriculture,
-    Icons.cloud,
-    Icons.menu_book,
+    Icons.inventory,
+    Icons.paid,
   ];
 
   final _labels = [
     'Home',
-    'Market',
+    // 'Market',
     'Farm',
-    'Weather',
-    'Learn',
+    'Inventory',
+    'Business',
   ];
 
   @override
