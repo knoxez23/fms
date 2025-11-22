@@ -1,22 +1,19 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/screens/business/sales/sales_screen.dart';
-import 'package:pamoja_twalima/screens/inventory/inventory_screen.dart';
+import 'package:pamoja_twalima/ui/business/sales/sales_screen.dart';
+import 'package:pamoja_twalima/ui/inventory/inventory_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Screens
-import 'screens/home/home_screen.dart';
-import 'screens/marketplace/marketplace_screen.dart';
-import 'screens/farm_mgmt/farm_mgmt_screen.dart';
-import 'screens/weather/weather_screen.dart';
-import 'screens/knowledge/knowledge_screen.dart';
-import 'screens/onboarding/onboarding_screen.dart';
-import 'screens/profile/profile_screen.dart';
-import 'screens/marketplace/sell_product_screen.dart';
+import 'ui/home/home_screen.dart';
+import 'ui/farm_mgmt/farm_mgmt_screen.dart';
+import 'ui/onboarding/onboarding_screen.dart';
+import 'ui/profile/profile_screen.dart';
+import 'ui/marketplace/sell_product_screen.dart';
 
 // Theme
-import 'theme/theme.dart';
-import 'theme/app_colors.dart';
+import 'ui/core/themes/theme.dart';
+import 'ui/core/themes/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
