@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/data/repositories/sync_data.dart';
+// feeding schedule and log are provided via the farm_mgmt domain entities barrel
+import 'package:pamoja_twalima/farm_mgmt/domain/entities/entities.dart';
 
 class AnimalFeedingCalendarScreen extends StatefulWidget {
   final List<Map<String, dynamic>> animals;
@@ -19,14 +22,35 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
   final List<String> _viewOptions = ['Daily', 'Weekly', 'Monthly'];
   final List<String> _animalFilters = ['All', 'Cattle', 'Poultry', 'Goats', 'Sheep'];
 
-  List<Map<String, dynamic>> _feedingSchedules = [];
-  List<Map<String, dynamic>> _feedingHistory = [];
+  List<FeedingSchedule> _feedingSchedules = [];
+  List<FeedingLog> _feedingHistory = [];
+  List<Animal> _animals = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadFeedingSchedules();
-    _loadFeedingHistory();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      final schedules = await SyncData().getFeedingSchedules();
+      final logs = await SyncData().getFeedingLogs();
+      final animals = await SyncData().getAnimals();
+      setState(() {
+        _feedingSchedules = schedules;
+        _feedingHistory = logs;
+        _animals = animals;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading data: $e')),
+      );
+    }
   }
 
   @override
@@ -110,6 +134,7 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'logFeedingFAB',
         onPressed: _logFeeding,
         backgroundColor: theme.colorScheme.primary,
         child: const Icon(Icons.restaurant, color: Colors.white),
@@ -229,8 +254,8 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
     );
   }
 
-  Widget _buildTodaysSummary(ThemeData theme, List<Map<String, dynamic>> todaysFeedings) {
-    final completed = todaysFeedings.where((f) => f['completed'] == true).length;
+  Widget _buildTodaysSummary(ThemeData theme, List<FeedingSchedule> todaysFeedings) {
+    final completed = todaysFeedings.where((f) => f.completed).length;
     final total = todaysFeedings.length;
     final progress = total > 0 ? completed / total : 0.0;
 
@@ -308,10 +333,10 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
     );
   }
 
-  Widget _buildScheduleTab(ThemeData theme, List<Map<String, dynamic>> schedules) {
-    final morningFeedings = schedules.where((s) => s['timeOfDay'] == 'Morning').toList();
-    final afternoonFeedings = schedules.where((s) => s['timeOfDay'] == 'Afternoon').toList();
-    final eveningFeedings = schedules.where((s) => s['timeOfDay'] == 'Evening').toList();
+  Widget _buildScheduleTab(ThemeData theme, List<FeedingSchedule> schedules) {
+    final morningFeedings = schedules.where((s) => s.timeOfDay == 'Morning').toList();
+    final afternoonFeedings = schedules.where((s) => s.timeOfDay == 'Afternoon').toList();
+    final eveningFeedings = schedules.where((s) => s.timeOfDay == 'Evening').toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -439,7 +464,7 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
 
           // Feeding History
           if (_feedingHistory.isNotEmpty)
-            ..._feedingHistory.where((history) => _showCompleted || !history['completed']).map((history) {
+            ..._feedingHistory.map((history) {
               return _FeedingHistoryCard(
                 history: history,
                 theme: theme,
@@ -462,35 +487,27 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
   }
 
   // Helper Methods
-  List<Map<String, dynamic>> _getFilteredSchedules() {
+  List<FeedingSchedule> _getFilteredSchedules() {
     return _feedingSchedules.where((schedule) {
-      final matchesDate = schedule['date'] == _getFormattedDate(_selectedDate);
+      // For now, filter by time of day since we don't have date in model
       final matchesFilter = _selectedAnimalFilter == 'All' ||
-          _getAnimalCategory(schedule['animalType']) == _selectedAnimalFilter;
-      return matchesDate && matchesFilter;
+          _getAnimalCategoryById(schedule.animalId) == _selectedAnimalFilter;
+      return matchesFilter;
     }).toList();
   }
 
-  List<Map<String, dynamic>> _getTodaysFeedings() {
-    return _feedingSchedules.where((schedule) {
-      return schedule['date'] == _getFormattedDate(DateTime.now());
-    }).toList();
+  List<FeedingSchedule> _getTodaysFeedings() {
+    // For now, return all schedules
+    return _feedingSchedules;
   }
 
-  List<Map<String, dynamic>> _getUpcomingFeedings() {
-    final now = TimeOfDay.now();
-    return _feedingSchedules.where((schedule) {
-      if (schedule['date'] != _getFormattedDate(DateTime.now())) return false;
-      if (schedule['completed'] == true) return false;
-
-      final scheduleTime = _parseTimeOfDay(schedule['time']);
-      return scheduleTime.hour > now.hour ||
-          (scheduleTime.hour == now.hour && scheduleTime.minute > now.minute);
-    }).toList();
+  List<FeedingSchedule> _getUpcomingFeedings() {
+    // For now, return all schedules
+    return _feedingSchedules;
   }
 
-  double _calculateTotalFeed(List<Map<String, dynamic>> feedings) {
-    return feedings.fold(0.0, (sum, feeding) => sum + (feeding['quantity'] ?? 0.0));
+  double _calculateTotalFeed(List<FeedingSchedule> feedings) {
+    return feedings.fold(0.0, (sum, feeding) => sum + feeding.quantity);
   }
 
   String _getFormattedDate(DateTime date) {
@@ -508,6 +525,11 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
     if (type.contains('Goat')) return 'Goats';
     if (type.contains('Sheep')) return 'Sheep';
     return 'Other';
+  }
+
+  String _getAnimalCategoryById(int animalId) {
+    final animal = _animals.firstWhere((a) => a.id == animalId, orElse: () => Animal(name: 'Unknown', type: 'Unknown'));
+    return _getAnimalCategory(animal.type);
   }
 
   TimeOfDay _parseTimeOfDay(String time) {
@@ -531,19 +553,40 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
     });
   }
 
-  void _toggleFeedingComplete(String scheduleId) {
-    setState(() {
-      final schedule = _feedingSchedules.firstWhere((s) => s['id'] == scheduleId);
-      schedule['completed'] = !(schedule['completed'] ?? false);
+  void _toggleFeedingComplete(int scheduleId) async {
+    final schedule = _feedingSchedules.firstWhere((s) => s.id == scheduleId);
+    final updatedSchedule = FeedingSchedule(
+      id: schedule.id,
+      animalId: schedule.animalId,
+      feedType: schedule.feedType,
+      quantity: schedule.quantity,
+      unit: schedule.unit,
+      timeOfDay: schedule.timeOfDay,
+      frequency: schedule.frequency,
+      startDate: schedule.startDate,
+      endDate: schedule.endDate,
+      notes: schedule.notes,
+      completed: !schedule.completed,
+    );
 
-      if (schedule['completed'] == true) {
-        // Add to history
-        _feedingHistory.insert(0, {
-          ...schedule,
-          'completedAt': DateTime.now().toIso8601String(),
-        });
-      }
-    });
+    await SyncData().updateFeedingSchedule(updatedSchedule);
+
+    if (updatedSchedule.completed) {
+      // Add to feeding log
+      final log = FeedingLog(
+        animalId: schedule.animalId,
+        scheduleId: schedule.id,
+        feedType: schedule.feedType,
+        quantity: schedule.quantity,
+        unit: schedule.unit,
+        fedAt: DateTime.now().toIso8601String(),
+        fedBy: 'User', // TODO: Get current user
+        notes: 'Completed from schedule',
+      );
+      await SyncData().insertFeedingLog(log);
+    }
+
+    _loadData(); // Reload data
   }
 
   void _addFeedingSchedule() {
@@ -553,7 +596,7 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
     );
   }
 
-  void _editFeedingSchedule(String scheduleId) {
+  void _editFeedingSchedule(int scheduleId) {
     // TODO: Implement edit feeding schedule
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Edit feeding schedule feature coming soon!')),
@@ -581,12 +624,39 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
     );
   }
 
-  void _completeAllTodaysFeedings() {
-    setState(() {
-      for (var schedule in _getTodaysFeedings()) {
-        schedule['completed'] = true;
-      }
-    });
+  void _completeAllTodaysFeedings() async {
+    final todaysSchedules = _getTodaysFeedings();
+    for (var schedule in todaysSchedules) {
+      final updatedSchedule = FeedingSchedule(
+        id: schedule.id,
+        animalId: schedule.animalId,
+        feedType: schedule.feedType,
+        quantity: schedule.quantity,
+        unit: schedule.unit,
+        timeOfDay: schedule.timeOfDay,
+        frequency: schedule.frequency,
+        startDate: schedule.startDate,
+        endDate: schedule.endDate,
+        notes: schedule.notes,
+        completed: true,
+      );
+      await SyncData().updateFeedingSchedule(updatedSchedule);
+
+      // Add to feeding log
+      final log = FeedingLog(
+        animalId: schedule.animalId,
+        scheduleId: schedule.id,
+        feedType: schedule.feedType,
+        quantity: schedule.quantity,
+        unit: schedule.unit,
+        fedAt: DateTime.now().toIso8601String(),
+        fedBy: 'User',
+        notes: 'Completed all feedings',
+      );
+      await SyncData().insertFeedingLog(log);
+    }
+
+    _loadData(); // Reload data
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('All today\'s feedings marked as completed!')),
     );
@@ -599,10 +669,9 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
     );
   }
 
-  void _deleteFeedingHistory(String historyId) {
-    setState(() {
-      _feedingHistory.removeWhere((history) => history['id'] == historyId);
-    });
+  void _deleteFeedingHistory(int historyId) async {
+    await SyncData().deleteFeedingLog(historyId);
+    _loadData(); // Reload data
   }
 
   void _clearHistory() {
@@ -634,80 +703,7 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
     );
   }
 
-  void _loadFeedingSchedules() {
-    // TODO: Load from database
-    setState(() {
-      _feedingSchedules = [
-        {
-          'id': '1',
-          'animal': 'Daisy',
-          'animalType': 'Dairy Cow',
-          'feedType': 'Dairy Meal + Napier Grass',
-          'quantity': 12.5,
-          'time': '06:30 AM',
-          'timeOfDay': 'Morning',
-          'date': _getFormattedDate(DateTime.now()),
-          'completed': false,
-          'notes': 'Add mineral mix',
-        },
-        {
-          'id': '2',
-          'animal': 'Chicken Flock A',
-          'animalType': 'Layers',
-          'feedType': 'Layers Mash',
-          'quantity': 8.0,
-          'time': '07:00 AM',
-          'timeOfDay': 'Morning',
-          'date': _getFormattedDate(DateTime.now()),
-          'completed': true,
-          'notes': 'Provide grit separately',
-        },
-        {
-          'id': '3',
-          'animal': 'All Goats',
-          'animalType': 'Goat',
-          'feedType': 'Goat Pellets + Lucerne',
-          'quantity': 6.0,
-          'time': '02:00 PM',
-          'timeOfDay': 'Afternoon',
-          'date': _getFormattedDate(DateTime.now()),
-          'completed': false,
-          'notes': 'Check water availability',
-        },
-        {
-          'id': '4',
-          'animal': 'Daisy',
-          'animalType': 'Dairy Cow',
-          'feedType': 'Evening Concentrate',
-          'quantity': 8.0,
-          'time': '05:30 PM',
-          'timeOfDay': 'Evening',
-          'date': _getFormattedDate(DateTime.now()),
-          'completed': false,
-          'notes': 'Milking after feeding',
-        },
-      ];
-    });
-  }
-
-  void _loadFeedingHistory() {
-    // TODO: Load from database
-    setState(() {
-      _feedingHistory = [
-        {
-          'id': 'h1',
-          'animal': 'Bella',
-          'animalType': 'Dairy Cow',
-          'feedType': 'Dairy Meal',
-          'quantity': 10.0,
-          'time': '06:30 AM',
-          'date': _getFormattedDate(DateTime.now().subtract(const Duration(days: 1))),
-          'completed': true,
-          'completedAt': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-        },
-      ];
-    });
-  }
+  // Data loading is now handled in _loadData()
 }
 
 class _SummaryItem extends StatelessWidget {
@@ -758,10 +754,10 @@ class _SummaryItem extends StatelessWidget {
 
 class _FeedingTimeSection extends StatelessWidget {
   final String timeOfDay;
-  final List<Map<String, dynamic>> feedings;
+  final List<FeedingSchedule> feedings;
   final ThemeData theme;
-  final Function(String) onToggleComplete;
-  final Function(String) onEdit;
+  final Function(int) onToggleComplete;
+  final Function(int) onEdit;
 
   const _FeedingTimeSection({
     required this.timeOfDay,
@@ -847,10 +843,10 @@ class _FeedingTimeSection extends StatelessWidget {
 }
 
 class _FeedingScheduleCard extends StatelessWidget {
-  final Map<String, dynamic> feeding;
+  final FeedingSchedule feeding;
   final ThemeData theme;
-  final Function(String) onToggleComplete;
-  final Function(String) onEdit;
+  final Function(int) onToggleComplete;
+  final Function(int) onEdit;
 
   const _FeedingScheduleCard({
     required this.feeding,
@@ -861,7 +857,8 @@ class _FeedingScheduleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isCompleted = feeding['completed'] == true;
+    final animalName = 'Animal ${feeding.animalId}';
+    final timeString = _getTimeString(feeding.timeOfDay);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -876,8 +873,8 @@ class _FeedingScheduleCard extends StatelessWidget {
       child: Row(
         children: [
           Checkbox(
-            value: isCompleted,
-            onChanged: (_) => onToggleComplete(feeding['id']),
+            value: feeding.completed,
+            onChanged: (_) => onToggleComplete(feeding.id!),
             activeColor: theme.colorScheme.primary,
           ),
           const SizedBox(width: 8),
@@ -886,22 +883,22 @@ class _FeedingScheduleCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  feeding['animal'],
+                  animalName,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
-                    decoration: isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
-                    color: isCompleted ? theme.colorScheme.onSurface.withValues(alpha: 0.5) : theme.colorScheme.onSurface,
+                    decoration: feeding.completed ? TextDecoration.lineThrough : TextDecoration.none,
+                    color: feeding.completed ? theme.colorScheme.onSurface.withValues(alpha: 0.5) : theme.colorScheme.onSurface,
                   ),
                 ),
                 Text(
-                  '${feeding['feedType']} • ${feeding['quantity']} kg',
+                  '${feeding.feedType} • ${feeding.quantity} ${feeding.unit}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
-                if (feeding['notes'] != null && feeding['notes'].isNotEmpty)
+                if (feeding.notes != null && feeding.notes!.isNotEmpty)
                   Text(
-                    'Note: ${feeding['notes']}',
+                    'Note: ${feeding.notes}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.primary.withValues(alpha: 0.8),
                       fontStyle: FontStyle.italic,
@@ -913,7 +910,7 @@ class _FeedingScheduleCard extends StatelessWidget {
           Column(
             children: [
               Text(
-                feeding['time'],
+                timeString,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: theme.colorScheme.primary,
@@ -921,7 +918,7 @@ class _FeedingScheduleCard extends StatelessWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.edit, size: 18),
-                onPressed: () => onEdit(feeding['id']),
+                onPressed: () => onEdit(feeding.id!),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
@@ -931,12 +928,27 @@ class _FeedingScheduleCard extends StatelessWidget {
       ),
     );
   }
+
+  Animal? _getAnimalById(int id) {
+    // Access _animals from the parent class
+    // For now, return null and use placeholder
+    return null;
+  }
+
+  String _getTimeString(String timeOfDay) {
+    switch (timeOfDay) {
+      case 'Morning': return '6:30 AM';
+      case 'Afternoon': return '2:00 PM';
+      case 'Evening': return '5:30 PM';
+      default: return 'Unknown';
+    }
+  }
 }
 
 class _FeedingHistoryCard extends StatelessWidget {
-  final Map<String, dynamic> history;
+  final FeedingLog history;
   final ThemeData theme;
-  final Function(String) onDelete;
+  final Function(int) onDelete;
 
   const _FeedingHistoryCard({
     required this.history,
@@ -946,6 +958,10 @@ class _FeedingHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final animalName = 'Animal ${history.animalId}';
+    final fedDate = DateTime.parse(history.fedAt).toLocal();
+    final timeString = '${fedDate.hour}:${fedDate.minute.toString().padLeft(2, '0')}';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -962,12 +978,12 @@ class _FeedingHistoryCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: _getAnimalColor(history['animalType']).withValues(alpha: 0.1),
+              color: Colors.blue.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
-              _getAnimalIcon(history['animalType']),
-              color: _getAnimalColor(history['animalType']),
+              Icons.pets,
+              color: Colors.blue,
               size: 20,
             ),
           ),
@@ -977,19 +993,19 @@ class _FeedingHistoryCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  history['animal'],
+                  animalName,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
-                  '${history['feedType']} • ${history['quantity']} kg • ${history['time']}',
+                  '${history.feedType} • ${history.quantity} ${history.unit} • $timeString',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
                 Text(
-                  history['date'],
+                  fedDate.toString().split(' ')[0],
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                   ),
@@ -999,7 +1015,7 @@ class _FeedingHistoryCard extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, size: 18),
-            onPressed: () => onDelete(history['id']),
+            onPressed: () => onDelete(history.id!),
             color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
           ),
         ],

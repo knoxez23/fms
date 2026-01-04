@@ -6,6 +6,8 @@ import 'package:pamoja_twalima/ui/marketplace/import_inquiry_screen.dart';
 import 'package:pamoja_twalima/ui/marketplace/product_detail_screen.dart';
 import 'package:pamoja_twalima/ui/marketplace/sell_product_screen.dart';
 import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/marketplace/application/application.dart';
+import 'package:pamoja_twalima/marketplace/infrastructure/factory.dart';
 
 class MarketplaceScreen extends StatefulWidget {
   const MarketplaceScreen({super.key});
@@ -15,209 +17,34 @@ class MarketplaceScreen extends StatefulWidget {
 }
 
 class _MarketplaceScreenState extends State<MarketplaceScreen> {
-  final List<Map<String, dynamic>> _products = [
-    {
-      'id': '1',
-      'name': 'Fresh Maize Grade A',
-      'price': 1200.0,
-      'originalPrice': 1400.0,
-      'desc':
-          'Premium quality dry maize from certified local farms. GMO-free, properly dried and stored.',
-      'image': 'assets/images/maize.jpg',
-      'category': 'Crops',
-      'subCategory': 'Grains',
-      'seller': {
-        'name': 'Green Valley Farms',
-        'rating': 4.8,
-        'reviews': 124,
-        'verified': true,
-        'location': 'Nakuru, Kenya'
-      },
-      'quantity': 5000.0,
-      'unit': 'kg',
-      'minOrder': 100.0,
-      'maxOrder': 1000.0,
-      'qualityCertifications': ['KEBS Certified', 'Organic'],
-      'deliveryOptions': ['Pickup', 'Local Delivery', 'Nationwide'],
-      'paymentMethods': ['M-Pesa', 'Bank Transfer', 'Escrow'],
-      'exportReady': true,
-      'importCompliant': true,
-      'shelfLife': '12 months',
-      'moistureContent': '13%',
-      'tags': ['organic', 'premium', 'export-quality'],
-      'views': 2450,
-      'sales': 890,
-      'listedDate': '2024-01-15',
-      'status': 'Available'
-    },
-    {
-      'id': '2',
-      'name': 'Fresh Tomatoes (Export Grade)',
-      'price': 800.0,
-      'originalPrice': 950.0,
-      'desc':
-          'Farm-fresh red tomatoes, carefully selected for export. Perfect for European markets.',
-      'image': 'assets/images/tomatoes_crate.jpg',
-      'category': 'Vegetables',
-      'subCategory': 'Fresh Produce',
-      'seller': {
-        'name': 'Sunrise Agribusiness',
-        'rating': 4.9,
-        'reviews': 89,
-        'verified': true,
-        'location': 'Naivasha, Kenya'
-      },
-      'quantity': 200.0,
-      'unit': 'crates',
-      'minOrder': 10.0,
-      'maxOrder': 50.0,
-      'qualityCertifications': ['GlobalG.A.P.', 'HACCP'],
-      'deliveryOptions': ['Cold Chain', 'International Shipping'],
-      'paymentMethods': ['Letter of Credit', 'Bank Transfer', 'Escrow'],
-      'exportReady': true,
-      'importCompliant': true,
-      'shelfLife': '14 days',
-      'variety': 'Roma',
-      'size': 'Medium',
-      'tags': ['export', 'fresh', 'premium'],
-      'views': 1560,
-      'sales': 340,
-      'listedDate': '2024-02-01',
-      'status': 'Limited Stock'
-    },
-    {
-      'id': '3',
-      'name': 'Layer Hens (Hybrid)',
-      'price': 450.0,
-      'desc':
-          'Healthy hybrid layer hens, vaccinated and ready for egg production. 22-24 weeks old.',
-      'image': 'assets/images/hen.jpg',
-      'category': 'Livestock',
-      'subCategory': 'Poultry',
-      'seller': {
-        'name': 'Poultry Experts Ltd',
-        'rating': 4.7,
-        'reviews': 67,
-        'verified': true,
-        'location': 'Kiambu, Kenya'
-      },
-      'quantity': 1000.0,
-      'unit': 'birds',
-      'minOrder': 50.0,
-      'maxOrder': 200.0,
-      'qualityCertifications': ['Vaccinated', 'Disease Free'],
-      'deliveryOptions': ['Live Animal Transport'],
-      'paymentMethods': ['M-Pesa', 'Bank Transfer'],
-      'exportReady': false,
-      'breed': 'Hybrid',
-      'age': '24 weeks',
-      'productionCapacity': '280 eggs/year',
-      'tags': ['layers', 'healthy', 'vaccinated'],
-      'views': 890,
-      'sales': 230,
-      'listedDate': '2024-01-20',
-      'status': 'Available'
-    },
-    {
-      'id': '4',
-      'name': 'Fresh Milk (Pasteurized)',
-      'price': 95.0,
-      'desc':
-          'Freshly pasteurized whole milk, tested for quality and safety. Perfect for dairy processing.',
-      'image': 'assets/images/milk.jpg',
-      'category': 'Dairy',
-      'subCategory': 'Milk Products',
-      'seller': {
-        'name': 'Dairy Masters Co-op',
-        'rating': 4.6,
-        'reviews': 203,
-        'verified': true,
-        'location': 'Eldoret, Kenya'
-      },
-      'quantity': 5000.0,
-      'unit': 'liters',
-      'minOrder': 20.0,
-      'maxOrder': 500.0,
-      'qualityCertifications': ['KEBS', 'Food Safe'],
-      'deliveryOptions': ['Refrigerated Transport'],
-      'paymentMethods': ['M-Pesa', 'Bank Transfer'],
-      'exportReady': true,
-      'fatContent': '3.5%',
-      'pasteurized': true,
-      'packaging': '20L cans',
-      'tags': ['pasteurized', 'fresh', 'bulk'],
-      'views': 1780,
-      'sales': 650,
-      'listedDate': '2024-02-10',
-      'status': 'Available'
-    },
-    {
-      'id': '5',
-      'name': 'Arabica Coffee Beans',
-      'price': 2500.0,
-      'desc':
-          'Premium Arabica coffee beans from high-altitude farms. Perfect for specialty coffee markets.',
-      'image': 'assets/images/coffee.jpg',
-      'category': 'Crops',
-      'subCategory': 'Coffee',
-      'seller': {
-        'name': 'Highland Coffee Growers',
-        'rating': 4.9,
-        'reviews': 156,
-        'verified': true,
-        'location': 'Nyeri, Kenya'
-      },
-      'quantity': 2000.0,
-      'unit': 'kg',
-      'minOrder': 50.0,
-      'maxOrder': 500.0,
-      'qualityCertifications': ['Fair Trade', 'Organic', 'UTZ'],
-      'deliveryOptions': ['International Shipping'],
-      'paymentMethods': ['Letter of Credit', 'Escrow'],
-      'exportReady': true,
-      'importCompliant': true,
-      'grade': 'AA',
-      'processing': 'Washed',
-      'tags': ['specialty', 'arabica', 'export'],
-      'views': 3200,
-      'sales': 780,
-      'listedDate': '2024-01-05',
-      'status': 'Available'
-    },
-    {
-      'id': '6',
-      'name': 'Avocados (Hass)',
-      'price': 600.0,
-      'desc':
-          'Premium Hass avocados, ready for export to European markets. Perfect size and quality.',
-      'image': 'assets/images/avocado.jpg',
-      'category': 'Fruits',
-      'subCategory': 'Tropical Fruits',
-      'seller': {
-        'name': 'Tropical Fruits Exporters',
-        'rating': 4.8,
-        'reviews': 92,
-        'verified': true,
-        'location': 'Murang\'a, Kenya'
-      },
-      'quantity': 10000.0,
-      'unit': 'kg',
-      'minOrder': 100.0,
-      'maxOrder': 2000.0,
-      'qualityCertifications': ['GlobalG.A.P.', 'Phytosanitary'],
-      'deliveryOptions': ['Cold Chain', 'Air Freight'],
-      'paymentMethods': ['Letter of Credit', 'Escrow'],
-      'exportReady': true,
-      'importCompliant': true,
-      'size': '18-20 count',
-      'dryMatter': '24%',
-      'tags': ['hass', 'export', 'premium'],
-      'views': 2100,
-      'sales': 450,
-      'listedDate': '2024-02-15',
-      'status': 'In Season'
+  List<Map<String, dynamic>> _products = [];
+
+  late final GetProducts _getProductsUseCase;
+
+  @override
+  void initState() {
+    super.initState();
+    _getProductsUseCase = MarketplaceFactory.createGetProducts();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    try {
+      final items = await _getProductsUseCase.execute();
+      final mapped = items.map((row) => {
+            'id': '${row['id']}',
+            'name': row['name'] ?? row['item'] ?? 'Unknown',
+            'price': row['price'] ?? 0,
+            'image': row['image'],
+            'category': row['category'] ?? 'Uncategorized',
+            'status': row['status'] ?? 'Available',
+          }).toList();
+      if (!mounted) return;
+      setState(() => _products = mapped);
+    } catch (e) {
+      // ignore errors for now
     }
-  ];
+  }
 
   String _selectedCategory = 'All';
   String _selectedSort = 'Popular';

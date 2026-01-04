@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/marketplace/application/application.dart';
+import 'package:pamoja_twalima/marketplace/infrastructure/factory.dart';
 
 class BulkOrderScreen extends StatefulWidget {
   const BulkOrderScreen({super.key});
@@ -18,6 +20,34 @@ class _BulkOrderScreenState extends State<BulkOrderScreen> {
 
   String _selectedCategory = 'Crops';
   String _deliveryFrequency = 'Monthly';
+
+  List<Map<String, dynamic>> _products = [];
+  List<String> _productNames = [];
+  late final GetProducts _getProductsUseCase;
+
+  @override
+  void initState() {
+    super.initState();
+    _getProductsUseCase = MarketplaceFactory.createGetProducts();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    try {
+      final items = await _getProductsUseCase.execute();
+      if (!mounted) return;
+      setState(() {
+        _products = items;
+        _productNames = items
+            .map((e) => (e['name'] ?? e['item'] ?? '').toString())
+            .where((s) => s.isNotEmpty)
+            .toSet()
+            .toList();
+      });
+    } catch (_) {
+      // ignore errors for now
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,10 +81,21 @@ class _BulkOrderScreenState extends State<BulkOrderScreen> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _productController,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Product Name *',
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
                           hintText: 'e.g., Animal Feed, Maize, Vegetables',
+                          suffixIcon: _productNames.isEmpty
+                              ? null
+                              : PopupMenuButton<String>(
+                                  icon: const Icon(Icons.arrow_drop_down),
+                                  onSelected: (value) {
+                                    setState(() => _productController.text = value);
+                                  },
+                                  itemBuilder: (context) => _productNames
+                                      .map((p) => PopupMenuItem(value: p, child: Text(p)))
+                                      .toList(),
+                                ),
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {

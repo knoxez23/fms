@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/marketplace/application/application.dart';
+import 'package:pamoja_twalima/marketplace/infrastructure/factory.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -15,12 +17,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _selectedImageIndex = 0;
   int _quantity = 1;
   bool _isInWishlist = false;
+  late Map<String, dynamic> _product;
+  late final GetProducts _getProductsUseCase;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final product = widget.product;
-    final seller = product['seller'] as Map<String, dynamic>;
+    final product = _product;
+    final seller = (product['seller'] is Map<String, dynamic>) ? product['seller'] as Map<String, dynamic> : <String, dynamic>{};
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -82,6 +86,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       // Fixed Purchase Bar
       bottomNavigationBar: _buildPurchaseBar(theme, product),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _product = Map<String, dynamic>.from(widget.product);
+    _getProductsUseCase = MarketplaceFactory.createGetProducts();
+    _refreshProduct();
+  }
+
+  Future<void> _refreshProduct() async {
+    try {
+      final items = await _getProductsUseCase.execute();
+      final id = '${_product['id']}';
+      final latest = items.firstWhere((p) => '${p['id']}' == id, orElse: () => {});
+      if (latest.isNotEmpty) {
+        if (!mounted) return;
+        setState(() => _product = Map<String, dynamic>.from(latest));
+      }
+    } catch (e) {
+      // ignore refresh errors
+    }
   }
 
   Widget _buildImageGallery(ThemeData theme, Map<String, dynamic> product) {

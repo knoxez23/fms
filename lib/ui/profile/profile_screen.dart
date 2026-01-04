@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../data/services/auth_service.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -41,7 +42,11 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(height: 20),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {},
+            onPressed: () async {
+              final auth = AuthService();
+              await auth.logout();
+              Navigator.of(context).pushReplacementNamed('/login');
+            },
             child: const Text('Logout'),
           )
         ],

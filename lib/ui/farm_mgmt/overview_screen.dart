@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
-import 'package:pamoja_twalima/ui/core/animations/animated_card.dart';
+import 'package:pamoja_twalima/ui/core/widgets/reusable_widgets.dart';
+import 'package:pamoja_twalima/farm_mgmt/infrastructure/factory.dart';
+
 
 class OverviewScreen extends StatefulWidget {
   const OverviewScreen({super.key});
@@ -9,15 +11,12 @@ class OverviewScreen extends StatefulWidget {
   State<OverviewScreen> createState() => _OverviewScreenState();
 }
 
-class _OverviewScreenState extends State<OverviewScreen> {
-  // Mock data - replace with actual data management
-  final Map<String, dynamic> farmSummary = {
-    'totalCrops': 8,
-    'totalAnimals': 12,
-    'balance': 2450.0,
-    'pendingTasks': 3,
-    'lowStockItems': 2,
-  };
+class _OverviewScreenState extends State<OverviewScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  Map<String, dynamic>? farmSummary;
 
   final List<Map<String, dynamic>> recentTasks = [
     {"title": "Irrigate maize field", "due": "Today", "done": false},
@@ -33,85 +32,135 @@ class _OverviewScreenState extends State<OverviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = Theme.of(context);
+
+    return FutureBuilder<Map<String, dynamic>>(
+      future: FarmMgmtFactory.createGetOverview().execute(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        farmSummary = snapshot.data ?? {};
+
+        return _buildContent(context, theme);
+      },
+    );
+  }
+
+  Widget _buildContent(BuildContext context, ThemeData theme) {
+    final fs = farmSummary ?? {};
 
     return CustomScrollView(
       slivers: [
-// Summary Cards
+        // Summary Cards
         SliverPadding(
           padding: const EdgeInsets.all(16),
           sliver: SliverToBoxAdapter(
             child: Row(
               children: [
-                _SummaryCard(
-                  title: "Crops",
-                  value: "${farmSummary['totalCrops']}",
-                  icon: Icons.agriculture,
-                  color: Colors.green,
-                  theme: theme,
+                Expanded(
+                  child: _SummaryCard(
+                    title: "Crops",
+                    value: "${fs['totalCrops']}",
+                    icon: Icons.agriculture,
+                    color: Colors.green,
+                  ),
                 ),
                 const SizedBox(width: 12),
-                _SummaryCard(
-                  title: "Animals",
-                  value: "${farmSummary['totalAnimals']}",
-                  icon: Icons.pets,
-                  color: Colors.orange,
-                  theme: theme,
+                Expanded(
+                  child: _SummaryCard(
+                    title: "Animals",
+                    value: "${fs['totalAnimals']}",
+                    icon: Icons.pets,
+                    color: Colors.orange,
+                  ),
                 ),
                 const SizedBox(width: 12),
-                _SummaryCard(
-                  title: "Sales",
-                  value: "KSh ${farmSummary['balance']}",
-                  icon: Icons.attach_money,
-                  color: Colors.blue,
-                  theme: theme,
+                Expanded(
+                  child: _SummaryCard(
+                    title: "Sales",
+                    value: "KSh ${fs['balance']}",
+                    icon: Icons.attach_money,
+                    color: Colors.blue,
+                  ),
                 ),
               ],
             ),
           ),
         ),
 
-// Quick Stats
+        // Quick Stats
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           sliver: SliverToBoxAdapter(
             child: Row(
               children: [
-                _QuickStat(
-                  value: "${farmSummary['pendingTasks']}",
-                  label: "Pending Tasks",
-                  theme: theme,
+                Expanded(
+                  child: StatCard(
+                    count: fs['pendingTasks'],
+                    label: "Pending Tasks",
+                    color: Colors.orange,
+                    icon: Icons.task_alt,
+                  ),
                 ),
-                const SizedBox(width: 16),
-                _QuickStat(
-                  value: "${farmSummary['lowStockItems']}",
-                  label: "Low Stock",
-                  theme: theme,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: StatCard(
+                    count: fs['lowStockItems'],
+                    label: "Low Stock",
+                    color: Colors.red,
+                    icon: Icons.warning_amber,
+                  ),
                 ),
               ],
             ),
           ),
         ),
 
-// Production Overview
+        // Production Overview
         SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          padding: const EdgeInsets.all(16),
           sliver: SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SectionTitle("Production Overview", theme: theme),
+                SectionHeader(
+                  title: "Production Overview",
+                  icon: Icons.bar_chart,
+                  actionLabel: "View All",
+                  onActionTap: () {},
+                ),
                 const SizedBox(height: 8),
-                AnimatedCard(
-                  index: 0,
-                  child: Container(
-                    height: 150,
-                    padding: const EdgeInsets.all(16),
-                    child: const Center(
-                      child: Text(
-                        "Production charts will be implemented here",
-                        style: TextStyle(color: Colors.grey),
-                      ),
+                Container(
+                  height: 150,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: theme.cardColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: theme.dividerColor.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.insights,
+                          size: 48,
+                          color: AppColors.primary.withValues(alpha: 0.3),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          "Production charts coming soon",
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -120,262 +169,150 @@ class _OverviewScreenState extends State<OverviewScreen> {
           ),
         ),
 
-// Upcoming Tasks
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          sliver: SliverToBoxAdapter(
-            child: _SectionTitle("Upcoming Tasks", theme: theme),
+        // Upcoming Tasks
+        SliverToBoxAdapter(
+          child: SectionHeader(
+            title: "Upcoming Tasks",
+            icon: Icons.schedule,
+            actionLabel: "View All",
+            onActionTap: () {},
           ),
         ),
+
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
-              (context, index) => AnimatedCard(
-                index: index + 1,
-                child: _TaskItem(
-                  task: recentTasks[index],
-                  theme: theme,
-                  onTap: () {
-                    // TODO: Navigate to detail
-                  },
-                ),
-              ),
+              (context, index) {
+                final task = recentTasks[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: ListItemCard(
+                    icon: Icons.task_alt,
+                    iconColor: AppColors.primary,
+                    title: task['title'],
+                    subtitle: "Due: ${task['due']}",
+                    badges: [
+                      if (!task['done'])
+                        StatusBadge(
+                          label: 'Pending',
+                          color: Colors.orange,
+                        ),
+                    ],
+                    trailing: Checkbox(
+                      value: task['done'],
+                      onChanged: (value) {},
+                      activeColor: AppColors.primary,
+                    ),
+                    onTap: () {},
+                  ),
+                );
+              },
               childCount: recentTasks.length,
             ),
           ),
         ),
 
-// Recent Expenses
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          sliver: SliverToBoxAdapter(
-            child: _SectionTitle("Recent Expenses", theme: theme),
+        // Recent Expenses
+        SliverToBoxAdapter(
+          child: SectionHeader(
+            title: "Recent Expenses",
+            icon: Icons.receipt_long,
+            actionLabel: "View All",
+            onActionTap: () {},
           ),
         ),
+
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
-              (context, index) => AnimatedCard(
-                index: index + 4,
-                child: _ExpenseItem(
-                  expense: recentExpenses[index],
-                  theme: theme,
-                ),
-              ),
+              (context, index) {
+                final expense = recentExpenses[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: ListItemCard(
+                    icon: Icons.money_off,
+                    iconColor: Colors.red,
+                    title: expense['item'],
+                    subtitle: expense['date'],
+                    trailing: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          "KSh ${expense['amount']}",
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
               childCount: recentExpenses.length,
             ),
           ),
         ),
 
-// Bottom Padding (for visual breathing room / navbar spacing)
+        // Bottom Padding
         const SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
     );
   }
 }
 
+// Custom Summary Card (different from StatCard - shows value at bottom)
 class _SummaryCard extends StatelessWidget {
   final String title;
   final String value;
   final IconData icon;
   final Color color;
-  final ThemeData theme;
 
   const _SummaryCard({
     required this.title,
     required this.value,
     required this.icon,
     required this.color,
-    required this.theme,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.cardTheme.color,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [AppColors.subtleShadow],
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.dividerColor.withValues(alpha: 0.2),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: color.withValues(alpha: 0.2),
-              child: Icon(icon, color: color, size: 20),
+        boxShadow: const [AppColors.subtleShadow],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: color.withValues(alpha: 0.2),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          ),
+          Text(
+            title,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
-            Text(
-              title,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickStat extends StatelessWidget {
-  final String value;
-  final String label;
-  final ThemeData theme;
-
-  const _QuickStat({
-    required this.value,
-    required this.label,
-    required this.theme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.primary.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.primary.withValues(alpha: 0.7),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TaskItem extends StatelessWidget {
-  final Map<String, dynamic> task;
-  final ThemeData theme;
-  final VoidCallback onTap;
-
-  const _TaskItem({
-    required this.task,
-    required this.theme,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Checkbox(
-        value: task['done'],
-        onChanged: (value) {},
-        activeColor: theme.colorScheme.primary,
-      ),
-      title: Text(
-        task['title'],
-        style: theme.textTheme.bodyMedium?.copyWith(
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      subtitle: Text(
-        "Due: ${task['due']}",
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-        ),
-      ),
-      trailing: Icon(
-        Icons.chevron_right,
-        color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-      ),
-      onTap: onTap,
-    );
-  }
-}
-
-class _ExpenseItem extends StatelessWidget {
-  final Map<String, dynamic> expense;
-  final ThemeData theme;
-
-  const _ExpenseItem({
-    required this.expense,
-    required this.theme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: theme.colorScheme.primary.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          Icons.money_off,
-          color: theme.colorScheme.primary,
-          size: 20,
-        ),
-      ),
-      title: Text(
-        expense['item'],
-        style: theme.textTheme.bodyMedium?.copyWith(
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      subtitle: Text(
-        expense['date'],
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-        ),
-      ),
-      trailing: Text(
-        "KSh ${expense['amount']}",
-        style: theme.textTheme.bodyMedium?.copyWith(
-          fontWeight: FontWeight.bold,
-          color: theme.colorScheme.primary,
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  final ThemeData theme;
-
-  const _SectionTitle(this.title, {required this.theme});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Text(
-        title,
-        style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.bold,
-          color: theme.colorScheme.primary,
-        ),
+          ),
+        ],
       ),
     );
   }

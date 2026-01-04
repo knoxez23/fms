@@ -645,6 +645,7 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
             ),
             const SizedBox(height: 12),
             FloatingActionButton(
+              heroTag: 'addAnimal',
               onPressed: () {
                 Navigator.push(
                   context,
@@ -670,6 +671,7 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
             ),
             const SizedBox(height: 12),
             FloatingActionButton(
+              heroTag: 'animalFeedCalculatorFAB',
               onPressed: () {
                 Navigator.push(
                   context,
@@ -700,6 +702,7 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
           ],
           if (_selectedTab == 3) ...[
             FloatingActionButton(
+              heroTag: 'logProductionFAB',
               onPressed: () {
                 Navigator.push(
                   context,

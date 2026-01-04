@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/entities/entities.dart';
+import 'package:pamoja_twalima/data/services/crop_service.dart';
+import 'package:pamoja_twalima/data/network/api_error.dart';
 
 class AddCropScreen extends StatefulWidget {
   const AddCropScreen({super.key});
@@ -127,9 +130,7 @@ class _AddCropScreenState extends State<AddCropScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 16),
-
               _AnimatedCard(
                 index: 1,
                 theme: theme,
@@ -149,7 +150,7 @@ class _AddCropScreenState extends State<AddCropScreen> {
                         controller: _areaController,
                         decoration: const InputDecoration(
                           labelText: 'Field Area *',
-                          hintText: 'e.g., 2 acres, 0.5 hectares',
+                          hintText: 'e.g., 2, 0.5 (in acres)',
                           border: OutlineInputBorder(),
                         ),
                         keyboardType: TextInputType.number,
@@ -157,6 +158,16 @@ class _AddCropScreenState extends State<AddCropScreen> {
                           if (value == null || value.isEmpty) {
                             return 'Please enter field area';
                           }
+
+                          final parsed = double.tryParse(value);
+                          if (parsed == null) {
+                            return 'Enter numbers only (e.g. 2 or 0.5)';
+                          }
+
+                          if (parsed <= 0) {
+                            return 'Area must be greater than zero';
+                          }
+
                           return null;
                         },
                       ),
@@ -184,9 +195,7 @@ class _AddCropScreenState extends State<AddCropScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 16),
-
               _AnimatedCard(
                 index: 2,
                 theme: theme,
@@ -225,7 +234,8 @@ class _AddCropScreenState extends State<AddCropScreen> {
                         controller: _notesController,
                         decoration: const InputDecoration(
                           labelText: 'Additional Notes',
-                          hintText: 'Any special instructions or observations...',
+                          hintText:
+                              'Any special instructions or observations...',
                           border: OutlineInputBorder(),
                         ),
                         maxLines: 3,
@@ -234,9 +244,7 @@ class _AddCropScreenState extends State<AddCropScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 24),
-
               _AnimatedCard(
                 index: 3,
                 theme: theme,
@@ -262,10 +270,11 @@ class _AddCropScreenState extends State<AddCropScreen> {
                       const SizedBox(height: 8),
                       Text(
                         '• Record accurate planting dates for better growth tracking\n'
-                            '• Update status regularly to monitor progress\n'
-                            '• Add notes for important observations',
+                        '• Update status regularly to monitor progress\n'
+                        '• Add notes for important observations',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -290,25 +299,43 @@ class _AddCropScreenState extends State<AddCropScreen> {
       setState(() {
         _selectedDate = picked;
         _plantedDateController.text =
-        "${picked.day}/${picked.month}/${picked.year}";
+            "${picked.day}/${picked.month}/${picked.year}";
       });
     }
   }
 
-  void _saveCrop() {
-    if (_formKey.currentState!.validate()) {
-      // Save crop logic here
-      final newCrop = {
-        'name': _nameController.text,
-        'type': _typeController.text,
-        'area': _areaController.text,
-        'plantedDate': _selectedDate?.toIso8601String() ?? '',
-        'status': _selectedStatus,
-        'notes': _notesController.text,
-      };
+  Future<void> _saveCrop() async {
+    if (!_formKey.currentState!.validate()) return;
 
-      // Navigate back with result or save to database
-      Navigator.pop(context, newCrop);
+    final cropService = CropService();
+
+    final crop = Crop(
+      name: _nameController.text.trim(),
+      variety: _typeController.text.trim(),
+      area: double.parse(_areaController.text),
+      plantedDate: _selectedDate!.toIso8601String(),
+      status: _selectedStatus,
+      notes: _notesController.text.trim().isEmpty
+          ? null
+          : _notesController.text.trim(),
+    );
+
+    try {
+      await cropService.createCrop(crop);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Crop added successfully')),
+      );
+
+      Navigator.pop(context, true);
+    } on ApiError catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
     }
   }
 

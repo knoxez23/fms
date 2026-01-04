@@ -236,6 +236,7 @@ class _TasksScreenState extends State<TasksScreen> {
             ),
             const SizedBox(height: 12),
             FloatingActionButton(
+              heroTag: 'addTaskFAB',
               onPressed: () {
                 Navigator.push(
                   context,

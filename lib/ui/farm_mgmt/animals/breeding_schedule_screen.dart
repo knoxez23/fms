@@ -112,6 +112,7 @@ class _BreedingScheduleScreenState extends State<BreedingScheduleScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'addBreedingRecordFAB',
         onPressed: () {
           // Add breeding record
         },

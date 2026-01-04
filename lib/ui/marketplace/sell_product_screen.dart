@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/marketplace/application/application.dart';
+import 'package:pamoja_twalima/marketplace/infrastructure/factory.dart';
 
 class SellProductScreen extends StatefulWidget {
   const SellProductScreen({super.key});
@@ -108,6 +110,14 @@ class _SellProductScreenState extends State<SellProductScreen> {
       bottomNavigationBar: _buildBottomNavigation(theme),
     );
   }
+
+  @override
+  void initState() {
+    super.initState();
+    _addProductUseCase = MarketplaceFactory.createAddProduct();
+  }
+
+  late final AddProduct _addProductUseCase;
 
   Widget _buildProgressIndicator(ThemeData theme) {
     return Container(
@@ -894,27 +904,34 @@ class _SellProductScreenState extends State<SellProductScreen> {
     );
   }
 
-  void _publishProduct() {
-    if (_validateCurrentStep()) {
-      // Save product logic here
-      final product = {
-        'name': _productNameController.text,
-        'description': _descriptionController.text,
-        'price': double.parse(_priceController.text),
-        'quantity': double.parse(_quantityController.text),
-        'category': _selectedCategory,
-        'subCategory': _selectedSubCategory,
-        'unit': _selectedUnit,
-        'certifications': _selectedCertifications,
-        'exportReady': _isExportReady,
-        'images': _productImages,
-      };
+  Future<void> _publishProduct() async {
+    if (!_validateCurrentStep()) return;
 
+    final product = {
+      'name': _productNameController.text,
+      'description': _descriptionController.text,
+      'price': double.tryParse(_priceController.text) ?? 0.0,
+      'quantity': double.tryParse(_quantityController.text) ?? 0.0,
+      'category': _selectedCategory,
+      'subCategory': _selectedSubCategory,
+      'unit': _selectedUnit,
+      'certifications': _selectedCertifications,
+      'exportReady': _isExportReady,
+      'images': _productImages,
+    };
+
+    try {
+      await _addProductUseCase.execute(product);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Product published successfully!')),
       );
-
       Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to publish product')),
+      );
     }
   }
 }

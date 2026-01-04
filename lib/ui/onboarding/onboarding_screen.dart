@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -44,11 +46,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _finishOnboarding() {
-    Navigator.pushReplacementNamed(context, '/home');
+    _completeAndNavigate();
   }
 
   void _skip() {
-    _finishOnboarding();
+    _completeAndNavigate();
+  }
+
+  Future<void> _completeAndNavigate() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('seenOnboarding', true);
+
+    final storage = const FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+
+    if (token != null) {
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
+      Navigator.pushReplacementNamed(context, '/login');
+    }
   }
 
   @override

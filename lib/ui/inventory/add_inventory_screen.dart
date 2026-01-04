@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/inventory/application/application.dart';
+import 'package:pamoja_twalima/inventory/infrastructure/factory.dart';
 
 class AddInventoryScreen extends StatefulWidget {
   const AddInventoryScreen({super.key});
@@ -17,9 +19,10 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
   final TextEditingController _costController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
+  late final AddInventoryItem _addInventoryUseCase;
+
   String _selectedCategory = 'Fertilizers';
   String _selectedUnit = 'kg';
-  DateTime? _purchaseDate;
 
   final List<String> _categories = [
     'Fertilizers',
@@ -330,31 +333,41 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
     );
   }
 
-  void _saveItem() {
-    if (_formKey.currentState!.validate()) {
-      // Save inventory item logic here
-      final newItem = {
-        'name': _nameController.text,
-        'category': _selectedCategory,
-        'quantity': int.parse(_quantityController.text),
-        'unit': _selectedUnit,
-        'minStock': int.parse(_minStockController.text),
-        'supplier': _supplierController.text,
-        'cost': _costController.text.isNotEmpty ? double.parse(_costController.text) : null,
-        'notes': _notesController.text,
-        'lastRestock': DateTime.now().toIso8601String(),
-        'status': _calculateStockStatus(int.parse(_quantityController.text), int.parse(_minStockController.text)),
-      };
-
-      // Navigate back with result or save to database
-      Navigator.pop(context, newItem);
-    }
+  @override
+  void initState() {
+    super.initState();
+    _addInventoryUseCase = InventoryFactory.createAddInventoryItem();
   }
 
-  String _calculateStockStatus(int quantity, int minStock) {
-    if (quantity <= minStock * 0.3) return 'Critical';
-    if (quantity <= minStock) return 'Low Stock';
-    return 'Adequate';
+  Future<void> _saveItem() async {
+    if (_formKey.currentState!.validate()) {
+      final quantity = int.parse(_quantityController.text);
+      final minStock = int.parse(_minStockController.text);
+      final unitPrice = _costController.text.isNotEmpty ? double.parse(_costController.text) : null;
+      final totalValue = (unitPrice != null) ? (unitPrice * quantity) : null;
+
+      final newItem = {
+        'item_name': _nameController.text,
+        'category': _selectedCategory,
+        'quantity': quantity,
+        'unit': _selectedUnit,
+        'minStock': minStock,
+        'supplier': _supplierController.text,
+        'unit_price': unitPrice,
+        'total_value': totalValue,
+        'notes': _notesController.text,
+        'lastRestock': DateTime.now().toIso8601String(),
+      };
+
+      try {
+        await _addInventoryUseCase.execute(newItem);
+      } catch (e) {
+        // ignore errors here to keep UI stable; consider showing an error toast
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context, newItem);
+    }
   }
 
   @override

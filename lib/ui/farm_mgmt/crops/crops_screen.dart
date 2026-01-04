@@ -207,6 +207,7 @@ class _CropsScreenState extends State<CropsScreen> {
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 90),
         child: FloatingActionButton(
+          heroTag: 'addCropFAB',
           onPressed: () {
             Navigator.push(
               context,

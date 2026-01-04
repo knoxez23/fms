@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/inventory/application/application.dart';
+import 'package:pamoja_twalima/inventory/infrastructure/factory.dart';
 
 class InventoryHistoryScreen extends StatefulWidget {
   const InventoryHistoryScreen({super.key});
@@ -11,89 +13,84 @@ class InventoryHistoryScreen extends StatefulWidget {
 class _InventoryHistoryScreenState extends State<InventoryHistoryScreen> {
   int _selectedTab = 0;
 
-  final List<Map<String, dynamic>> _restockHistory = [
-    {
-      'item': 'NPK Fertilizer',
-      'quantity': 50,
-      'unit': 'kg',
-      'date': '2024-02-15',
-      'supplier': 'AgroSupplies Ltd',
-      'cost': 7500,
-      'type': 'restock',
-    },
-    {
-      'item': 'Animal Feed',
-      'quantity': 20,
-      'unit': 'bags',
-      'date': '2024-02-10',
-      'supplier': 'Unga Farm Care',
-      'cost': 12000,
-      'type': 'restock',
-    },
-    {
-      'item': 'Maize Seeds',
-      'quantity': 30,
-      'unit': 'packets',
-      'date': '2024-02-05',
-      'supplier': 'SeedCo Kenya',
-      'cost': 4500,
-      'type': 'restock',
-    },
-  ];
+  List<Map<String, dynamic>> _restockHistory = [];
+  List<Map<String, dynamic>> _usageHistory = [];
+  List<Map<String, dynamic>> _lowStockAlerts = [];
 
-  final List<Map<String, dynamic>> _usageHistory = [
-    {
-      'item': 'NPK Fertilizer',
-      'quantity': 25,
-      'unit': 'kg',
-      'date': '2024-02-20',
-      'purpose': 'Maize field fertilization',
-      'type': 'usage',
-    },
-    {
-      'item': 'Animal Feed',
-      'quantity': 12,
-      'unit': 'bags',
-      'date': '2024-02-18',
-      'purpose': 'Daily cattle feeding',
-      'type': 'usage',
-    },
-    {
-      'item': 'Pesticide',
-      'quantity': 2,
-      'unit': 'liters',
-      'date': '2024-02-12',
-      'purpose': 'Tomato pest control',
-      'type': 'usage',
-    },
-  ];
+  late final GetInventory _getInventoryUseCase;
+  List<Map<String, dynamic>> _allItems = [];
 
-  final List<Map<String, dynamic>> _lowStockAlerts = [
-    {
-      'item': 'Vaccines',
-      'currentStock': 12,
-      'minStock': 20,
-      'unit': 'doses',
-      'alertDate': '2024-02-22',
-      'priority': 'High',
-    },
-    {
-      'item': 'Pesticide',
-      'currentStock': 5,
-      'minStock': 8,
-      'unit': 'liters',
-      'alertDate': '2024-02-20',
-      'priority': 'Medium',
-    },
-    {
-      'item': 'Animal Feed',
-      'currentStock': 8,
-      'minStock': 15,
-      'unit': 'bags',
-      'alertDate': '2024-02-18',
-      'priority': 'Medium',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _getInventoryUseCase = InventoryFactory.createGetInventory();
+    _loadInventoryHistory();
+  }
+
+  Future<void> _loadInventoryHistory() async {
+    try {
+      final items = await _getInventoryUseCase.execute();
+      _allItems = items.map((row) {
+        final qty = (row['quantity'] is num)
+            ? row['quantity']
+            : (num.tryParse('${row['quantity']}') ?? 0);
+        final minStock = row['minStock'] is num ? row['minStock'] : (row['minStock'] != null ? int.tryParse('${row['minStock']}') ?? 0 : 0);
+
+        return {
+          'id': '${row['id']}',
+          'name': row['item_name'] ?? row['name'] ?? 'Unknown',
+          'quantity': qty,
+          'unit': row['unit'] ?? '',
+          'minStock': minStock,
+          'lastRestock': row['lastRestock'] ?? row['last_updated'] ?? '',
+          'supplier': row['supplier'] ?? '',
+          'unit_price': row['unit_price'],
+          'total_value': row['total_value'],
+        };
+      }).toList();
+
+      // Build low stock alerts
+      _lowStockAlerts = _allItems.where((i) {
+        final q = i['quantity'] as num? ?? 0;
+        final m = i['minStock'] as num? ?? 0;
+        return m > 0 && q <= m;
+      }).map((i) {
+        final q = i['quantity'] as num? ?? 0;
+        final m = i['minStock'] as num? ?? 0;
+        final deficit = m - q;
+        final priority = deficit >= (m * 0.5) ? 'High' : 'Medium';
+        return {
+          'item': i['name'],
+          'currentStock': q,
+          'minStock': m,
+          'unit': i['unit'],
+          'alertDate': i['lastRestock'] ?? '',
+          'priority': priority,
+        };
+      }).toList();
+
+      // Restock summary from available total_value or unit_price*quantity
+      _restockHistory = _allItems.map((i) {
+        final total = i['total_value'] ?? ((i['unit_price'] is num && i['quantity'] is num) ? (i['unit_price'] * i['quantity']) : 0);
+        return {
+          'item': i['name'],
+          'quantity': i['quantity'],
+          'unit': i['unit'],
+          'date': i['lastRestock'] ?? '',
+          'supplier': i['supplier'] ?? '',
+          'cost': total,
+          'type': 'restock',
+        };
+      }).toList();
+
+      // Usage history is not tracked separately; leave empty for now
+      _usageHistory = [];
+
+      setState(() {});
+    } catch (e) {
+      // ignore errors for now
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

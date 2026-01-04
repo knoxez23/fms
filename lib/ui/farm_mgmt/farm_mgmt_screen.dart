@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/ui/farm_mgmt/overview_screen.dart';
-import 'package:pamoja_twalima/ui/farm_mgmt/crops/crops_screen.dart';
-import 'package:pamoja_twalima/ui/farm_mgmt/animals/animals_screen.dart';
-import 'package:pamoja_twalima/ui/farm_mgmt/tasks/tasks_screen.dart';
+import 'package:pamoja_twalima/ui/core/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/overview.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/crops.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/animals.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/tasks.dart';
 
 class FarmMgmtScreen extends StatefulWidget {
   const FarmMgmtScreen({super.key});
@@ -11,7 +12,11 @@ class FarmMgmtScreen extends StatefulWidget {
   State<FarmMgmtScreen> createState() => _FarmMgmtScreenState();
 }
 
-class _FarmMgmtScreenState extends State<FarmMgmtScreen> {
+class _FarmMgmtScreenState extends State<FarmMgmtScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   int _selectedIndex = 0;
 
   final List<Widget> _screens = const [
@@ -37,24 +42,18 @@ class _FarmMgmtScreenState extends State<FarmMgmtScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          "Farm Management",
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: theme.cardTheme.color,
-        elevation: 0,
+      appBar: const ModernAppBar(
+        title: 'Farm Management',
+        variant: AppBarVariant.home,
       ),
       body: Column(
         children: [
-          // 🏷️ Chip-style navigation (like MarketplaceScreen)
+          // Horizontal Tab Navigation
           Container(
             color: theme.colorScheme.surface,
             padding: const EdgeInsets.all(16),
@@ -63,7 +62,6 @@ class _FarmMgmtScreenState extends State<FarmMgmtScreen> {
               child: Row(
                 children: List.generate(_categories.length, (index) {
                   final isSelected = index == _selectedIndex;
-
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(
@@ -75,7 +73,8 @@ class _FarmMgmtScreenState extends State<FarmMgmtScreen> {
                             size: 16,
                             color: isSelected
                                 ? theme.colorScheme.primary
-                                : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                : theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.6),
                           ),
                           const SizedBox(width: 6),
                           Text(_categories[index]),
@@ -83,15 +82,18 @@ class _FarmMgmtScreenState extends State<FarmMgmtScreen> {
                       ),
                       selected: isSelected,
                       checkmarkColor: theme.colorScheme.primary,
-                      selectedColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                      selectedColor:
+                          theme.colorScheme.primary.withValues(alpha: 0.15),
                       labelStyle: TextStyle(
                         color: isSelected
                             ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurface.withValues(alpha: 0.8),
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            : theme.colorScheme.onSurface
+                                .withValues(alpha: 0.8),
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                       onSelected: (_) => setState(() => _selectedIndex = index),
-                      backgroundColor: theme.cardTheme.color,
+                      backgroundColor: theme.cardColor,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(25),
                         side: BorderSide(
@@ -107,7 +109,7 @@ class _FarmMgmtScreenState extends State<FarmMgmtScreen> {
             ),
           ),
 
-          // Optional: Add a subtle divider
+          // Divider
           Divider(
             height: 1,
             thickness: 1,
