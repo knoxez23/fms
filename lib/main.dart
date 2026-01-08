@@ -1,24 +1,31 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'auth/providers/auth_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:pamoja_twalima/ui/business/sales/sales_screen.dart';
-import 'package:pamoja_twalima/ui/core/widgets/app_drawer.dart';
-import 'package:pamoja_twalima/ui/inventory/inventory_screen.dart';
+import 'package:pamoja_twalima/business/presentation/sales/sales_screen.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_drawer.dart';
+import 'package:pamoja_twalima/inventory/presentation/inventory_screen.dart';
+import 'data/repositories/sync_worker.dart';
+import 'feature/animals/animals_list_screen.dart';
+import 'auth/auth_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Screens
-import 'ui/home/home_screen.dart';
-import 'ui/farm_mgmt/farm_mgmt_screen.dart';
-import 'ui/onboarding/onboarding_screen.dart';
-import 'ui/profile/profile_screen.dart';
-import 'ui/marketplace/sell_product_screen.dart';
-import 'ui/auth/register_screen.dart';
-import 'ui/auth/login_screen.dart';
+import 'home/presentation/home_screen.dart';
+import 'farm_mgmt/presentation/farm_mgmt_screen.dart';
+import 'onboarding/presentation/onboarding_screen.dart';
+import 'profile/presentation/profile_screen.dart';
+import 'marketplace/presentation/sell_product_screen.dart';
+import 'auth/presentation/register_screen.dart';
+import 'auth/presentation/login_screen.dart';
+import 'data/repositories/local_data.dart';
+import 'data/repositories/sync_worker.dart';
 
 // Theme
-import 'ui/core/themes/theme.dart';
-import 'ui/core/themes/app_colors.dart';
+import 'core/presentation/themes/theme.dart';
+import 'core/presentation/themes/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,7 +41,9 @@ class PamojaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return ChangeNotifierProvider(
+      create: (_) => AuthProvider(),
+      child: MaterialApp(
       title: 'Pamoja Twalima',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
@@ -45,11 +54,12 @@ class PamojaApp extends StatelessWidget {
         '/onboarding': (_) => const OnboardingScreen(),
         '/login': (_) => const LoginScreen(),
         '/register': (_) => const RegisterScreen(),
+        '/animals': (_) => const AnimalsListScreen(),
         '/home': (_) => const MainShell(),
         '/profile': (_) => const ProfileScreen(),
         '/sell-item': (_) => const SellProductScreen(),
       },
-    );
+    ));
   }
 }
 
@@ -65,6 +75,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    // LocalData.cleanupInvalidSales();
     _checkAuthStatus();
   }
 
@@ -163,6 +174,20 @@ class _MainShellState extends State<MainShell> {
       InventoryScreen(),
       SalesScreen(),
     ];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Listen for global auth changes (e.g., 401 events) and redirect to login
+      AuthState.isAuthenticated.addListener(() {
+        if (!AuthState.isAuthenticated.value) {
+          if (mounted) {
+            Navigator.of(context).pushReplacementNamed('/login');
+          }
+        }
+      });
+      // Start background sync worker for pending sales
+      try {
+        SyncWorker().start();
+      } catch (_) {}
+    });
   }
 
   final _icons = const [

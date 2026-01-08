@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
+import '../../../data/services/sale_service.dart';
+import 'package:provider/provider.dart';
+import '../../../auth/providers/auth_provider.dart';
 
 class AddSaleScreen extends StatefulWidget {
   const AddSaleScreen({super.key});
@@ -24,12 +27,7 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
   String _paymentStatus = 'Paid';
   DateTime? _saleDate;
 
-  final List<String> _productTypes = [
-    'Dairy',
-    'Poultry',
-    'Livestock',
-    'Other'
-  ];
+  final List<String> _productTypes = ['Dairy', 'Poultry', 'Livestock', 'Other'];
 
   final Map<String, List<String>> _products = {
     'Dairy': ['Milk', 'Yogurt', 'Cheese', 'Butter'],
@@ -59,6 +57,9 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
     super.initState();
     _saleDate = DateTime.now();
     _dateController.text = _formatDate(_saleDate!);
+
+    final defaultProduct = _products[_selectedType]!.first;
+    _productController.text = defaultProduct;
     _updateTotalAmount();
   }
 
@@ -127,17 +128,32 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
                           border: OutlineInputBorder(),
                         ),
                         onChanged: (value) {
+                          if (value == null) return;
+                          // Compute new lists based on the newly selected type
+                          final newProducts = _products[value] ?? ['Other'];
+                          final newUnits = _units[value] ?? ['units'];
+                          final newAnimals = _animals[value] ?? ['N/A'];
+
                           setState(() {
-                            _selectedType = value!;
-                            _productController.text = currentProducts.first;
-                            _selectedUnit = currentUnits.first;
-                            _selectedAnimal = currentAnimals.first;
+                            _selectedType = value;
+                            // Reset dependent fields to sensible defaults for the new type
+                            _productController.text =
+                                newProducts.isNotEmpty ? newProducts.first : '';
+                            _selectedUnit =
+                                newUnits.isNotEmpty ? newUnits.first : '';
+                            _selectedAnimal =
+                                newAnimals.isNotEmpty ? newAnimals.first : '';
                           });
                         },
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
-                        initialValue: currentProducts.first,
+                        // Prefer explicit selected value from controller if present
+                        initialValue: _productController.text.isNotEmpty
+                            ? _productController.text
+                            : (currentProducts.isNotEmpty
+                                ? currentProducts.first
+                                : null),
                         items: currentProducts.map((product) {
                           return DropdownMenuItem(
                             value: product,
@@ -377,7 +393,8 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
                         controller: _notesController,
                         decoration: const InputDecoration(
                           labelText: 'Notes',
-                          hintText: 'Any additional information about this sale...',
+                          hintText:
+                              'Any additional information about this sale...',
                           border: OutlineInputBorder(),
                         ),
                         maxLines: 3,
@@ -436,7 +453,9 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
                       ),
                       _SummaryRow(
                         label: 'Customer',
-                        value: _customerController.text.isEmpty ? 'Not set' : _customerController.text,
+                        value: _customerController.text.isEmpty
+                            ? 'Not set'
+                            : _customerController.text,
                         theme: theme,
                       ),
                       _SummaryRow(
@@ -486,23 +505,36 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
 
   void _saveSale() {
     if (_formKey.currentState!.validate()) {
-      // Save sale logic here
+      // Create sale with correct field names matching the database schema
       final newSale = {
-        'product': _productController.text,
+        'product_name': _productController.text, // Changed from 'product'
         'type': _selectedType,
         'quantity': double.tryParse(_quantityController.text) ?? 0,
         'unit': _selectedUnit,
-        'pricePerUnit': double.tryParse(_priceController.text) ?? 0,
-        'totalAmount': double.tryParse(_totalController.text) ?? 0,
-        'customer': _customerController.text,
-        'date': _saleDate?.toIso8601String() ?? '',
+        'price': double.tryParse(_priceController.text) ??
+            0, // Changed from 'pricePerUnit'
+        'total_amount': double.tryParse(_totalController.text) ??
+            0, // Changed from 'totalAmount'
+        'customer_name': _customerController.text, // Changed from 'customer'
+        'sale_date': _saleDate?.toIso8601String() ??
+            DateTime.now().toIso8601String(), // Changed from 'date'
         'animal': _selectedAnimal,
-        'paymentStatus': _paymentStatus,
+        'payment_status': _paymentStatus, // Changed from 'paymentStatus'
         'notes': _notesController.text,
-        'createdDate': DateTime.now().toIso8601String(),
+        'created_at':
+            DateTime.now().toIso8601String(), // Changed from 'createdDate'
       };
 
-      // Navigate back with result or save to database
+      // Validate before returning
+      if (newSale['product_name'] == null ||
+          (newSale['product_name'] as String).trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Product name is required')),
+        );
+        return;
+      }
+
+      // Return to parent screen
       Navigator.pop(context, newSale);
     }
   }
@@ -550,7 +582,9 @@ class _SummaryRow extends StatelessWidget {
             value,
             style: theme.textTheme.bodySmall?.copyWith(
               fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
-              color: isHighlighted ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+              color: isHighlighted
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface,
             ),
           ),
         ],
@@ -631,7 +665,7 @@ class _AnimatedCardState extends State<_AnimatedCard>
           decoration: BoxDecoration(
             color: widget.theme.cardTheme.color,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: const [AppColors.subtleShadow],
+            boxShadow: [AppColors.subtleShadow],
           ),
           child: widget.child,
         ),

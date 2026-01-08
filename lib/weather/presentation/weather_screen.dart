@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
 
 class WeatherScreen extends StatefulWidget {
   const WeatherScreen({super.key});
@@ -247,7 +247,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   color: const Color(0xFFFFF2E5),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: const Color(0xFFFF9800).withValues(alpha: 0.3),
+                    color: Color(0xFFFF9800).withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
@@ -280,7 +280,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                           Text(
                             'Expected heavy rainfall on Friday. Prepare drainage systems.',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFFE65100).withValues(alpha: 0.8),
+                              color: Color(0xFFE65100).withValues(alpha: 0.8),
                             ),
                           ),
                         ],
@@ -481,7 +481,7 @@ class _ForecastDayCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [AppColors.subtleShadow],
+              boxShadow: [AppColors.subtleShadow],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

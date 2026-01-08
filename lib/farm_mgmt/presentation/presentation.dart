@@ -5,7 +5,6 @@ export 'farm_mgmt.dart';
 export 'farm_mgmt_screen.dart';
 export 'overview.dart';
 export 'overview_screen.dart';
-export 'presentation.dart';
 export 'tasks.dart';
 export 'animals/add_animal_screen.dart';
 export 'animals/animal_detail_screen.dart';

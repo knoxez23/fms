@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
 
 /// A reusable animated card widget that fades in and slides up
 /// Perfect for list items, cards, or any content that needs animation
@@ -81,7 +81,7 @@ class _AnimatedCardState extends State<AnimatedCard>
   late AnimationController _controller;
   late Animation<double> _opacity;
   late Animation<Offset> _offset;
-  late Animation<double> _scale;
+  
 
   bool _isTapped = false;
 
@@ -121,13 +121,7 @@ class _AnimatedCardState extends State<AnimatedCard>
       ),
     );
 
-    // Scale animation (for tap effect)
-    _scale = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOut,
-      ),
-    );
+    
   }
 
   void _startAnimation() {
@@ -451,7 +445,7 @@ Step 1: Create the file
 Step 2: Copy this entire code into that file
 
 Step 3: Import in your screens
-  import 'package:pamoja_twalima/ui/core/widgets/animated_card.dart';
+  import 'package:pamoja_twalima/core/presentation/widgets/animated_card.dart';
 
 Step 4: Replace all instances of _AnimatedCard with AnimatedCard
 

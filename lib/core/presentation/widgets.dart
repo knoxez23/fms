@@ -1,4 +1,4 @@
-// Barrel exports for core widgets (keeps existing imports working)
-export '../../ui/core/widgets/reusable_widgets.dart';
-export '../../ui/core/widgets/modern_app_bar.dart';
-export '../../ui/core/widgets/app_drawer.dart';
+// Barrel exports for core widgets (presentation)
+export 'widgets/reusable_widgets.dart';
+export 'widgets/modern_app_bar.dart';
+export 'widgets/app_drawer.dart';

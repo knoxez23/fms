@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
 
 // ============================================================================
 // STAT CARDS - Reusable stat/alert cards
@@ -32,7 +32,7 @@ class StatCard extends StatelessWidget {
         border: Border.all(
           color: theme.dividerColor.withValues(alpha: 0.2),
         ),
-        boxShadow: const [AppColors.subtleShadow],
+        boxShadow: [AppColors.subtleShadow],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

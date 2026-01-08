@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../data/services/auth_service.dart';
+import 'package:provider/provider.dart';
 import '../../data/network/api_error.dart';
-import '../core/themes/app_colors.dart';
+import '../../auth/providers/auth_provider.dart';
+import 'package:pamoja_twalima/core/presentation/themes/app_colors.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -19,7 +20,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _farmNameController = TextEditingController();
   final _locationController = TextEditingController();
 
-  final _auth = AuthService();
+  // Auth now handled by AuthProvider
   bool _loading = false;
   bool _obscurePassword = true;
 
@@ -61,20 +62,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _loading = true);
 
     try {
-      final res = await _auth.register(
-        name: _nameController.text.trim(),
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-        phone: _phoneController.text.trim().isEmpty
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final res = await auth.register({
+        'name': _nameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'password': _passwordController.text,
+        'phone': _phoneController.text.trim().isEmpty
             ? null
             : _phoneController.text.trim(),
-        farmName: _farmNameController.text.trim().isEmpty
+        'farm_name': _farmNameController.text.trim().isEmpty
             ? null
             : _farmNameController.text.trim(),
-        location: _locationController.text.trim().isEmpty
+        'location': _locationController.text.trim().isEmpty
             ? null
             : _locationController.text.trim(),
-      );
+      });
 
       if (!mounted) return;
 

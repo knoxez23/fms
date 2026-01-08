@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/inventory/application/application.dart';
 import 'package:pamoja_twalima/inventory/infrastructure/factory.dart';
+// Removed unused imports: inventory service and auth provider are used by parent screen
 
 class AddInventoryScreen extends StatefulWidget {
   const AddInventoryScreen({super.key});
@@ -351,7 +352,7 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
         'category': _selectedCategory,
         'quantity': quantity,
         'unit': _selectedUnit,
-        'minStock': minStock,
+        'min_stock': minStock,
         'supplier': _supplierController.text,
         'unit_price': unitPrice,
         'total_value': totalValue,
@@ -359,13 +360,7 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
         'lastRestock': DateTime.now().toIso8601String(),
       };
 
-      try {
-        await _addInventoryUseCase.execute(newItem);
-      } catch (e) {
-        // ignore errors here to keep UI stable; consider showing an error toast
-      }
-
-      if (!mounted) return;
+      // Return immediately (optimistic). Parent will perform API/create and show feedback.
       Navigator.pop(context, newItem);
     }
   }
@@ -454,7 +449,7 @@ class _AnimatedCardState extends State<_AnimatedCard>
           decoration: BoxDecoration(
             color: widget.theme.cardTheme.color,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: const [AppColors.subtleShadow],
+            boxShadow: [AppColors.subtleShadow],
           ),
           child: widget.child,
         ),

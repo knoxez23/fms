@@ -19,7 +19,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'pamoja_twalima.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -196,10 +196,28 @@ class DatabaseHelper {
         fetched_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     ''');
+
+    // Pending sales table (for offline -> sync)
+    await db.execute('''
+      CREATE TABLE pending_sales (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        payload TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle database upgrades here
+    if (oldVersion < 2) {
+      // Add pending_sales table for offline sync
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS pending_sales (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          payload TEXT NOT NULL,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      ''');
+    }
   }
 
   Future<void> close() async {

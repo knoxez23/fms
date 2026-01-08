@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/marketplace/application/application.dart';
 import 'package:pamoja_twalima/marketplace/infrastructure/factory.dart';
 
@@ -269,7 +269,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       decoration: BoxDecoration(
         color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: const [AppColors.subtleShadow],
+        boxShadow: [AppColors.subtleShadow],
       ),
       child: Row(
         children: [
@@ -340,7 +340,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       decoration: BoxDecoration(
         color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: const [AppColors.subtleShadow],
+        boxShadow: [AppColors.subtleShadow],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,7 +423,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             decoration: BoxDecoration(
               color: theme.cardTheme.color,
               borderRadius: BorderRadius.circular(12),
-              boxShadow: const [AppColors.subtleShadow],
+              boxShadow: [AppColors.subtleShadow],
             ),
             child: TabBar(
               labelColor: theme.colorScheme.primary,
@@ -674,7 +674,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.cardTheme.color,
-        boxShadow: const [AppColors.cardShadow],
+        boxShadow: [AppColors.cardShadow],
       ),
       child: SafeArea(
         child: Row(
@@ -965,7 +965,7 @@ class _ReviewCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: const [AppColors.subtleShadow],
+        boxShadow: [AppColors.subtleShadow],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

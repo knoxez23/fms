@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
 
 class AddTaskScreen extends StatefulWidget {
   const AddTaskScreen({super.key});
@@ -13,7 +13,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _dueDateController = TextEditingController();
-  final TextEditingController _estimatedTimeController = TextEditingController();
+  final TextEditingController _estimatedTimeController =
+      TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
   String _selectedCategory = 'Crops';
@@ -32,11 +33,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     'Other'
   ];
 
-  final List<String> _priorities = [
-    'Low',
-    'Medium',
-    'High'
-  ];
+  final List<String> _priorities = ['Low', 'Medium', 'High'];
 
   final List<String> _assignees = [
     'Self',
@@ -98,7 +95,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                         controller: _titleController,
                         decoration: const InputDecoration(
                           labelText: 'Task Title *',
-                          hintText: 'e.g., Irrigate maize field, Vaccinate chickens',
+                          hintText:
+                              'e.g., Irrigate maize field, Vaccinate chickens',
                           border: OutlineInputBorder(),
                         ),
                         validator: (value) {
@@ -128,9 +126,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 16),
-
               _AnimatedCard(
                 index: 1,
                 theme: theme,
@@ -206,9 +202,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 16),
-
               _AnimatedCard(
                 index: 2,
                 theme: theme,
@@ -256,9 +250,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 16),
-
               _AnimatedCard(
                 index: 3,
                 theme: theme,
@@ -278,7 +270,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                         controller: _notesController,
                         decoration: const InputDecoration(
                           labelText: 'Notes & Instructions',
-                          hintText: 'Any special instructions, reminders, or additional information...',
+                          hintText:
+                              'Any special instructions, reminders, or additional information...',
                           border: OutlineInputBorder(),
                         ),
                         maxLines: 4,
@@ -287,9 +280,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 24),
-
               _AnimatedCard(
                 index: 4,
                 theme: theme,
@@ -315,12 +306,13 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                       const SizedBox(height: 8),
                       Text(
                         '• Be specific with task descriptions for clarity\n'
-                            '• Set realistic due dates and time estimates\n'
-                            '• Use priorities to organize your workflow\n'
-                            '• Assign tasks to appropriate team members\n'
-                            '• Add notes for important details or context',
+                        '• Set realistic due dates and time estimates\n'
+                        '• Use priorities to organize your workflow\n'
+                        '• Assign tasks to appropriate team members\n'
+                        '• Add notes for important details or context',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -335,17 +327,20 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   }
 
   Future<void> _selectDueDate() async {
+    final now = DateTime.now();
+
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now().add(const Duration(days: 1)),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2025),
+      initialDate: now,
+      firstDate: DateTime(now.year - 10),
+      lastDate: DateTime(now.year + 10),
     );
+
     if (picked != null) {
       setState(() {
         _dueDate = picked;
         _dueDateController.text =
-        "${picked.day}/${picked.month}/${picked.year}";
+            "${picked.day}/${picked.month}/${picked.year}";
       });
     }
   }
@@ -454,7 +449,7 @@ class _AnimatedCardState extends State<_AnimatedCard>
           decoration: BoxDecoration(
             color: widget.theme.cardTheme.color,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: const [AppColors.subtleShadow],
+            boxShadow: [AppColors.subtleShadow],
           ),
           child: widget.child,
         ),

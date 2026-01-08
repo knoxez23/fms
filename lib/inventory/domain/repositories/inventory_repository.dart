@@ -1,6 +1,9 @@
+import '../entities/inventory_item.dart';
+
 abstract class InventoryRepository {
-  Future<List<Map<String, dynamic>>> getItems();
-  Future<void> addItem(Map<String, dynamic> item);
-  Future<void> updateItem(Map<String, dynamic> item);
+  Future<List<InventoryItem>> getItems();
+  Future<void> addItem(InventoryItem item);
+  Future<void> updateItem(InventoryItem item);
   Future<void> deleteItem(String id);
 }
+

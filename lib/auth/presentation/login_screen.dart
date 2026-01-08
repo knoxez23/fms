@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../data/services/auth_service.dart';
-import '../core/themes/app_colors.dart';
+import 'package:provider/provider.dart';
+import '../../auth/providers/auth_provider.dart';
+import 'package:pamoja_twalima/core/presentation/themes/app_colors.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,18 +13,20 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _auth = AuthService();
+  // Auth is handled by AuthProvider now
   bool _loading = false;
   bool _obscurePassword = true;
 
   void _submit() async {
     setState(() => _loading = true);
     try {
-      final res = await _auth.login(
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final res = await auth.login(
         _emailController.text.trim(),
         _passwordController.text,
       );
 
+      if (!mounted) return;
       if (res['token'] != null) {
         Navigator.of(context).pushReplacementNamed('/home');
       } else {
@@ -80,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: BoxDecoration(
                     color: theme.cardTheme.color,
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [AppColors.subtleShadow],
+                    boxShadow: [AppColors.subtleShadow],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,

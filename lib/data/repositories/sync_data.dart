@@ -1,8 +1,11 @@
+ 
 import 'dart:convert';
-import 'package:dio/dio.dart';
+import 'dart:developer' as developer;
+
 import '../network/api_service.dart';
 import '../services/connectivity_service.dart';
 import 'local_data.dart';
+import '../database/database_helper.dart';
 import '../models/animal.dart';
 import '../models/crop.dart';
 import '../models/task.dart';
@@ -37,7 +40,8 @@ class SyncData {
         }
 
         return animals;
-      } catch (e) {
+      } catch (e, st) {
+        developer.log('getAnimals API failed: $e', error: e, stackTrace: st);
         // Fallback to local
         return await LocalData.getAnimals();
       }
@@ -52,7 +56,8 @@ class SyncData {
         final response = await _apiService.post('/animals', data: animal.toMap());
         final createdAnimal = Animal.fromMap(response.data);
         return await LocalData.insertAnimal(createdAnimal);
-      } catch (e) {
+      } catch (e, st) {
+        developer.log('insertAnimal API failed, storing locally: $e', error: e, stackTrace: st);
         // Store locally and mark for sync later
         return await LocalData.insertAnimal(animal);
       }
@@ -65,7 +70,8 @@ class SyncData {
     if (await _isOnline()) {
       try {
         await _apiService.put('/animals/${animal.id}', data: animal.toMap());
-      } catch (e) {
+      } catch (e, st) {
+        developer.log('updateAnimal API failed, updating local only: $e', error: e, stackTrace: st);
         // Continue to update local
       }
     }
@@ -76,7 +82,8 @@ class SyncData {
     if (await _isOnline()) {
       try {
         await _apiService.delete('/animals/$id');
-      } catch (e) {
+      } catch (e, st) {
+        developer.log('deleteAnimal API failed, deleting local only: $e', error: e, stackTrace: st);
         // Continue to delete local
       }
     }
@@ -96,7 +103,8 @@ class SyncData {
         }
 
         return crops;
-      } catch (e) {
+      } catch (e, st) {
+        developer.log('getCrops API failed: $e', error: e, stackTrace: st);
         return await LocalData.getCrops();
       }
     } else {
@@ -110,7 +118,8 @@ class SyncData {
         final response = await _apiService.post('/crops', data: crop.toMap());
         final createdCrop = Crop.fromMap(response.data);
         return await LocalData.insertCrop(createdCrop);
-      } catch (e) {
+      } catch (e, st) {
+        developer.log('insertCrop API failed, storing locally: $e', error: e, stackTrace: st);
         return await LocalData.insertCrop(crop);
       }
     } else {
@@ -122,7 +131,9 @@ class SyncData {
     if (await _isOnline()) {
       try {
         await _apiService.put('/crops/${crop.id}', data: crop.toMap());
-      } catch (e) {}
+      } catch (e, st) {
+        developer.log('updateCrop API failed, updating local only: $e', error: e, stackTrace: st);
+      }
     }
     return await LocalData.updateCrop(crop);
   }
@@ -131,7 +142,9 @@ class SyncData {
     if (await _isOnline()) {
       try {
         await _apiService.delete('/crops/$id');
-      } catch (e) {}
+      } catch (e, st) {
+        developer.log('deleteCrop API failed, deleting local only: $e', error: e, stackTrace: st);
+      }
     }
     return await LocalData.deleteCrop(id);
   }
@@ -149,7 +162,8 @@ class SyncData {
         }
 
         return tasks;
-      } catch (e) {
+      } catch (e, st) {
+        developer.log('getTasks API failed: $e', error: e, stackTrace: st);
         return await LocalData.getTasks();
       }
     } else {
@@ -163,7 +177,8 @@ class SyncData {
         final response = await _apiService.post('/tasks', data: task.toMap());
         final createdTask = Task.fromMap(response.data);
         return await LocalData.insertTask(createdTask);
-      } catch (e) {
+      } catch (e, st) {
+        developer.log('insertTask API failed, storing locally: $e', error: e, stackTrace: st);
         return await LocalData.insertTask(task);
       }
     } else {
@@ -175,7 +190,9 @@ class SyncData {
     if (await _isOnline()) {
       try {
         await _apiService.put('/tasks/${task.id}', data: task.toMap());
-      } catch (e) {}
+      } catch (e, st) {
+        developer.log('updateTask API failed, updating local only: $e', error: e, stackTrace: st);
+      }
     }
     return await LocalData.updateTask(task);
   }
@@ -184,7 +201,9 @@ class SyncData {
     if (await _isOnline()) {
       try {
         await _apiService.delete('/tasks/$id');
-      } catch (e) {}
+      } catch (e, st) {
+        developer.log('deleteTask API failed, deleting local only: $e', error: e, stackTrace: st);
+      }
     }
     return await LocalData.deleteTask(id);
   }
@@ -202,7 +221,8 @@ class SyncData {
         }
 
         return schedules;
-      } catch (e) {
+      } catch (e, st) {
+        developer.log('getFeedingSchedules API failed: $e', error: e, stackTrace: st);
         return await LocalData.getFeedingSchedules();
       }
     } else {
@@ -216,7 +236,8 @@ class SyncData {
         final response = await _apiService.post('/feeding-schedules', data: schedule.toMap());
         final createdSchedule = FeedingSchedule.fromMap(response.data);
         return await LocalData.insertFeedingSchedule(createdSchedule);
-      } catch (e) {
+      } catch (e, st) {
+        developer.log('insertFeedingSchedule API failed, storing locally: $e', error: e, stackTrace: st);
         return await LocalData.insertFeedingSchedule(schedule);
       }
     } else {
@@ -228,7 +249,9 @@ class SyncData {
     if (await _isOnline()) {
       try {
         await _apiService.put('/feeding-schedules/${schedule.id}', data: schedule.toMap());
-      } catch (e) {}
+      } catch (e, st) {
+        developer.log('updateFeedingSchedule API failed, updating local only: $e', error: e, stackTrace: st);
+      }
     }
     return await LocalData.updateFeedingSchedule(schedule);
   }
@@ -237,7 +260,9 @@ class SyncData {
     if (await _isOnline()) {
       try {
         await _apiService.delete('/feeding-schedules/$id');
-      } catch (e) {}
+      } catch (e, st) {
+        developer.log('deleteFeedingSchedule API failed, deleting local only: $e', error: e, stackTrace: st);
+      }
     }
     return await LocalData.deleteFeedingSchedule(id);
   }
@@ -255,7 +280,8 @@ class SyncData {
         }
 
         return logs;
-      } catch (e) {
+      } catch (e, st) {
+        developer.log('getFeedingLogs API failed: $e', error: e, stackTrace: st);
         return await LocalData.getFeedingLogs();
       }
     } else {
@@ -269,7 +295,8 @@ class SyncData {
         final response = await _apiService.post('/feeding-logs', data: log.toMap());
         final createdLog = FeedingLog.fromMap(response.data);
         return await LocalData.insertFeedingLog(createdLog);
-      } catch (e) {
+      } catch (e, st) {
+        developer.log('insertFeedingLog API failed, storing locally: $e', error: e, stackTrace: st);
         return await LocalData.insertFeedingLog(log);
       }
     } else {
@@ -281,7 +308,9 @@ class SyncData {
     if (await _isOnline()) {
       try {
         await _apiService.put('/feeding-logs/${log.id}', data: log.toMap());
-      } catch (e) {}
+      } catch (e, st) {
+        developer.log('updateFeedingLog API failed, updating local only: $e', error: e, stackTrace: st);
+      }
     }
     return await LocalData.updateFeedingLog(log);
   }
@@ -290,7 +319,9 @@ class SyncData {
     if (await _isOnline()) {
       try {
         await _apiService.delete('/feeding-logs/$id');
-      } catch (e) {}
+      } catch (e, st) {
+        developer.log('deleteFeedingLog API failed, deleting local only: $e', error: e, stackTrace: st);
+      }
     }
     return await LocalData.deleteFeedingLog(id);
   }
@@ -303,5 +334,25 @@ class SyncData {
   // Market prices (still mock)
   Future<List<Map<String, String>>> getMarketPrices() async {
     return await LocalData.getMarketPrices();
+  }
+}
+
+class SyncDataRepository {
+  final DatabaseHelper _dbHelper = DatabaseHelper();
+
+  Future<void> queueInventoryAction({
+    required int localId,
+    required String action,
+    required Map<String, dynamic> payload,
+  }) async {
+    final db = await _dbHelper.database;
+
+    await db.insert('inventory_sync_queue', {
+      'inventory_local_id': localId,
+      'action': action,
+      'payload': jsonEncode(payload),
+      'created_at': DateTime.now().toIso8601String(),
+      'retry_count': 0,
+    });
   }
 }

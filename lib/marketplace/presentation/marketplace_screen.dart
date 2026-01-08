@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:pamoja_twalima/ui/marketplace/bulk_order_screen.dart';
-import 'package:pamoja_twalima/ui/marketplace/export_inquiry_screen.dart';
-import 'package:pamoja_twalima/ui/marketplace/import_inquiry_screen.dart';
-import 'package:pamoja_twalima/ui/marketplace/product_detail_screen.dart';
-import 'package:pamoja_twalima/ui/marketplace/sell_product_screen.dart';
-import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/marketplace/presentation/bulk_order_screen.dart';
+import 'package:pamoja_twalima/marketplace/presentation/export_inquiry_screen.dart';
+import 'package:pamoja_twalima/marketplace/presentation/import_inquiry_screen.dart';
+import 'package:pamoja_twalima/marketplace/presentation/product_detail_screen.dart';
+import 'package:pamoja_twalima/marketplace/presentation/sell_product_screen.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/marketplace/application/application.dart';
 import 'package:pamoja_twalima/marketplace/infrastructure/factory.dart';
 
@@ -191,7 +191,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       decoration: BoxDecoration(
         color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: const [AppColors.subtleShadow],
+        boxShadow: [AppColors.subtleShadow],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -337,7 +337,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       decoration: BoxDecoration(
         color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: const [AppColors.subtleShadow],
+        boxShadow: [AppColors.subtleShadow],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -428,7 +428,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
           //   decoration: BoxDecoration(
           //     borderRadius: BorderRadius.circular(25),
           //     gradient: AppColors.primaryGradient,
-          //     boxShadow: const [AppColors.cardShadow],
+          //     boxShadow: [AppColors.cardShadow],
           //   ),
           //   child: FloatingActionButton.extended(
           //     backgroundColor: Colors.transparent,
@@ -776,7 +776,7 @@ class ProductCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: theme.cardTheme.color,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: const [AppColors.subtleShadow],
+          boxShadow: [AppColors.subtleShadow],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -928,7 +928,7 @@ class ProductCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: theme.cardTheme.color,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: const [AppColors.subtleShadow],
+          boxShadow: [AppColors.subtleShadow],
         ),
         child: Row(
           children: [

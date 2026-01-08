@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/ui/core/widgets/reusable_widgets.dart';
-import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/reusable_widgets.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'add_inventory_screen.dart';
 import 'inventory_history_screen.dart';
 import 'package:pamoja_twalima/inventory/application/application.dart';
 import 'package:pamoja_twalima/inventory/infrastructure/factory.dart';
+import '../../data/services/inventory_service.dart';
+import 'package:provider/provider.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -238,7 +241,6 @@ class _InventoryScreenState extends State<InventoryScreen>
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
-
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 90),
         child: Column(
@@ -260,12 +262,101 @@ class _InventoryScreenState extends State<InventoryScreen>
             const SizedBox(height: 12),
             FloatingActionButton(
               heroTag: 'addInventoryFAB',
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                final auth = Provider.of<AuthProvider>(context, listen: false);
+                final bool isAuth = auth.isAuthenticated;
+                final messenger = ScaffoldMessenger.of(context);
+                final fallback = InventoryFactory.createAddInventoryItem();
+
+                final result = await Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const AddInventoryScreen()),
+                  MaterialPageRoute(builder: (_) => const AddInventoryScreen()),
                 );
+
+                if (result != null && result is Map<String, dynamic>) {
+                  // Validate and sanitize the result before using it
+                  final sanitizedItem = _sanitizeInventoryItem(result);
+
+                  // Validate required fields
+                  if (!_validateInventoryItem(sanitizedItem)) {
+                    if (!mounted) return;
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            'Invalid item data. Please check all required fields.'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Optimistic insert with sanitized data
+                  setState(() => inventoryItems.insert(0, sanitizedItem));
+
+                  if (isAuth) {
+                    try {
+                      // Send to API - transform for API if needed
+                      final apiPayload = _transformForApi(sanitizedItem);
+                      await InventoryService().create(apiPayload);
+
+                      if (!mounted) return;
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text('Item saved successfully'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } catch (e) {
+                      if (!mounted) return;
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content:
+                              Text('Failed to save on server: ${e.toString()}'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      // Fallback to local storage
+                      try {
+                        await fallback.execute(sanitizedItem);
+                        if (!mounted) return;
+                        messenger.showSnackBar(
+                          const SnackBar(
+                              content: Text('Item saved locally instead')),
+                        );
+                      } catch (localError) {
+                        if (!mounted) return;
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                                'Failed to save locally: ${localError.toString()}'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        // Remove from UI if both save attempts failed
+                        setState(() => inventoryItems.removeAt(0));
+                      }
+                    }
+                  } else {
+                    // Save locally when offline/unauthenticated
+                    try {
+                      await fallback.execute(sanitizedItem);
+                      if (!mounted) return;
+                      messenger.showSnackBar(
+                        const SnackBar(content: Text('Item saved locally')),
+                      );
+                    } catch (e) {
+                      if (!mounted) return;
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text('Failed to save: ${e.toString()}'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      // Remove from UI if save failed
+                      setState(() => inventoryItems.removeAt(0));
+                    }
+                  }
+                }
               },
               backgroundColor: AppColors.primary,
               child: const Icon(Icons.add, color: Colors.white),
@@ -283,32 +374,107 @@ class _InventoryScreenState extends State<InventoryScreen>
     _loadInventory();
   }
 
+  /// Sanitize inventory item to ensure no null values in required String fields
+  Map<String, dynamic> _sanitizeInventoryItem(Map<String, dynamic> item) {
+    final quantity = item['quantity'] is num
+        ? item['quantity']
+        : (num.tryParse('${item['quantity']}') ?? 0);
+
+    final minStock = item['minStock'] ?? item['min_stock'] ?? 0;
+
+    // Calculate status based on quantity vs minStock
+    String status = 'Adequate';
+    if (minStock is num && quantity is num) {
+      if (quantity <= 0) {
+        status = 'Critical';
+      } else if (quantity <= minStock) {
+        status = 'Low Stock';
+      }
+    }
+
+    return {
+      'id': item['id']?.toString() ?? '',
+      'name': item['name']?.toString() ??
+          item['item_name']?.toString() ??
+          'Unknown Item',
+      'category': item['category']?.toString() ?? 'Uncategorized',
+      'quantity': quantity,
+      'unit': item['unit']?.toString() ?? item['uom']?.toString() ?? 'units',
+      'minStock': minStock,
+      'status': status,
+      'lastRestock': item['lastRestock']?.toString() ??
+          item['last_updated']?.toString() ??
+          DateTime.now().toIso8601String(),
+      'supplier': item['supplier']?.toString() ?? 'Unknown',
+    };
+  }
+
+  /// Validate that required fields are present and valid
+  bool _validateInventoryItem(Map<String, dynamic> item) {
+    // Check required string fields are not empty
+    if ((item['name'] as String).trim().isEmpty) return false;
+    if ((item['category'] as String).trim().isEmpty) return false;
+
+    // Check numeric fields are valid
+    if (item['quantity'] == null || item['quantity'] is! num) return false;
+    if (item['minStock'] == null || item['minStock'] is! num) return false;
+
+    return true;
+  }
+
+  /// Transform data for API (map field names if needed)
+  Map<String, dynamic> _transformForApi(Map<String, dynamic> item) {
+    return {
+      'item_name': item['name'],
+      'category': item['category'],
+      'quantity': item['quantity'],
+      'unit': item['unit'],
+      'min_stock': item['minStock'],
+      'supplier': item['supplier'],
+      'unit_price': item['unit_price'],
+      'total_value': item['total_value'],
+      'notes': item['notes'],
+      'last_updated': item['lastRestock'],
+    };
+  }
+
   Future<void> _loadInventory() async {
     try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      if (auth.isAuthenticated) {
+        final api = InventoryService();
+        final list = await api.list();
+
+        final mapped = list.map((row) {
+          return _sanitizeInventoryItem(row);
+        }).toList();
+
+        if (mounted) {
+          setState(() => inventoryItems = mapped);
+        }
+        return;
+      }
+
+      // Fallback to local data
       final items = await _getInventoryUseCase.execute();
       final mapped = items.map((row) {
-        final quantity = (row['quantity'] is num) ? row['quantity'] : (num.tryParse('${row['quantity']}') ?? 0);
-        final minStock = row['minStock'] ?? 0;
-        final status = (minStock is num && quantity is num)
-            ? (quantity <= minStock ? 'Low Stock' : 'Adequate')
-            : 'Adequate';
-
-        return <String, dynamic>{
-          'id': '${row['id']}',
-          'name': row['item_name'] ?? row['name'] ?? 'Unknown',
-          'category': row['category'] ?? 'Uncategorized',
-          'quantity': quantity,
-          'unit': row['unit'] ?? '',
-          'minStock': minStock,
-          'status': status,
-          'lastRestock': row['last_updated'] ?? '',
-          'supplier': row['supplier'] ?? '',
-        };
+        return _sanitizeInventoryItem(row);
       }).toList();
 
-      setState(() => inventoryItems = mapped);
+      if (mounted) {
+        setState(() => inventoryItems = mapped);
+      }
     } catch (e) {
-      // keep existing UI stable on errors
+      // Log error but keep UI stable
+      debugPrint('Failed to load inventory: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load inventory: ${e.toString()}'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     }
   }
 
@@ -321,7 +487,6 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 }
-
 // ============================================================================
 // ITEM DETAILS BOTTOM SHEET
 // ============================================================================
@@ -346,7 +511,7 @@ class ItemDetailsSheet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const BottomSheetHeader(),
-          
+
           // Item Header
           Row(
             children: [
@@ -378,8 +543,8 @@ class ItemDetailsSheet extends StatelessWidget {
                     Text(
                       item['category'],
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -391,7 +556,7 @@ class ItemDetailsSheet extends StatelessWidget {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 16),
@@ -418,7 +583,7 @@ class ItemDetailsSheet extends StatelessWidget {
             value: _formatDate(item['lastRestock']),
             icon: Icons.calendar_today,
           ),
-          
+
           const SizedBox(height: 24),
 
           // Action Buttons

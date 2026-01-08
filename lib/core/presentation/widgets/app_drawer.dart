@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../../../data/services/auth_service.dart';
+import 'package:provider/provider.dart';
+import '../../../auth/providers/auth_provider.dart';
 
 class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
@@ -10,7 +11,7 @@ class AppDrawer extends StatefulWidget {
 }
 
 class _AppDrawerState extends State<AppDrawer> {
-  final _auth = AuthService();
+  // use AuthProvider for auth actions
   final _storage = const FlutterSecureStorage();
   
   String _userName = 'User';
@@ -40,7 +41,8 @@ class _AppDrawerState extends State<AppDrawer> {
     setState(() => _loadingLogout = true);
 
     try {
-      await _auth.logout();
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      await auth.logout();
 
       if (!mounted) return;
 
@@ -66,10 +68,7 @@ class _AppDrawerState extends State<AppDrawer> {
       if (!mounted) return;
 
       // Navigate to login and remove all previous routes
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/login',
-        (route) => false,
-      );
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
     } catch (e) {
       if (!mounted) return;
 

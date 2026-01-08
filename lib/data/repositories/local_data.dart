@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import '../database/database_helper.dart';
 import '../models/animal.dart';
@@ -17,32 +18,37 @@ class LocalData {
     final cropCount = Sqflite.firstIntValue(cropResult) ?? 0;
 
     // Get animal count
-    final animalResult = await db.rawQuery('SELECT COUNT(*) as count FROM animals');
+    final animalResult =
+        await db.rawQuery('SELECT COUNT(*) as count FROM animals');
     final animalCount = Sqflite.firstIntValue(animalResult) ?? 0;
 
     // Get inventory count
-    final inventoryResult = await db.rawQuery('SELECT COUNT(*) as count FROM inventory');
+    final inventoryResult =
+        await db.rawQuery('SELECT COUNT(*) as count FROM inventory');
     final inventoryCount = Sqflite.firstIntValue(inventoryResult) ?? 0;
 
     // Get pending tasks count
-    final tasksResult = await db.rawQuery('SELECT COUNT(*) as count FROM tasks WHERE status != "completed"');
+    final tasksResult = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM tasks WHERE status != "completed"');
     final pendingTasksCount = Sqflite.firstIntValue(tasksResult) ?? 0;
 
     // Get today's sales
     final today = DateTime.now().toIso8601String().split('T')[0];
     final salesResult = await db.rawQuery(
-      'SELECT SUM(total_amount) as total FROM sales WHERE DATE(sale_date) = ?',
-      [today]
-    );
+        'SELECT SUM(total_amount) as total FROM sales WHERE DATE(sale_date) = ?',
+        [today]);
     final salesToday = (salesResult.first['total'] as num?)?.toDouble() ?? 0.0;
 
     // Get this month's sales
-    final firstDayOfMonth = DateTime(DateTime.now().year, DateTime.now().month, 1).toIso8601String().split('T')[0];
+    final firstDayOfMonth =
+        DateTime(DateTime.now().year, DateTime.now().month, 1)
+            .toIso8601String()
+            .split('T')[0];
     final monthlySalesResult = await db.rawQuery(
-      'SELECT SUM(total_amount) as total FROM sales WHERE DATE(sale_date) >= ?',
-      [firstDayOfMonth]
-    );
-    final monthlySales = (monthlySalesResult.first['total'] as num?)?.toDouble() ?? 0.0;
+        'SELECT SUM(total_amount) as total FROM sales WHERE DATE(sale_date) >= ?',
+        [firstDayOfMonth]);
+    final monthlySales =
+        (monthlySalesResult.first['total'] as num?)?.toDouble() ?? 0.0;
 
     return {
       "crops": cropCount,
@@ -170,7 +176,8 @@ class LocalData {
 
   static Future<int> deleteFeedingSchedule(int id) async {
     final db = await _dbHelper.database;
-    return await db.delete('feeding_schedules', where: 'id = ?', whereArgs: [id]);
+    return await db
+        .delete('feeding_schedules', where: 'id = ?', whereArgs: [id]);
   }
 
   // Feeding Log CRUD operations
@@ -198,5 +205,92 @@ class LocalData {
   static Future<int> deleteFeedingLog(int id) async {
     final db = await _dbHelper.database;
     return await db.delete('feeding_logs', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // Sales CRUD operations
+  static Future<List<Map<String, dynamic>>> getSales() async {
+    final db = await _dbHelper.database;
+    final List<Map<String, dynamic>> maps =
+        await db.query('sales', orderBy: 'sale_date DESC');
+    return maps;
+  }
+
+  static Future<int> insertSale(Map<String, dynamic> sale) async {
+    final db = await _dbHelper.database;
+
+    // Ensure proper field mapping
+    final row = <String, dynamic>{
+      'product_name': sale['product_name'],
+      'quantity': sale['quantity'],
+      'unit': sale['unit'],
+      'price': sale['price'],
+      'total_amount': sale['total_amount'],
+      'customer_name':
+          sale['customer_name'] ?? sale['customer'], // Handle both formats
+      'sale_date': sale['sale_date'] ?? sale['date'], // Handle both formats
+      'payment_status': sale['payment_status'] ?? 'Pending',
+      'notes': sale['notes'] ?? '',
+      'user_id': sale['user_id'],
+    };
+
+    // Validate required fields
+    if ((row['product_name'] as String?)?.trim().isEmpty ?? true) {
+      throw Exception('Invalid sale: product_name is required');
+    }
+    if ((row['customer_name'] as String?)?.trim().isEmpty ?? true) {
+      throw Exception('Invalid sale: customer_name is required');
+    }
+
+    return await db.insert('sales', row);
+  }
+
+  // Pending sales (offline sync queue)
+  static Future<int> insertPendingSale(Map<String, dynamic> sale) async {
+    if ((sale['product_name'] as String?)?.trim().isEmpty ?? true) {
+      throw Exception('Cannot enqueue sale without product_name');
+    }
+
+    final db = await _dbHelper.database;
+    return await db.insert(
+      'pending_sales',
+      {'payload': jsonEncode(sale)},
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>> getPendingSales() async {
+    final db = await _dbHelper.database;
+    final List<Map<String, dynamic>> maps =
+        await db.query('pending_sales', orderBy: 'created_at ASC');
+    return maps;
+  }
+
+  static Future<int> deletePendingSale(int id) async {
+    final db = await _dbHelper.database;
+    return await db.delete('pending_sales', where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<void> cleanupInvalidSales() async {
+    final db = await _dbHelper.database;
+
+    final rows = await db.query('pending_sales');
+
+    for (final row in rows) {
+      final rawPayload = row['payload'] as String?;
+      if (rawPayload == null) {
+        await LocalData.deletePendingSale(row['id'] as int);
+        continue;
+      }
+
+      final Map<String, dynamic> payload =
+          jsonDecode(rawPayload) as Map<String, dynamic>;
+
+      if ((payload['product_name'] as String?)?.trim().isEmpty ?? true) {
+        await db.delete(
+          'pending_sales',
+          where: 'id = ?',
+          whereArgs: [row['id']],
+        );
+      }
+    }
   }
 }

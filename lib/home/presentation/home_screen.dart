@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/ui/core/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
 import 'package:pamoja_twalima/data/repositories/sync_data.dart';
 import 'package:pamoja_twalima/data/repositories/weather_service.dart';
-import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

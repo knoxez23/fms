@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
-import 'package:pamoja_twalima/ui/core/widgets/reusable_widgets.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/reusable_widgets.dart';
 import 'package:pamoja_twalima/farm_mgmt/infrastructure/factory.dart';
 
 
@@ -289,7 +289,7 @@ class _SummaryCard extends StatelessWidget {
         border: Border.all(
           color: theme.dividerColor.withValues(alpha: 0.2),
         ),
-        boxShadow: const [AppColors.subtleShadow],
+        boxShadow: [AppColors.subtleShadow],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

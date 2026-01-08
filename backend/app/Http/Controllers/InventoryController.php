@@ -20,8 +20,28 @@ class InventoryController extends Controller
      */
     public function store(Request $request)
     {
-        return Inventory::create(array_merge($request->all(), ['user_id' => auth()->id()]));
+        $validated = $request->validate([
+            'item_name' => 'required|string',
+            'category' => 'required|string',
+            'quantity' => 'required|numeric',
+            'unit' => 'required|string',
+            'min_stock' => 'nullable|integer',
+            'supplier' => 'nullable|string',
+            'unit_price' => 'nullable|numeric',
+            'total_value' => 'nullable|numeric',
+            'notes' => 'nullable|string',
+            'last_updated' => 'nullable|date',
+        ]);
+
+        return Inventory::create(
+            array_merge($validated, [
+                'user_id' => auth()->id(),
+                'is_synced' => true,
+            ])
+        );
     }
+
+
 
     /**
      * Display the specified resource.

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
 
 class FeedFormulaGeneratorScreen extends StatefulWidget {
   const FeedFormulaGeneratorScreen({super.key});
@@ -796,7 +796,7 @@ class _AnimatedCardState extends State<_AnimatedCard>
           decoration: BoxDecoration(
             color: widget.theme.cardTheme.color,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: const [AppColors.subtleShadow],
+            boxShadow: [AppColors.subtleShadow],
           ),
           child: widget.child,
         ),

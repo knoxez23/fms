@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/inventory/application/application.dart';
 import 'package:pamoja_twalima/inventory/infrastructure/factory.dart';
 
@@ -144,7 +144,7 @@ class _InventoryHistoryScreenState extends State<InventoryHistoryScreen> {
             decoration: BoxDecoration(
               color: theme.cardTheme.color,
               borderRadius: BorderRadius.circular(12),
-              boxShadow: const [AppColors.subtleShadow],
+              boxShadow: [AppColors.subtleShadow],
             ),
             child: Row(
               children: [
@@ -208,7 +208,7 @@ class _HistoryStat extends StatelessWidget {
         decoration: BoxDecoration(
           color: theme.cardTheme.color,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: const [AppColors.subtleShadow],
+          boxShadow: [AppColors.subtleShadow],
         ),
         child: Column(
           children: [
@@ -815,7 +815,7 @@ class _AnimatedCardState extends State<_AnimatedCard>
           decoration: BoxDecoration(
             color: widget.theme.cardTheme.color,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: const [AppColors.subtleShadow],
+            boxShadow: [AppColors.subtleShadow],
           ),
           child: widget.child,
         ),

@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:provider/provider.dart';
+import '../../../auth/providers/auth_provider.dart';
+import '../../../data/services/sale_service.dart';
+import '../../../data/repositories/local_data.dart';
+import 'dart:developer' as developer;
+import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'add_sale_screen.dart';
 import 'sale_detail_screen.dart';
 
@@ -11,72 +16,7 @@ class SalesScreen extends StatefulWidget {
 }
 
 class _SalesScreenState extends State<SalesScreen> {
-  final List<Map<String, dynamic>> sales = [
-    {
-      'id': '1',
-      'product': 'Milk',
-      'quantity': 18.5,
-      'unit': 'liters',
-      'pricePerUnit': 50,
-      'totalAmount': 925,
-      'customer': 'Local Dairy',
-      'date': '2024-03-15',
-      'type': 'Dairy',
-      'paymentStatus': 'Paid',
-      'animal': 'Daisy',
-    },
-    {
-      'id': '2',
-      'product': 'Eggs',
-      'quantity': 120,
-      'unit': 'pieces',
-      'pricePerUnit': 15,
-      'totalAmount': 1800,
-      'customer': 'Market Vendor',
-      'date': '2024-03-14',
-      'type': 'Poultry',
-      'paymentStatus': 'Paid',
-      'animal': 'Layer Flock A',
-    },
-    {
-      'id': '3',
-      'product': 'Beef Cattle',
-      'quantity': 1,
-      'unit': 'animal',
-      'pricePerUnit': 45000,
-      'totalAmount': 45000,
-      'customer': 'Butchery Ltd',
-      'date': '2024-03-12',
-      'type': 'Livestock',
-      'paymentStatus': 'Pending',
-      'animal': 'Rocky',
-    },
-    {
-      'id': '4',
-      'product': 'Goat Meat',
-      'quantity': 1,
-      'unit': 'animal',
-      'pricePerUnit': 8000,
-      'totalAmount': 8000,
-      'customer': 'Local Restaurant',
-      'date': '2024-03-10',
-      'type': 'Livestock',
-      'paymentStatus': 'Paid',
-      'animal': 'Billy',
-    },
-    {
-      'id': '5',
-      'product': 'Manure',
-      'quantity': 10,
-      'unit': 'bags',
-      'pricePerUnit': 200,
-      'totalAmount': 2000,
-      'customer': 'Neighbor Farm',
-      'date': '2024-03-08',
-      'type': 'Other',
-      'paymentStatus': 'Paid',
-    },
-  ];
+  final List<Map<String, dynamic>> sales = [ ];
 
   String _selectedFilter = 'All';
   String _selectedPeriod = 'This Month';
@@ -258,11 +198,60 @@ class _SalesScreenState extends State<SalesScreen> {
         padding: const EdgeInsets.only(bottom: 90),
         child: FloatingActionButton(
           heroTag: 'addSaleFAB',
-          onPressed: () {
-            Navigator.push(
+            onPressed: () async {
+            // Capture context-derived values before navigating/awaiting
+            final auth = Provider.of<AuthProvider>(context, listen: false);
+            final bool isAuth = auth.isAuthenticated;
+            final messenger = ScaffoldMessenger.of(context);
+
+            final result = await Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const AddSaleScreen()),
             );
+
+            if (result == null || result is! Map<String, dynamic>) return;
+
+            // optimistic add (UI uses app-level keys)
+            setState(() => sales.insert(0, result));
+
+            // Map app-level sale keys to backend API fields expected by Laravel
+            final apiPayload = {
+              'product_name': result['product'] ?? result['product_name'] ?? 'Unknown',
+              'quantity': result['quantity'] ?? result['qty'] ?? 0,
+              // backend expects `price` as unit price
+              'price': result['pricePerUnit'] ?? result['price'] ?? result['unit_price'] ?? 0,
+              'date': result['date'] ?? result['sale_date'] ?? DateTime.now().toIso8601String(),
+              // any additional optional fields the backend may accept
+              'unit': result['unit'] ?? '',
+              'total_amount': result['totalAmount'] ?? result['total_amount'] ?? 0,
+              'customer': result['customer'] ?? result['buyer_name'] ?? '',
+              'notes': result['notes'] ?? '',
+            };
+
+            if (isAuth) {
+              try {
+                await SaleService().create(apiPayload);
+                if (!mounted) return;
+                messenger.showSnackBar(const SnackBar(content: Text('Sale saved to server')));
+              } catch (e, st) {
+                // Log server failure and persist API payload to pending queue for retry
+                developer.log('Sale create failed (server). Queuing API payload for retry.', error: e, stackTrace: st);
+                try {
+                  await LocalData.insertPendingSale(apiPayload);
+                  if (!mounted) return;
+                  messenger.showSnackBar(const SnackBar(content: Text('Failed to save on server — sale queued for retry')));
+                } catch (e2, st2) {
+                  developer.log('Pending queue insert failed', error: e2, stackTrace: st2);
+                  if (!mounted) return;
+                  messenger.showSnackBar(SnackBar(content: Text('Failed to save sale: ${e.toString()}')));
+                }
+              }
+            } else {
+              // persist API payload to pending queue when offline / unauthenticated
+              await LocalData.insertPendingSale(apiPayload);
+              if (!mounted) return;
+              messenger.showSnackBar(const SnackBar(content: Text('Sale saved locally (queued)')));
+            }
           },
           backgroundColor: theme.colorScheme.primary,
           child: const Icon(Icons.add, color: Colors.white),
@@ -295,7 +284,7 @@ class _RevenueCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: theme.cardTheme.color,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: const [AppColors.subtleShadow],
+          boxShadow: [AppColors.subtleShadow],
         ),
         child: Column(
           children: [

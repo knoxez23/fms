@@ -10,15 +10,27 @@ class Inventory extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name',
-        'type',
+        'item_name',
+        'category',
         'quantity',
         'unit',
+        'min_stock',
+        'supplier',
+        'unit_price',
+        'total_value',
+        'notes',
+        'last_updated',
+        'server_id',
+        'is_synced',
         'user_id',
     ];
 
     protected $casts = [
-        'quantity' => 'decimal:2',
+        'quantity' => 'float',
+        'unit_price' => 'float',
+        'total_value' => 'float',
+        'last_updated' => 'datetime',
+        'is_synced' => 'boolean',
     ];
 
     public function user()

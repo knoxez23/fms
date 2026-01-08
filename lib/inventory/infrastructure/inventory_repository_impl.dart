@@ -1,58 +1,103 @@
+import '../../../inventory/domain/entities/inventory_item.dart';
 import '../../../inventory/domain/repositories/inventory_repository.dart';
 import 'package:pamoja_twalima/data/database/database_helper.dart';
+import 'package:pamoja_twalima/data/models/inventory_dto.dart';
+import 'package:pamoja_twalima/data/repositories/sync_data.dart';
 
 class InventoryRepositoryImpl implements InventoryRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
+  // ---------- CREATE ----------
   @override
-  Future<void> addItem(Map<String, dynamic> item) async {
+  Future<void> addItem(InventoryItem item) async {
     final db = await _dbHelper.database;
-    await db.insert('inventory', {
-      'item_name': item['name'] ?? item['item_name'],
-      'category': item['category'],
-      'quantity': item['quantity'],
-      'unit': item['unit'],
-      'unit_price': item['unit_price'],
-      'total_value': item['total_value'],
-      'supplier': item['supplier'],
-      'expiry_date': item['expiry_date'],
-      'last_updated': DateTime.now().toIso8601String(),
-    });
+    final dto = InventoryDto.fromEntity(item);
+
+    final localId = await db.insert('inventory', dto.toDb());
+
+    await SyncDataRepository().queueInventoryAction(
+      localId: localId,
+      action: 'create',
+      payload: dto.toApi(),
+    );
   }
 
+  // ---------- READ ----------
   @override
-  Future<void> deleteItem(String id) async {
+  Future<List<InventoryItem>> getItems() async {
     final db = await _dbHelper.database;
-    await db.delete('inventory', where: 'id = ?', whereArgs: [int.tryParse(id)]);
+    final maps = await db.query('inventory');
+
+    return maps.map(_mapToEntity).toList();
   }
 
+  // ---------- UPDATE ----------
   @override
-  Future<List<Map<String, dynamic>>> getItems() async {
-    final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query('inventory');
-    return maps.map((m) => Map<String, dynamic>.from(m)).toList();
-  }
+  Future<void> updateItem(InventoryItem item) async {
+    if (item.id == null) return;
 
-  @override
-  Future<void> updateItem(Map<String, dynamic> item) async {
     final db = await _dbHelper.database;
-    final id = item['id'] is int ? item['id'] : int.tryParse('${item['id']}');
-    if (id == null) return;
+    final dto = InventoryDto.fromEntity(item);
+    final localId = int.parse(item.id!);
+
     await db.update(
       'inventory',
       {
-        'item_name': item['name'] ?? item['item_name'],
-        'category': item['category'],
-        'quantity': item['quantity'],
-        'unit': item['unit'],
-        'unit_price': item['unit_price'],
-        'total_value': item['total_value'],
-        'supplier': item['supplier'],
-        'expiry_date': item['expiry_date'],
-        'last_updated': DateTime.now().toIso8601String(),
+        ...dto.toDb(),
+        'is_synced': 0,
       },
       where: 'id = ?',
-      whereArgs: [id],
+      whereArgs: [localId],
+    );
+
+    await SyncDataRepository().queueInventoryAction(
+      localId: localId,
+      action: 'update',
+      payload: dto.toApi(),
+    );
+  }
+
+  // ---------- DELETE ----------
+  @override
+  Future<void> deleteItem(String id) async {
+    final db = await _dbHelper.database;
+    final localId = int.parse(id);
+
+    await db.delete(
+      'inventory',
+      where: 'id = ?',
+      whereArgs: [localId],
+    );
+
+    await SyncDataRepository().queueInventoryAction(
+      localId: localId,
+      action: 'delete',
+      payload: {},
+    );
+  }
+
+  // ---------- PRIVATE MAPPER ----------
+  InventoryItem _mapToEntity(Map<String, dynamic> row) {
+    return InventoryItem(
+      id: row['id']?.toString(),
+      itemName: row['item_name'],
+      category: row['category'],
+      quantity: (row['quantity'] as num).toDouble(),
+      unit: row['unit'],
+      minStock: row['min_stock'] ?? 0,
+      unitPrice: row['unit_price'] != null
+          ? (row['unit_price'] as num).toDouble()
+          : null,
+      totalValue: row['total_value'] != null
+          ? (row['total_value'] as num).toDouble()
+          : null,
+      supplier: row['supplier'],
+      expiryDate: row['expiry_date'] != null
+          ? DateTime.parse(row['expiry_date'])
+          : null,
+      lastUpdated: row['last_updated'] != null
+          ? DateTime.parse(row['last_updated'])
+          : null,
     );
   }
 }

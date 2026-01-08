@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/ui/core/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
 import 'package:pamoja_twalima/farm_mgmt/presentation/overview.dart';
 import 'package:pamoja_twalima/farm_mgmt/presentation/crops.dart';
 import 'package:pamoja_twalima/farm_mgmt/presentation/animals.dart';

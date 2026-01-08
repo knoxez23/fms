@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../themes/app_colors.dart';
+ 
 
 enum AppBarVariant {
   standard, // Regular with back button

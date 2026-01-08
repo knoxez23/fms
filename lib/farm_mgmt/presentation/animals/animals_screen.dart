@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
-import 'package:pamoja_twalima/ui/core/animations/animated_card.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:pamoja_twalima/core/presentation/animations/animated_card.dart';
 import 'add_animal_screen.dart';
 import 'animal_detail_screen.dart';
 import 'breeding_schedule_screen.dart';
@@ -933,7 +933,7 @@ class _AnimalStat extends StatelessWidget {
         decoration: BoxDecoration(
           color: theme.cardTheme.color,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: const [AppColors.subtleShadow],
+          boxShadow: [AppColors.subtleShadow],
         ),
         child: Column(
           children: [

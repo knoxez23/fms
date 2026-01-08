@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/ui/core/themes/app_colors.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'add_crop_screen.dart';
 import 'crop_detail_screen.dart';
-import 'package:pamoja_twalima/ui/core/animations/animated_card.dart';
+import 'package:pamoja_twalima/core/presentation/animations/animated_card.dart';
 
 class CropsScreen extends StatefulWidget {
   const CropsScreen({super.key});
@@ -241,7 +241,7 @@ class _CropStat extends StatelessWidget {
         decoration: BoxDecoration(
           color: theme.cardTheme.color,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: const [AppColors.subtleShadow],
+          boxShadow: [AppColors.subtleShadow],
         ),
         child: Column(
           children: [

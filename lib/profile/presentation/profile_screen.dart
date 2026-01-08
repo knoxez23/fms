@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../data/services/auth_service.dart';
+import 'package:provider/provider.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -43,9 +44,13 @@ class ProfileScreen extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              final auth = AuthService();
+              final auth = Provider.of<AuthProvider>(context, listen: false);
               await auth.logout();
-              Navigator.of(context).pushReplacementNamed('/login');
+              if (Navigator.canPop(context)) {
+                Navigator.of(context).pushReplacementNamed('/login');
+              } else {
+                Navigator.of(context).pushNamedAndRemoveUntil('/login', (r) => false);
+              }
             },
             child: const Text('Logout'),
           )

@@ -1,5 +1,4 @@
 // Barrel for profile presentation
-export 'presentation.dart';
+// Barrel for profile presentation
 export 'profile.dart';
 export 'profile_screen.dart';
-export '*/*.dart';

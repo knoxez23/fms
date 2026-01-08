@@ -1,5 +1,4 @@
 // Barrel for weather presentation
-export 'presentation.dart';
+// Barrel for weather presentation
 export 'weather.dart';
 export 'weather_screen.dart';
-export '*/*.dart';

@@ -57,3 +57,20 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+---
+
+## Project-specific notes
+
+Recommended environment variables (add them to your `.env`):
+
+- `CORS_ALLOWED_ORIGINS` - comma separated origins allowed to call the API (e.g. `http://localhost:3000,http://127.0.0.1:8000`). Use `*` only for local development.
+- `SANCTUM_STATEFUL_DOMAINS` - domains for first-party SPA cookie auth (e.g. `localhost,127.0.0.1`).
+- `API_BASE_URL` - public API base url (e.g. `https://api.example.com/api`).
+
+CORS config has been added to `config/cors.php`. Ensure the webserver and environment match these settings.
+
+Security notes:
+- Use HTTPS in production and restrict `CORS_ALLOWED_ORIGINS` to your frontend domains.
+- Keep `APP_KEY` and database credentials secret. Rotate API tokens when needed.
+- For API tokens we use Laravel Sanctum `createToken()` (personal access tokens). Consider shortening token lifetime in production.

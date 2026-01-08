@@ -1,2 +1,2 @@
 // Re-export for weather screen
-export '../../ui/weather/weather_screen.dart';
+export 'weather_screen.dart';
