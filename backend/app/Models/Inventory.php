@@ -19,7 +19,7 @@ class Inventory extends Model
         'unit_price',
         'total_value',
         'notes',
-        'last_updated',
+        'last_restock',
         'server_id',
         'is_synced',
         'user_id',
@@ -29,7 +29,7 @@ class Inventory extends Model
         'quantity' => 'float',
         'unit_price' => 'float',
         'total_value' => 'float',
-        'last_updated' => 'datetime',
+        'last_restock' => 'datetime',
         'is_synced' => 'boolean',
     ];
 

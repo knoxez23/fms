@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'local_data.dart';
 import '../services/sale_service.dart';
+import 'inventory_sync_worker.dart';
 
 class SyncWorker {
   static final SyncWorker _instance = SyncWorker._internal();
@@ -35,66 +36,85 @@ class SyncWorker {
       // First, cleanup invalid entries
       await _cleanupInvalidEntries();
 
-      final pending = await LocalData.getPendingSales();
-      if (pending.isEmpty) {
-        _running = false;
-        return;
-      }
+      // Sync pending sales
+      await _syncPendingSales();
 
-      developer.log('SyncWorker: found ${pending.length} pending sales to sync');
-
-      for (final row in pending) {
-        final id = row['id'] as int;
-        final payloadText = row['payload'] as String? ?? '';
-
-        Map<String, dynamic> payload;
-        try {
-          payload = jsonDecode(payloadText) as Map<String, dynamic>;
-        } catch (e) {
-          developer.log('SyncWorker: invalid JSON for pending sale id=$id, deleting');
-          await LocalData.deletePendingSale(id);
-          continue;
-        }
-
-        // Validate product_name before attempting sync
-        if (!_isValidSale(payload)) {
-          developer.log('SyncWorker: deleting invalid pending sale id=$id (validation failed)');
-          await LocalData.deletePendingSale(id);
-          continue;
-        }
-
-        // Transform payload to match Laravel expectations
-        final transformedPayload = _transformPayloadForApi(payload);
-
-        try {
-          final result = await SaleService().create(transformedPayload);
-          developer.log('SyncWorker: successfully synced pending sale id=$id, server returned: $result');
-          
-          // On success, remove from pending queue
-          await LocalData.deletePendingSale(id);
-          
-          // Update local sales with server response (includes server-generated ID)
-          if (result.containsKey('id')) {
-            await LocalData.insertSale({
-              ...payload,
-              'id': result['id'], // Use server ID
-            });
-          }
-          
-          developer.log('SyncWorker: completed sync for pending sale id=$id');
-        } catch (e, st) {
-          developer.log(
-            'SyncWorker: failed to sync pending sale id=$id: $e',
-            error: e,
-            stackTrace: st,
-          );
-          // Don't delete; will retry later
-        }
-      }
+      // Sync inventory items
+      await _syncInventory();
     } catch (e, st) {
       developer.log('SyncWorker: unexpected error: $e', error: e, stackTrace: st);
     } finally {
       _running = false;
+    }
+  }
+
+  /// Sync pending inventory items to the server
+  Future<void> _syncInventory() async {
+    try {
+      final worker = InventorySyncWorker();
+      await worker.sync();
+      developer.log('SyncWorker: inventory sync completed');
+    } catch (e, st) {
+      developer.log('SyncWorker: inventory sync failed: $e', error: e, stackTrace: st);
+    }
+  }
+
+  /// Sync pending sales to the server
+  Future<void> _syncPendingSales() async {
+    final pending = await LocalData.getPendingSales();
+    if (pending.isEmpty) {
+      return;
+    }
+
+    developer.log('SyncWorker: found ${pending.length} pending sales to sync');
+
+    for (final row in pending) {
+      final id = row['id'] as int;
+      final payloadText = row['payload'] as String? ?? '';
+
+      Map<String, dynamic> payload;
+      try {
+        payload = jsonDecode(payloadText) as Map<String, dynamic>;
+      } catch (e) {
+        developer.log('SyncWorker: invalid JSON for pending sale id=$id, deleting');
+        await LocalData.deletePendingSale(id);
+        continue;
+      }
+
+      // Validate product_name before attempting sync
+      if (!_isValidSale(payload)) {
+        developer.log('SyncWorker: deleting invalid pending sale id=$id (validation failed)');
+        await LocalData.deletePendingSale(id);
+        continue;
+      }
+
+      // Transform payload to match Laravel expectations
+      final transformedPayload = _transformPayloadForApi(payload);
+
+      try {
+        final result = await SaleService().create(transformedPayload);
+        developer.log('SyncWorker: successfully synced pending sale id=$id, server returned: $result');
+        
+        // On success, remove from pending queue
+        await LocalData.deletePendingSale(id);
+        
+        // Update local sales with server response (includes server-generated ID)
+        if (result.containsKey('id')) {
+          await LocalData.insertSale({
+            ...payload,
+            'id': result['id'], // Use server ID
+          });
+        }
+        
+        developer.log('SyncWorker: completed sync for pending sale id=$id');
+      } catch (e, st) {
+        developer.log(
+          'SyncWorker: failed to sync pending sale id=$id: $e',
+          error: e,
+          stackTrace: st,
+        );
+        // Don't delete; will retry later
+      }
     }
   }
 

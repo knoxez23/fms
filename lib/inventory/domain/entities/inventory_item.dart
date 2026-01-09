@@ -9,7 +9,7 @@ class InventoryItem {
   final double? totalValue;
   final String? supplier;
   final DateTime? expiryDate;
-  final DateTime? lastUpdated;
+  final DateTime? lastRestock;
 
     // 🔹 SYNC STATE
   final bool isSynced;
@@ -26,7 +26,7 @@ class InventoryItem {
     this.totalValue,
     this.supplier,
     this.expiryDate,
-    this.lastUpdated,
+    this.lastRestock,
     this.isSynced = true,
     this.hasConflict = false,
   });

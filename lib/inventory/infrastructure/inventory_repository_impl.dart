@@ -95,7 +95,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
       expiryDate: row['expiry_date'] != null
           ? DateTime.parse(row['expiry_date'])
           : null,
-      lastUpdated: row['last_updated'] != null
+      lastRestock: row['last_updated'] != null
           ? DateTime.parse(row['last_updated'])
           : null,
     );

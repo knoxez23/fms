@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:pamoja_twalima/core/presentation/widgets/reusable_widgets.dart';
-import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:provider/provider.dart';
+
 import 'add_inventory_screen.dart';
 import 'inventory_history_screen.dart';
+
+import 'package:pamoja_twalima/auth/providers/auth_provider.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/reusable_widgets.dart';
+
 import 'package:pamoja_twalima/inventory/application/application.dart';
+import 'package:pamoja_twalima/inventory/domain/entities/inventory_item.dart';
 import 'package:pamoja_twalima/inventory/infrastructure/factory.dart';
-import '../../data/services/inventory_service.dart';
-import 'package:provider/provider.dart';
-import '../../auth/providers/auth_provider.dart';
+import 'package:pamoja_twalima/inventory/presentation/utils/inventory_utils.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -21,9 +25,9 @@ class _InventoryScreenState extends State<InventoryScreen>
   @override
   bool get wantKeepAlive => true;
 
-  List<Map<String, dynamic>> inventoryItems = [];
+  late final GetInventory _getInventory;
 
-  late final GetInventory _getInventoryUseCase;
+  List<InventoryItem> _items = [];
 
   String _selectedCategory = 'All';
   String _selectedStatus = 'All';
@@ -36,41 +40,77 @@ class _InventoryScreenState extends State<InventoryScreen>
     'Chemicals',
     'Animal Health',
     'Equipment',
-    'Tools'
+    'Tools',
   ];
 
   final List<String> _statusOptions = [
     'All',
     'Adequate',
     'Low Stock',
-    'Critical'
+    'Critical',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _getInventory = InventoryFactory.createGetInventory();
+    _loadInventory();
+  }
+
+  // ===========================================================================
+  // DATA
+  // ===========================================================================
+
+  Future<void> _loadInventory() async {
+    try {
+      final items = await _getInventory.execute();
+      if (mounted) {
+        setState(() => _items = items);
+      }
+    } catch (e) {
+      debugPrint('Inventory load failed: $e');
+    }
+  }
+
+  String _statusFor(InventoryItem item) {
+    if (item.quantity <= 0) return 'Critical';
+    if (item.quantity <= item.minStock) return 'Low Stock';
+    return 'Adequate';
+  }
+
+  List<InventoryItem> get _filteredItems {
+    return _items.where((item) {
+      final categoryMatch =
+          _selectedCategory == 'All' || item.category == _selectedCategory;
+
+      final statusMatch =
+          _selectedStatus == 'All' || _statusFor(item) == _selectedStatus;
+
+      return categoryMatch && statusMatch;
+    }).toList();
+  }
+
+  // ===========================================================================
+  // UI
+  // ===========================================================================
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
 
-    final filteredItems = inventoryItems.where((item) {
-      final categoryMatch =
-          _selectedCategory == 'All' || item['category'] == _selectedCategory;
-      final statusMatch =
-          _selectedStatus == 'All' || item['status'] == _selectedStatus;
-      return categoryMatch && statusMatch;
-    }).toList();
-
-    final lowStockCount =
-        inventoryItems.where((item) => item['status'] == 'Low Stock').length;
     final criticalCount =
-        inventoryItems.where((item) => item['status'] == 'Critical').length;
+        _items.where((i) => _statusFor(i) == 'Critical').length;
+    final lowStockCount =
+        _items.where((i) => _statusFor(i) == 'Low Stock').length;
     final adequateCount =
-        inventoryItems.where((item) => item['status'] == 'Adequate').length;
+        _items.where((i) => _statusFor(i) == 'Adequate').length;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         title: Text(
-          "Inventory",
+          'Inventory',
           style: theme.textTheme.titleLarge?.copyWith(
             color: AppColors.primary,
             fontWeight: FontWeight.bold,
@@ -78,18 +118,12 @@ class _InventoryScreenState extends State<InventoryScreen>
         ),
         backgroundColor: theme.cardColor,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              // TODO: Implement search
-            },
-          ),
-        ],
       ),
       body: CustomScrollView(
         slivers: [
-          // Stats Row
+          // -------------------------------------------------------------------
+          // STATS
+          // -------------------------------------------------------------------
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -101,9 +135,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                       label: 'Critical',
                       color: Colors.red,
                       icon: Icons.error_outline,
-                      onTap: () {
-                        setState(() => _selectedStatus = 'Critical');
-                      },
+                      onTap: () =>
+                          setState(() => _selectedStatus = 'Critical'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -113,9 +146,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                       label: 'Low Stock',
                       color: Colors.orange,
                       icon: Icons.warning_amber,
-                      onTap: () {
-                        setState(() => _selectedStatus = 'Low Stock');
-                      },
+                      onTap: () =>
+                          setState(() => _selectedStatus = 'Low Stock'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -125,9 +157,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                       label: 'Adequate',
                       color: Colors.green,
                       icon: Icons.check_circle_outline,
-                      onTap: () {
-                        setState(() => _selectedStatus = 'Adequate');
-                      },
+                      onTap: () =>
+                          setState(() => _selectedStatus = 'Adequate'),
                     ),
                   ),
                 ],
@@ -135,7 +166,9 @@ class _InventoryScreenState extends State<InventoryScreen>
             ),
           ),
 
-          // Filter Row
+          // -------------------------------------------------------------------
+          // FILTERS
+          // -------------------------------------------------------------------
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -146,8 +179,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                       value: _selectedCategory,
                       items: _categories,
                       prefixIcon: Icons.category,
-                      onChanged: (value) =>
-                          setState(() => _selectedCategory = value!),
+                      onChanged: (v) =>
+                          setState(() => _selectedCategory = v!),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -156,8 +189,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                       value: _selectedStatus,
                       items: _statusOptions,
                       prefixIcon: Icons.filter_list,
-                      onChanged: (value) =>
-                          setState(() => _selectedStatus = value!),
+                      onChanged: (v) =>
+                          setState(() => _selectedStatus = v!),
                     ),
                   ),
                 ],
@@ -167,8 +200,10 @@ class _InventoryScreenState extends State<InventoryScreen>
 
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-          // Inventory List
-          filteredItems.isEmpty
+          // -------------------------------------------------------------------
+          // LIST
+          // -------------------------------------------------------------------
+          _filteredItems.isEmpty
               ? SliverFillRemaining(
                   child: EmptyState(
                     icon: Icons.inventory_2_outlined,
@@ -188,52 +223,47 @@ class _InventoryScreenState extends State<InventoryScreen>
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
-                        final item = filteredItems[index];
+                        final item = _filteredItems[index];
+                        final status = _statusFor(item);
+
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: ListItemCard(
-                            icon: InventoryUtils.getCategoryIcon(
-                                item['category']),
-                            iconColor: InventoryUtils.getCategoryColor(
-                                item['category']),
-                            title: item['name'],
+                            icon: InventoryUtils.getCategoryIcon(item.category),
+                            iconColor:
+                                InventoryUtils.getCategoryColor(item.category),
+                            title: item.itemName,
                             subtitle:
-                                '${item['category']} • ${item['supplier']}',
+                                '${item.category} • ${item.supplier ?? '-'}',
                             badges: [
                               StatusBadge(
-                                label: '${item['quantity']} ${item['unit']}',
+                                label: '${item.quantity} ${item.unit}',
                                 color: Colors.blue,
                                 icon: Icons.inventory_2,
                               ),
                               StatusBadge(
-                                label: item['status'],
-                                color: InventoryUtils.getStatusColor(
-                                    item['status']),
+                                label: status,
+                                color:
+                                    InventoryUtils.getStatusColor(status),
                               ),
                             ],
                             trailing: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                if (item['quantity'] <= item['minStock'])
-                                  const Icon(
-                                    Icons.warning,
-                                    color: Colors.orange,
-                                    size: 20,
-                                  ),
+                                _syncBadge(item),
+                                const SizedBox(height: 6),
                                 Text(
-                                  'Min: ${item['minStock']}',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.6),
-                                  ),
+                                  'Min: ${item.minStock}',
+                                  style: theme.textTheme.bodySmall,
                                 ),
                               ],
                             ),
-                            onTap: () => _showItemDetails(context, item),
+                            onTap: () =>
+                                _showItemDetails(context, item),
                           ),
                         );
                       },
-                      childCount: filteredItems.length,
+                      childCount: _filteredItems.length,
                     ),
                   ),
                 ),
@@ -241,6 +271,10 @@ class _InventoryScreenState extends State<InventoryScreen>
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
+
+      // -----------------------------------------------------------------------
+      // ACTIONS
+      // -----------------------------------------------------------------------
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 90),
         child: Column(
@@ -248,117 +282,75 @@ class _InventoryScreenState extends State<InventoryScreen>
           children: [
             FloatingActionButton(
               heroTag: 'history',
+              mini: true,
+              backgroundColor: theme.colorScheme.secondary,
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (_) => const InventoryHistoryScreen()),
+                    builder: (_) => const InventoryHistoryScreen(),
+                  ),
                 );
               },
-              backgroundColor: theme.colorScheme.secondary,
-              mini: true,
               child: const Icon(Icons.history, color: Colors.white),
             ),
             const SizedBox(height: 12),
             FloatingActionButton(
-              heroTag: 'addInventoryFAB',
+              heroTag: 'addInventory',
+              backgroundColor: AppColors.primary,
               onPressed: () async {
-                final auth = Provider.of<AuthProvider>(context, listen: false);
-                final bool isAuth = auth.isAuthenticated;
-                final messenger = ScaffoldMessenger.of(context);
-                final fallback = InventoryFactory.createAddInventoryItem();
-
                 final result = await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const AddInventoryScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const AddInventoryScreen(),
+                  ),
                 );
 
                 if (result != null && result is Map<String, dynamic>) {
-                  // Validate and sanitize the result before using it
-                  final sanitizedItem = _sanitizeInventoryItem(result);
-
-                  // Validate required fields
-                  if (!_validateInventoryItem(sanitizedItem)) {
+                  // Validate the data before mapping
+                  final validationResult = _validateInventoryData(result);
+                  
+                  if (!validationResult.isValid) {
                     if (!mounted) return;
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                            'Invalid item data. Please check all required fields.'),
-                        backgroundColor: Colors.red,
-                      ),
+                    
+                    // Show detailed error dialog
+                    _showValidationErrorDialog(
+                      context,
+                      validationResult.missingFields,
+                      result,
                     );
                     return;
                   }
 
-                  // Optimistic insert with sanitized data
-                  setState(() => inventoryItems.insert(0, sanitizedItem));
+                  try {
+                    final entity = _mapToEntity(result);
+                    setState(() => _items.insert(0, entity));
 
-                  if (isAuth) {
-                    try {
-                      // Send to API - transform for API if needed
-                      final apiPayload = _transformForApi(sanitizedItem);
-                      await InventoryService().create(apiPayload);
+                    final addUseCase = InventoryFactory.createAddInventoryItem();
+                    await addUseCase.execute(entity);
 
-                      if (!mounted) return;
-                      messenger.showSnackBar(
-                        const SnackBar(
-                          content: Text('Item saved successfully'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    } catch (e) {
-                      if (!mounted) return;
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content:
-                              Text('Failed to save on server: ${e.toString()}'),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                      // Fallback to local storage
-                      try {
-                        await fallback.execute(sanitizedItem);
-                        if (!mounted) return;
-                        messenger.showSnackBar(
-                          const SnackBar(
-                              content: Text('Item saved locally instead')),
-                        );
-                      } catch (localError) {
-                        if (!mounted) return;
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text(
-                                'Failed to save locally: ${localError.toString()}'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                        // Remove from UI if both save attempts failed
-                        setState(() => inventoryItems.removeAt(0));
-                      }
-                    }
-                  } else {
-                    // Save locally when offline/unauthenticated
-                    try {
-                      await fallback.execute(sanitizedItem);
-                      if (!mounted) return;
-                      messenger.showSnackBar(
-                        const SnackBar(content: Text('Item saved locally')),
-                      );
-                    } catch (e) {
-                      if (!mounted) return;
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content: Text('Failed to save: ${e.toString()}'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                      // Remove from UI if save failed
-                      setState(() => inventoryItems.removeAt(0));
-                    }
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Item added successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e, stackTrace) {
+                    debugPrint('Error mapping inventory item: $e');
+                    debugPrint('Stack trace: $stackTrace');
+                    
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to add item: $e'),
+                        backgroundColor: Colors.red,
+                        duration: const Duration(seconds: 5),
+                      ),
+                    );
                   }
                 }
               },
-              backgroundColor: AppColors.primary,
               child: const Icon(Icons.add, color: Colors.white),
             ),
           ],
@@ -367,138 +359,228 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _getInventoryUseCase = InventoryFactory.createGetInventory();
-    _loadInventory();
-  }
+  // ===========================================================================
+  // VALIDATION
+  // ===========================================================================
 
-  /// Sanitize inventory item to ensure no null values in required String fields
-  Map<String, dynamic> _sanitizeInventoryItem(Map<String, dynamic> item) {
-    final quantity = item['quantity'] is num
-        ? item['quantity']
-        : (num.tryParse('${item['quantity']}') ?? 0);
+  ValidationResult _validateInventoryData(Map<String, dynamic> data) {
+    final missingFields = <String>[];
 
-    final minStock = item['minStock'] ?? item['min_stock'] ?? 0;
-
-    // Calculate status based on quantity vs minStock
-    String status = 'Adequate';
-    if (minStock is num && quantity is num) {
-      if (quantity <= 0) {
-        status = 'Critical';
-      } else if (quantity <= minStock) {
-        status = 'Low Stock';
-      }
+    // Check each required field
+    if (data['itemName'] == null || data['itemName'].toString().trim().isEmpty) {
+      missingFields.add('Item Name (itemName)');
     }
 
-    return {
-      'id': item['id']?.toString() ?? '',
-      'name': item['name']?.toString() ??
-          item['item_name']?.toString() ??
-          'Unknown Item',
-      'category': item['category']?.toString() ?? 'Uncategorized',
-      'quantity': quantity,
-      'unit': item['unit']?.toString() ?? item['uom']?.toString() ?? 'units',
-      'minStock': minStock,
-      'status': status,
-      'lastRestock': item['lastRestock']?.toString() ??
-          item['last_updated']?.toString() ??
-          DateTime.now().toIso8601String(),
-      'supplier': item['supplier']?.toString() ?? 'Unknown',
-    };
+    if (data['category'] == null || data['category'].toString().trim().isEmpty) {
+      missingFields.add('Category (category)');
+    }
+
+    if (data['quantity'] == null) {
+      missingFields.add('Quantity (quantity)');
+    }
+
+    if (data['unit'] == null || data['unit'].toString().trim().isEmpty) {
+      missingFields.add('Unit (unit)');
+    }
+
+    if (data['supplier'] == null || data['supplier'].toString().trim().isEmpty) {
+      missingFields.add('Supplier (supplier)');
+    }
+
+    return ValidationResult(
+      isValid: missingFields.isEmpty,
+      missingFields: missingFields,
+    );
   }
 
-  /// Validate that required fields are present and valid
-  bool _validateInventoryItem(Map<String, dynamic> item) {
-    // Check required string fields are not empty
-    if ((item['name'] as String).trim().isEmpty) return false;
-    if ((item['category'] as String).trim().isEmpty) return false;
-
-    // Check numeric fields are valid
-    if (item['quantity'] == null || item['quantity'] is! num) return false;
-    if (item['minStock'] == null || item['minStock'] is! num) return false;
-
-    return true;
-  }
-
-  /// Transform data for API (map field names if needed)
-  Map<String, dynamic> _transformForApi(Map<String, dynamic> item) {
-    return {
-      'item_name': item['name'],
-      'category': item['category'],
-      'quantity': item['quantity'],
-      'unit': item['unit'],
-      'min_stock': item['minStock'],
-      'supplier': item['supplier'],
-      'unit_price': item['unit_price'],
-      'total_value': item['total_value'],
-      'notes': item['notes'],
-      'last_updated': item['lastRestock'],
-    };
-  }
-
-  Future<void> _loadInventory() async {
-    try {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      if (auth.isAuthenticated) {
-        final api = InventoryService();
-        final list = await api.list();
-
-        final mapped = list.map((row) {
-          return _sanitizeInventoryItem(row);
-        }).toList();
-
-        if (mounted) {
-          setState(() => inventoryItems = mapped);
-        }
-        return;
-      }
-
-      // Fallback to local data
-      final items = await _getInventoryUseCase.execute();
-      final mapped = items.map((row) {
-        return _sanitizeInventoryItem(row);
-      }).toList();
-
-      if (mounted) {
-        setState(() => inventoryItems = mapped);
-      }
-    } catch (e) {
-      // Log error but keep UI stable
-      debugPrint('Failed to load inventory: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load inventory: ${e.toString()}'),
-            backgroundColor: Colors.orange,
+  void _showValidationErrorDialog(
+    BuildContext context,
+    List<String> missingFields,
+    Map<String, dynamic> receivedData,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Missing Required Fields'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'The following required fields are missing or empty:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              ...missingFields.map((field) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.close, color: Colors.red, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(field)),
+                      ],
+                    ),
+                  )),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+              const Text(
+                'Data received from form:',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _formatDataForDisplay(receivedData),
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
           ),
-        );
-      }
-    }
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
-  void _showItemDetails(BuildContext context, Map<String, dynamic> item) {
+  String _formatDataForDisplay(Map<String, dynamic> data) {
+    final buffer = StringBuffer();
+    data.forEach((key, value) {
+      final valueStr = value?.toString() ?? 'null';
+      final isEmpty = value == null || valueStr.trim().isEmpty;
+      buffer.writeln('$key: $valueStr ${isEmpty ? '❌' : '✓'}');
+    });
+    return buffer.toString();
+  }
+
+  // ===========================================================================
+  // HELPERS
+  // ===========================================================================
+
+  InventoryItem _mapToEntity(Map<String, dynamic> map) {
+    // Provide safe defaults and explicit null checks
+    final itemName = map['itemName']?.toString() ?? '';
+    final category = map['category']?.toString() ?? '';
+    final unit = map['unit']?.toString() ?? '';
+    final supplier = map['supplier']?.toString() ?? '';
+
+    if (itemName.isEmpty) {
+      throw ArgumentError('Item name cannot be empty');
+    }
+    if (category.isEmpty) {
+      throw ArgumentError('Category cannot be empty');
+    }
+    if (unit.isEmpty) {
+      throw ArgumentError('Unit cannot be empty');
+    }
+    if (supplier.isEmpty) {
+      throw ArgumentError('Supplier cannot be empty');
+    }
+
+    // Parse quantity safely
+    double quantity;
+    try {
+      quantity = (map['quantity'] as num).toDouble();
+    } catch (e) {
+      throw ArgumentError('Invalid quantity value: ${map['quantity']}');
+    }
+
+    return InventoryItem(
+      itemName: itemName,
+      category: category,
+      quantity: quantity,
+      unit: unit,
+      minStock: map['minStock'] ?? 0,
+      supplier: supplier,
+      lastRestock: DateTime.now(),
+      isSynced: false,
+    );
+  }
+
+  Widget _syncBadge(InventoryItem item) {
+    if (item.hasConflict) {
+      return _badge('CONFLICT', Colors.red);
+    }
+    if (!item.isSynced) {
+      return _badge('SYNCING', Colors.orange);
+    }
+    return _badge('SYNCED', Colors.green);
+  }
+
+  Widget _badge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(color: color, fontSize: 11),
+      ),
+    );
+  }
+
+  void _showItemDetails(BuildContext context, InventoryItem item) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => ItemDetailsSheet(item: item),
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ItemDetailsSheet(item: item),
     );
   }
 }
+
 // ============================================================================
-// ITEM DETAILS BOTTOM SHEET
+// VALIDATION RESULT
 // ============================================================================
 
-class ItemDetailsSheet extends StatelessWidget {
-  final Map<String, dynamic> item;
+class ValidationResult {
+  final bool isValid;
+  final List<String> missingFields;
 
-  const ItemDetailsSheet({super.key, required this.item});
+  ValidationResult({
+    required this.isValid,
+    required this.missingFields,
+  });
+}
+
+// ============================================================================
+// DETAILS SHEET
+// ============================================================================
+
+class _ItemDetailsSheet extends StatelessWidget {
+  final InventoryItem item;
+
+  const _ItemDetailsSheet({required this.item});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final status = _statusFor(item);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -519,13 +601,13 @@ class ItemDetailsSheet extends StatelessWidget {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: InventoryUtils.getCategoryColor(item['category'])
+                  color: InventoryUtils.getCategoryColor(item.category)
                       .withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
-                  InventoryUtils.getCategoryIcon(item['category']),
-                  color: InventoryUtils.getCategoryColor(item['category']),
+                  InventoryUtils.getCategoryIcon(item.category),
+                  color: InventoryUtils.getCategoryColor(item.category),
                   size: 28,
                 ),
               ),
@@ -535,24 +617,24 @@ class ItemDetailsSheet extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      item['name'],
+                      item.itemName,
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     Text(
-                      item['category'],
+                      item.category,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.6),
                       ),
                     ),
                   ],
                 ),
               ),
               StatusBadge(
-                label: item['status'],
-                color: InventoryUtils.getStatusColor(item['status']),
+                label: status,
+                color: InventoryUtils.getStatusColor(status),
               ),
             ],
           ),
@@ -564,25 +646,27 @@ class ItemDetailsSheet extends StatelessWidget {
           // Details
           DetailRow(
             label: 'Current Stock',
-            value: '${item['quantity']} ${item['unit']}',
+            value: '${item.quantity} ${item.unit}',
             icon: Icons.inventory_2,
-            valueColor: InventoryUtils.getStatusColor(item['status']),
+            valueColor: InventoryUtils.getStatusColor(status),
           ),
           DetailRow(
             label: 'Minimum Stock',
-            value: '${item['minStock']} ${item['unit']}',
+            value: '${item.minStock} ${item.unit}',
             icon: Icons.priority_high,
           ),
-          DetailRow(
-            label: 'Supplier',
-            value: item['supplier'],
-            icon: Icons.business,
-          ),
-          DetailRow(
-            label: 'Last Restock',
-            value: _formatDate(item['lastRestock']),
-            icon: Icons.calendar_today,
-          ),
+          if (item.supplier != null && item.supplier!.isNotEmpty)
+            DetailRow(
+              label: 'Supplier',
+              value: item.supplier!,
+              icon: Icons.business,
+            ),
+          if (item.lastRestock != null)
+            DetailRow(
+              label: 'Last Restock',
+              value: _formatDate(item.lastRestock!),
+              icon: Icons.calendar_today,
+            ),
 
           const SizedBox(height: 24),
 
@@ -625,69 +709,13 @@ class ItemDetailsSheet extends StatelessWidget {
     );
   }
 
-  String _formatDate(String date) {
-    final parts = date.split('-');
-    return '${parts[2]}/${parts[1]}/${parts[0]}';
-  }
-}
-
-// ============================================================================
-// INVENTORY UTILITIES
-// ============================================================================
-
-class InventoryUtils {
-  static Color getCategoryColor(String category) {
-    switch (category) {
-      case 'Fertilizers':
-        return Colors.green;
-      case 'Seeds':
-        return Colors.blue;
-      case 'Animal Feed':
-        return Colors.orange;
-      case 'Chemicals':
-        return Colors.red;
-      case 'Animal Health':
-        return Colors.purple;
-      case 'Equipment':
-        return Colors.brown;
-      case 'Tools':
-        return Colors.teal;
-      default:
-        return Colors.grey;
-    }
+  String _statusFor(InventoryItem item) {
+    if (item.quantity <= 0) return 'Critical';
+    if (item.quantity <= item.minStock) return 'Low Stock';
+    return 'Adequate';
   }
 
-  static IconData getCategoryIcon(String category) {
-    switch (category) {
-      case 'Fertilizers':
-        return Icons.eco;
-      case 'Seeds':
-        return Icons.spa;
-      case 'Animal Feed':
-        return Icons.grain;
-      case 'Chemicals':
-        return Icons.science;
-      case 'Animal Health':
-        return Icons.medical_services;
-      case 'Equipment':
-        return Icons.build;
-      case 'Tools':
-        return Icons.construction;
-      default:
-        return Icons.inventory;
-    }
-  }
-
-  static Color getStatusColor(String status) {
-    switch (status) {
-      case 'Adequate':
-        return Colors.green;
-      case 'Low Stock':
-        return Colors.orange;
-      case 'Critical':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 }

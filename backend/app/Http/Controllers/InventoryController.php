@@ -30,7 +30,7 @@ class InventoryController extends Controller
             'unit_price' => 'nullable|numeric',
             'total_value' => 'nullable|numeric',
             'notes' => 'nullable|string',
-            'last_updated' => 'nullable|date',
+            'last_restock' => 'nullable|date',
         ]);
 
         return Inventory::create(

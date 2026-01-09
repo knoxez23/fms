@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/inventory/application/application.dart';
 import 'package:pamoja_twalima/inventory/infrastructure/factory.dart';
-// Removed unused imports: inventory service and auth provider are used by parent screen
 
 class AddInventoryScreen extends StatefulWidget {
   const AddInventoryScreen({super.key});
@@ -112,7 +111,7 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
-                        initialValue: _selectedCategory,
+                        value: _selectedCategory,
                         items: _categories.map((category) {
                           return DropdownMenuItem(
                             value: category,
@@ -124,10 +123,13 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
                           border: OutlineInputBorder(),
                         ),
                         onChanged: (value) {
-                          setState(() {
-                            _selectedCategory = value!;
-                            _selectedUnit = currentUnits.first;
-                          });
+                          if (value != null) {
+                            final newUnits = _units[value] ?? ['units'];
+                            setState(() {
+                              _selectedCategory = value;
+                              _selectedUnit = newUnits.first;
+                            });
+                          }
                         },
                       ),
                     ],
@@ -176,7 +178,7 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
                           Expanded(
                             flex: 1,
                             child: DropdownButtonFormField<String>(
-                              initialValue: _selectedUnit,
+                              value: _selectedUnit,
                               items: currentUnits.map((unit) {
                                 return DropdownMenuItem(
                                   value: unit,
@@ -188,9 +190,11 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
                                 border: OutlineInputBorder(),
                               ),
                               onChanged: (value) {
-                                setState(() {
-                                  _selectedUnit = value!;
-                                });
+                                if (value != null) {
+                                  setState(() {
+                                    _selectedUnit = value;
+                                  });
+                                }
                               },
                             ),
                           ),
@@ -237,10 +241,16 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
                       TextFormField(
                         controller: _supplierController,
                         decoration: const InputDecoration(
-                          labelText: 'Supplier',
+                          labelText: 'Supplier *',
                           hintText: 'e.g., AgroSupplies Ltd',
                           border: OutlineInputBorder(),
                         ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter supplier name';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -344,23 +354,32 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
     if (_formKey.currentState!.validate()) {
       final quantity = int.parse(_quantityController.text);
       final minStock = int.parse(_minStockController.text);
-      final unitPrice = _costController.text.isNotEmpty ? double.parse(_costController.text) : null;
+      final unitPrice = _costController.text.isNotEmpty 
+          ? double.parse(_costController.text) 
+          : null;
       final totalValue = (unitPrice != null) ? (unitPrice * quantity) : null;
 
-      final newItem = {
-        'item_name': _nameController.text,
+      
+      final newItem = {        
+        'itemName': _nameController.text,
         'category': _selectedCategory,
         'quantity': quantity,
-        'unit': _selectedUnit,
-        'min_stock': minStock,
+        'unit': _selectedUnit,        
+        'minStock': minStock,
         'supplier': _supplierController.text,
-        'unit_price': unitPrice,
-        'total_value': totalValue,
+        'unitPrice': unitPrice,
+        'totalValue': totalValue,
         'notes': _notesController.text,
         'lastRestock': DateTime.now().toIso8601String(),
+        
+        // Also include API-compatible field names for when this gets sent to the backend
+        // 'item_name': _nameController.text,
+        // 'min_stock': minStock,
+        // 'unit_price': unitPrice,
+        // 'total_value': totalValue,
       };
 
-      // Return immediately (optimistic). Parent will perform API/create and show feedback.
+      // Return to parent screen
       Navigator.pop(context, newItem);
     }
   }
@@ -377,7 +396,6 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
   }
 }
 
-// Reuse the _AnimatedCard widget
 class _AnimatedCard extends StatefulWidget {
   final Widget child;
   final ThemeData theme;

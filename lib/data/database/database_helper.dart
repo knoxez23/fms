@@ -19,7 +19,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'pamoja_twalima.db');
     return await openDatabase(
       path,
-      version: 2,
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -97,11 +97,14 @@ class DatabaseHelper {
         category TEXT,
         quantity REAL,
         unit TEXT,
+        min_stock INTEGER DEFAULT 0,
         unit_price REAL,
         total_value REAL,
         supplier TEXT,
-        expiry_date TEXT,
+        notes TEXT,
+        last_restock TEXT,
         last_updated TEXT DEFAULT CURRENT_TIMESTAMP,
+        is_synced INTEGER DEFAULT 0,
         user_id INTEGER,
         FOREIGN KEY (user_id) REFERENCES users (id)
       )
@@ -197,6 +200,18 @@ class DatabaseHelper {
       )
     ''');
 
+    // Inventory sync queue table
+    await db.execute('''
+      CREATE TABLE inventory_sync_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        inventory_local_id INTEGER,
+        action TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        retry_count INTEGER DEFAULT 0
+      )
+    ''');
+
     // Pending sales table (for offline -> sync)
     await db.execute('''
       CREATE TABLE pending_sales (
@@ -217,6 +232,23 @@ class DatabaseHelper {
           created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
       ''');
+    }
+    // Add inventory_sync_queue table (version 4)
+    if (oldVersion < 4) {
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS inventory_sync_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            inventory_local_id INTEGER,
+            action TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            retry_count INTEGER DEFAULT 0
+          )
+        ''');
+      } catch (e) {
+        // Table may already exist
+      }
     }
   }
 

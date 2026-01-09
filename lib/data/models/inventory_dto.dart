@@ -11,7 +11,7 @@ class InventoryDto {
   final double? totalValue;
   final String? supplier;
   final String? notes;
-  final DateTime lastUpdated;
+  final DateTime lastRestock;
 
   InventoryDto({
     this.localId,
@@ -24,7 +24,7 @@ class InventoryDto {
     this.totalValue,
     this.supplier,
     this.notes,
-    required this.lastUpdated,
+    required this.lastRestock,
   });
 
   /// Domain → DTO
@@ -40,7 +40,7 @@ class InventoryDto {
       totalValue: item.totalValue,
       supplier: item.supplier,
       notes: null,
-      lastUpdated: item.lastUpdated ?? DateTime.now(),
+      lastRestock: item.lastRestock ?? DateTime.now(),
     );
   }
 
@@ -55,7 +55,7 @@ class InventoryDto {
       'supplier': supplier,
       'unit_price': unitPrice,
       'total_value': totalValue,
-      'last_updated': lastUpdated.toIso8601String(),
+      'last_restock': lastRestock.toIso8601String(),
     };
   }
 
@@ -70,7 +70,7 @@ class InventoryDto {
       'unit_price': unitPrice,
       'total_value': totalValue,
       'supplier': supplier,
-      'last_updated': lastUpdated.toIso8601String(),
+      'last_restock': lastRestock.toIso8601String(),
       'is_synced': 0,
     };
   }

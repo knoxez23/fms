@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:pamoja_twalima/data/database/database_helper.dart';
 import 'package:pamoja_twalima/data/network/api_service.dart';
@@ -31,14 +32,13 @@ class InventorySyncWorker {
   ) async {
     final String action = queueItem['action'];
     final Map<String, dynamic> payload =
-        Map<String, dynamic>.from(queueItem['payload']);
-    final int localId = queueItem['local_id'];
-    final int? serverId = queueItem['server_id'];
+        Map<String, dynamic>.from(jsonDecode(queueItem['payload'] as String));
+    final int localId = queueItem['inventory_local_id'];
 
     try {
       if (action == 'create') {
         final response = await _api.post(
-          '/inventory',
+          '/inventories',
           data: payload,
         );
 
@@ -47,17 +47,34 @@ class InventorySyncWorker {
         await _markSynced(db, localId, newServerId);
       }
 
-      if (action == 'update' && serverId != null) {
-        await _api.put(
-          '/inventory/$serverId',
-          data: payload,
+      if (action == 'update') {
+        // Get server_id from inventory table
+        final inventoryRecord = await db.query(
+          'inventory',
+          where: 'id = ?',
+          whereArgs: [localId],
         );
-
-        await _markSynced(db, localId, serverId);
+        final serverId = inventoryRecord.first['server_id'] as int?;
+        if (serverId != null) {
+          await _api.put(
+            '/inventories/$serverId',
+            data: payload,
+          );
+          await _markSynced(db, localId, serverId);
+        }
       }
 
-      if (action == 'delete' && serverId != null) {
-        await _api.delete('/inventory/$serverId');
+      if (action == 'delete') {
+        // Get server_id from inventory table
+        final inventoryRecord = await db.query(
+          'inventory',
+          where: 'id = ?',
+          whereArgs: [localId],
+        );
+        final serverId = inventoryRecord.first['server_id'] as int?;
+        if (serverId != null) {
+          await _api.delete('/inventories/$serverId');
+        }
       }
 
       await db.delete(

@@ -30,22 +30,25 @@ class _InventoryHistoryScreenState extends State<InventoryHistoryScreen> {
   Future<void> _loadInventoryHistory() async {
     try {
       final items = await _getInventoryUseCase.execute();
-      _allItems = items.map((row) {
-        final qty = (row['quantity'] is num)
-            ? row['quantity']
-            : (num.tryParse('${row['quantity']}') ?? 0);
-        final minStock = row['minStock'] is num ? row['minStock'] : (row['minStock'] != null ? int.tryParse('${row['minStock']}') ?? 0 : 0);
+      _allItems = items.map((item) {
+        // qty and minStock are already typed (double and int), no parsing needed
+        final qty = item.quantity;
+        final minStock = item.minStock;
+
+        // format lastRestock from DateTime to String
+        final lastRestock =
+            item.lastRestock != null ? _formatDate(item.lastRestock!) : '';
 
         return {
-          'id': '${row['id']}',
-          'name': row['item_name'] ?? row['name'] ?? 'Unknown',
+          'id': item.id ?? '',
+          'name': item.itemName,
           'quantity': qty,
-          'unit': row['unit'] ?? '',
+          'unit': item.unit,
           'minStock': minStock,
-          'lastRestock': row['lastRestock'] ?? row['last_updated'] ?? '',
-          'supplier': row['supplier'] ?? '',
-          'unit_price': row['unit_price'],
-          'total_value': row['total_value'],
+          'lastRestock': lastRestock,
+          'supplier': item.supplier ?? '',
+          'unitPrice': item.unitPrice ?? 0,
+          'totalValue': item.totalValue ?? 0,
         };
       }).toList();
 
@@ -69,9 +72,12 @@ class _InventoryHistoryScreenState extends State<InventoryHistoryScreen> {
         };
       }).toList();
 
-      // Restock summary from available total_value or unit_price*quantity
+      // Restock summary from available totalValue or unitPrice*quantity
       _restockHistory = _allItems.map((i) {
-        final total = i['total_value'] ?? ((i['unit_price'] is num && i['quantity'] is num) ? (i['unit_price'] * i['quantity']) : 0);
+        final total = i['totalValue'] ??
+            ((i['unitPrice'] is num && i['quantity'] is num)
+                ? (i['unitPrice'] * i['quantity'])
+                : 0);
         return {
           'item': i['name'],
           'quantity': i['quantity'],
@@ -90,6 +96,11 @@ class _InventoryHistoryScreenState extends State<InventoryHistoryScreen> {
     } catch (e) {
       // ignore errors for now
     }
+  }
+
+  String _formatDate(DateTime date) {
+    final parts = [date.day, date.month, date.year];
+    return parts.map((e) => e.toString().padLeft(2, '0')).join('/');
   }
 
   @override
@@ -266,7 +277,9 @@ class _HistoryTab extends StatelessWidget {
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: isSelected ? Colors.white : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              color: isSelected
+                  ? Colors.white
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
         ),
@@ -283,7 +296,8 @@ class _RestockTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalCost = restockHistory.fold(0.00, (sum, item) => sum + (item['cost'] ?? 0));
+    final totalCost =
+        restockHistory.fold(0.00, (sum, item) => sum + (item['cost'] ?? 0));
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -306,7 +320,8 @@ class _RestockTab extends StatelessWidget {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
@@ -322,7 +337,8 @@ class _RestockTab extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                ...restockHistory.map((record) => _RestockItem(record: record, theme: theme)),
+                ...restockHistory.map(
+                    (record) => _RestockItem(record: record, theme: theme)),
               ],
             ),
           ),
@@ -431,14 +447,13 @@ class _UsageTab extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                ...usageHistory.map((record) => _UsageItem(record: record, theme: theme)),
+                ...usageHistory
+                    .map((record) => _UsageItem(record: record, theme: theme)),
               ],
             ),
           ),
         ),
-
         const SizedBox(height: 16),
-
         _AnimatedCard(
           index: 1,
           theme: theme,
@@ -575,7 +590,8 @@ class _AlertsTab extends StatelessWidget {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: Colors.orange.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
@@ -591,14 +607,13 @@ class _AlertsTab extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                ...lowStockAlerts.map((alert) => _AlertItem(alert: alert, theme: theme)),
+                ...lowStockAlerts
+                    .map((alert) => _AlertItem(alert: alert, theme: theme)),
               ],
             ),
           ),
         ),
-
         const SizedBox(height: 16),
-
         _AnimatedCard(
           index: 1,
           theme: theme,
@@ -666,7 +681,8 @@ class _AlertItem extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: _getPriorityColor(alert['priority']).withValues(alpha: 0.1),
+              color:
+                  _getPriorityColor(alert['priority']).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -701,7 +717,8 @@ class _AlertItem extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _getPriorityColor(alert['priority']).withValues(alpha: 0.1),
+                  color: _getPriorityColor(alert['priority'])
+                      .withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
