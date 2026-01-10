@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
- 
 
 enum AppBarVariant {
   standard, // Regular with back button
@@ -28,6 +27,11 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
   final double elevation;
   final Widget? bottom;
   final double? bottomHeight;
+  
+  // New sync parameters
+  final bool showSyncButton;
+  final VoidCallback? onSyncTap;
+  final bool isSyncing;
 
   const ModernAppBar({
     super.key,
@@ -49,6 +53,9 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.elevation = 0,
     this.bottom,
     this.bottomHeight,
+    this.showSyncButton = false,
+    this.onSyncTap,
+    this.isSyncing = false,
   });
 
   @override
@@ -233,6 +240,18 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     List<Widget> actionWidgets = [];
 
+    // Sync button (if enabled)
+    if (showSyncButton) {
+      actionWidgets.add(
+        _SyncButton(
+          isSyncing: isSyncing,
+          onTap: onSyncTap,
+          iconColor: iconColor,
+          isTransparent: variant == AppBarVariant.transparent,
+        ),
+      );
+    }
+
     // Search icon (for search variant or when search is enabled)
     if ((variant == AppBarVariant.search || showSearchBar) && !isSearching) {
       actionWidgets.add(
@@ -269,6 +288,59 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
+// Sync Button Widget
+class _SyncButton extends StatelessWidget {
+  final bool isSyncing;
+  final VoidCallback? onTap;
+  final Color? iconColor;
+  final bool isTransparent;
+
+  const _SyncButton({
+    required this.isSyncing,
+    this.onTap,
+    this.iconColor,
+    this.isTransparent = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return IconButton(
+      icon: isSyncing
+          ? SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  iconColor ?? theme.colorScheme.primary,
+                ),
+              ),
+            )
+          : (isTransparent
+              ? Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.sync_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                )
+              : Icon(
+                  Icons.sync_rounded,
+                  color: iconColor,
+                )),
+      tooltip: 'Sync from server',
+      onPressed: isSyncing ? null : onTap,
+    );
+  }
+}
+
 // Notification Button Widget
 class _NotificationButton extends StatelessWidget {
   final int count;
@@ -296,7 +368,7 @@ class _NotificationButton extends StatelessWidget {
                     color: Colors.black.withValues(alpha: 0.3),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.notifications_outlined,
                     color: Colors.white,
                     size: 20,

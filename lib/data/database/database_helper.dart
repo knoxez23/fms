@@ -19,7 +19,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'pamoja_twalima.db');
     return await openDatabase(
       path,
-      version: 4,
+      version: 5, // INCREMENTED VERSION
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -89,7 +89,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // Inventory table
+    // Inventory table - WITH server_id column
     await db.execute('''
       CREATE TABLE inventory (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,6 +105,8 @@ class DatabaseHelper {
         last_restock TEXT,
         last_updated TEXT DEFAULT CURRENT_TIMESTAMP,
         is_synced INTEGER DEFAULT 0,
+        server_id INTEGER,
+        conflict INTEGER DEFAULT 0,
         user_id INTEGER,
         FOREIGN KEY (user_id) REFERENCES users (id)
       )
@@ -114,13 +116,12 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE sales (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        item_name TEXT NOT NULL,
+        product_name TEXT NOT NULL,
         quantity REAL,
         unit TEXT,
-        unit_price REAL,
+        price REAL,
         total_amount REAL,
-        buyer_name TEXT,
-        buyer_contact TEXT,
+        customer_name TEXT,
         sale_date TEXT DEFAULT CURRENT_TIMESTAMP,
         payment_status TEXT,
         notes TEXT,
@@ -212,7 +213,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // Pending sales table (for offline -> sync)
+    // Pending sales table
     await db.execute('''
       CREATE TABLE pending_sales (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -224,7 +225,7 @@ class DatabaseHelper {
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      // Add pending_sales table for offline sync
+      // Add pending_sales table
       await db.execute('''
         CREATE TABLE IF NOT EXISTS pending_sales (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -233,8 +234,9 @@ class DatabaseHelper {
         )
       ''');
     }
-    // Add inventory_sync_queue table (version 4)
+
     if (oldVersion < 4) {
+      // Add inventory_sync_queue table
       try {
         await db.execute('''
           CREATE TABLE IF NOT EXISTS inventory_sync_queue (
@@ -248,6 +250,21 @@ class DatabaseHelper {
         ''');
       } catch (e) {
         // Table may already exist
+      }
+    }
+
+    if (oldVersion < 5) {
+      // Add server_id and conflict columns to inventory table
+      try {
+        await db.execute('ALTER TABLE inventory ADD COLUMN server_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+
+      try {
+        await db.execute('ALTER TABLE inventory ADD COLUMN conflict INTEGER DEFAULT 0');
+      } catch (e) {
+        // Column may already exist
       }
     }
   }

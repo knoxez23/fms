@@ -370,7 +370,7 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
         'unitPrice': unitPrice,
         'totalValue': totalValue,
         'notes': _notesController.text,
-        'lastRestock': DateTime.now().toIso8601String(),
+        'lastRestock': DateTime.now(),
         
         // Also include API-compatible field names for when this gets sent to the backend
         // 'item_name': _nameController.text,

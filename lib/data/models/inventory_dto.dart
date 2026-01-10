@@ -46,16 +46,24 @@ class InventoryDto {
 
   /// DTO → API
   Map<String, dynamic> toApi() {
+    final formattedDate = '${lastRestock.year}-'
+        '${lastRestock.month.toString().padLeft(2, '0')}-'
+        '${lastRestock.day.toString().padLeft(2, '0')} '
+        '${lastRestock.hour.toString().padLeft(2, '0')}:'
+        '${lastRestock.minute.toString().padLeft(2, '0')}:'
+        '${lastRestock.second.toString().padLeft(2, '0')}';
+
     return {
       'item_name': itemName,
       'category': category,
       'quantity': quantity,
       'unit': unit,
       'min_stock': minStock,
-      'supplier': supplier,
+      'supplier': supplier ?? '', // Provide empty string instead of null
       'unit_price': unitPrice,
       'total_value': totalValue,
-      'last_restock': lastRestock.toIso8601String(),
+      'notes': notes,
+      'last_restock': formattedDate, // Use formatted date
     };
   }
 

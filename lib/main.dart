@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'auth/providers/auth_provider.dart';
@@ -20,8 +21,6 @@ import 'profile/presentation/profile_screen.dart';
 import 'marketplace/presentation/sell_product_screen.dart';
 import 'auth/presentation/register_screen.dart';
 import 'auth/presentation/login_screen.dart';
-import 'data/repositories/local_data.dart';
-import 'data/repositories/sync_worker.dart';
 
 // Theme
 import 'core/presentation/themes/theme.dart';
@@ -30,8 +29,8 @@ import 'core/presentation/themes/app_colors.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables (non-blocking)
-  dotenv.load();
+  // Load environment variables
+  await dotenv.load();
 
   runApp(const PamojaApp());
 }
@@ -44,26 +43,26 @@ class PamojaApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => AuthProvider(),
       child: MaterialApp(
-      title: 'Pamoja Twalima',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
-      home: const SplashScreen(),
-      routes: {
-        '/onboarding': (_) => const OnboardingScreen(),
-        '/login': (_) => const LoginScreen(),
-        '/register': (_) => const RegisterScreen(),
-        '/animals': (_) => const AnimalsListScreen(),
-        '/home': (_) => const MainShell(),
-        '/profile': (_) => const ProfileScreen(),
-        '/sell-item': (_) => const SellProductScreen(),
-      },
-    ));
+        title: 'Pamoja Twalima',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.system,
+        home: const SplashScreen(),
+        routes: {
+          '/onboarding': (_) => const OnboardingScreen(),
+          '/login': (_) => const LoginScreen(),
+          '/register': (_) => const RegisterScreen(),
+          '/animals': (_) => const AnimalsListScreen(),
+          '/home': (_) => const MainShell(),
+          '/profile': (_) => const ProfileScreen(),
+          '/sell-item': (_) => const SellProductScreen(),
+        },
+      ),
+    );
   }
 }
 
-// Optimized splash screen - minimal UI, fast checks
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -75,13 +74,11 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // LocalData.cleanupInvalidSales();
     _checkAuthStatus();
   }
 
   Future<void> _checkAuthStatus() async {
     try {
-      // Parallel execution for faster startup - removed artificial delay
       final results = await Future.wait([
         SharedPreferences.getInstance(),
         const FlutterSecureStorage().read(key: 'auth_token'),
@@ -93,7 +90,6 @@ class _SplashScreenState extends State<SplashScreen> {
       final token = results[1] as String?;
       final seenOnboarding = prefs.getBool('seenOnboarding') ?? false;
 
-      // Determine route
       String route;
       if (!seenOnboarding) {
         route = '/onboarding';
@@ -103,10 +99,8 @@ class _SplashScreenState extends State<SplashScreen> {
         route = '/login';
       }
 
-      // Navigate
       Navigator.of(context).pushReplacementNamed(route);
     } catch (e) {
-      // On error, default to login
       if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/login');
     }
@@ -160,34 +154,70 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
+  Timer? _syncTimer;
 
-  // Lazy-loaded pages for better performance
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
-    // Initialize pages once
+    
+    // Initialize pages
     _pages = const [
       HomeScreen(),
       FarmMgmtScreen(),
       InventoryScreen(),
       SalesScreen(),
     ];
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Listen for global auth changes (e.g., 401 events) and redirect to login
-      AuthState.isAuthenticated.addListener(() {
-        if (!AuthState.isAuthenticated.value) {
-          if (mounted) {
-            Navigator.of(context).pushReplacementNamed('/login');
-          }
-        }
-      });
-      // Start background sync worker for pending sales
-      try {
-        SyncWorker().start();
-      } catch (_) {}
+      _initializeSyncWorkers();
+      _setupAuthListener();
+      _performInitialSync();
     });
+  }
+
+  void _initializeSyncWorkers() {
+    try {
+      // Start the unified sync worker (handles both sales and inventory)
+      SyncWorker().start(interval: const Duration(minutes: 2));
+      
+      debugPrint('✅ Sync workers initialized successfully');
+    } catch (e) {
+      debugPrint('❌ Failed to initialize sync workers: $e');
+    }
+  }
+
+  void _setupAuthListener() {
+    // Listen for auth changes and redirect to login if unauthenticated
+    AuthState.isAuthenticated.addListener(() {
+      if (!AuthState.isAuthenticated.value) {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/login');
+        }
+      }
+    });
+  }
+
+  /// Perform initial data sync from server on app startup
+  Future<void> _performInitialSync() async {
+    try {
+      debugPrint('📥 Performing initial sync from server...');
+      
+      // Trigger sync worker to pull data from server
+      await SyncWorker().syncFromServer();
+      
+      debugPrint('✅ Initial sync completed');
+    } catch (e) {
+      debugPrint('⚠️ Initial sync failed: $e');
+      // Don't block app startup if sync fails
+    }
+  }
+
+  @override
+  void dispose() {
+    _syncTimer?.cancel();
+    super.dispose();
   }
 
   final _icons = const [
@@ -267,7 +297,6 @@ class _MainShellState extends State<MainShell> {
   }
 }
 
-// Extracted widget for better performance
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;

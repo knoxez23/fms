@@ -7,6 +7,7 @@ import 'inventory_history_screen.dart';
 import 'package:pamoja_twalima/auth/providers/auth_provider.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/reusable_widgets.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
 
 import 'package:pamoja_twalima/inventory/application/application.dart';
 import 'package:pamoja_twalima/inventory/domain/entities/inventory_item.dart';
@@ -28,6 +29,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   late final GetInventory _getInventory;
 
   List<InventoryItem> _items = [];
+  bool _isSyncing = false;
 
   String _selectedCategory = 'All';
   String _selectedStatus = 'All';
@@ -72,6 +74,73 @@ class _InventoryScreenState extends State<InventoryScreen>
     }
   }
 
+  Future<void> _syncFromServer() async {
+    if (_isSyncing) return;
+    
+    setState(() => _isSyncing = true);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            SizedBox(width: 12),
+            Text('Syncing from server...'),
+          ],
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      // Reload inventory - this will trigger sync from server
+      await _loadInventory();
+      
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 12),
+              Text('Synced ${_items.length} items from server'),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(child: Text('Sync failed: ${e.toString()}')),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSyncing = false);
+      }
+    }
+  }
+
   String _statusFor(InventoryItem item) {
     if (item.quantity <= 0) return 'Critical';
     if (item.quantity <= item.minStock) return 'Low Stock';
@@ -108,16 +177,14 @@ class _InventoryScreenState extends State<InventoryScreen>
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          'Inventory',
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: AppColors.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: theme.cardColor,
-        elevation: 0,
+      appBar: ModernAppBar(
+        variant: AppBarVariant.standard,
+        title: 'Inventory',
+        showSyncButton: true,
+        isSyncing: _isSyncing,
+        onSyncTap: _syncFromServer,
+        showNotifications: true,
+        notificationCount: criticalCount + lowStockCount,
       ),
       body: CustomScrollView(
         slivers: [
@@ -208,14 +275,9 @@ class _InventoryScreenState extends State<InventoryScreen>
                   child: EmptyState(
                     icon: Icons.inventory_2_outlined,
                     title: 'No items found',
-                    subtitle: 'Try adjusting your filters',
-                    actionLabel: 'Clear Filters',
-                    onAction: () {
-                      setState(() {
-                        _selectedCategory = 'All';
-                        _selectedStatus = 'All';
-                      });
-                    },
+                    subtitle: 'Try adjusting your filters or sync from server',
+                    actionLabel: 'Sync Now',
+                    onAction: _syncFromServer,
                   ),
                 )
               : SliverPadding(
@@ -307,21 +369,6 @@ class _InventoryScreenState extends State<InventoryScreen>
                 );
 
                 if (result != null && result is Map<String, dynamic>) {
-                  // Validate the data before mapping
-                  final validationResult = _validateInventoryData(result);
-                  
-                  if (!validationResult.isValid) {
-                    if (!mounted) return;
-                    
-                    // Show detailed error dialog
-                    _showValidationErrorDialog(
-                      context,
-                      validationResult.missingFields,
-                      result,
-                    );
-                    return;
-                  }
-
                   try {
                     final entity = _mapToEntity(result);
                     setState(() => _items.insert(0, entity));
@@ -360,128 +407,10 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   // ===========================================================================
-  // VALIDATION
-  // ===========================================================================
-
-  ValidationResult _validateInventoryData(Map<String, dynamic> data) {
-    final missingFields = <String>[];
-
-    // Check each required field
-    if (data['itemName'] == null || data['itemName'].toString().trim().isEmpty) {
-      missingFields.add('Item Name (itemName)');
-    }
-
-    if (data['category'] == null || data['category'].toString().trim().isEmpty) {
-      missingFields.add('Category (category)');
-    }
-
-    if (data['quantity'] == null) {
-      missingFields.add('Quantity (quantity)');
-    }
-
-    if (data['unit'] == null || data['unit'].toString().trim().isEmpty) {
-      missingFields.add('Unit (unit)');
-    }
-
-    if (data['supplier'] == null || data['supplier'].toString().trim().isEmpty) {
-      missingFields.add('Supplier (supplier)');
-    }
-
-    return ValidationResult(
-      isValid: missingFields.isEmpty,
-      missingFields: missingFields,
-    );
-  }
-
-  void _showValidationErrorDialog(
-    BuildContext context,
-    List<String> missingFields,
-    Map<String, dynamic> receivedData,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.error_outline, color: Colors.red),
-            SizedBox(width: 8),
-            Text('Missing Required Fields'),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'The following required fields are missing or empty:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              ...missingFields.map((field) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.close, color: Colors.red, size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(field)),
-                      ],
-                    ),
-                  )),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              const Text(
-                'Data received from form:',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _formatDataForDisplay(receivedData),
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatDataForDisplay(Map<String, dynamic> data) {
-    final buffer = StringBuffer();
-    data.forEach((key, value) {
-      final valueStr = value?.toString() ?? 'null';
-      final isEmpty = value == null || valueStr.trim().isEmpty;
-      buffer.writeln('$key: $valueStr ${isEmpty ? '❌' : '✓'}');
-    });
-    return buffer.toString();
-  }
-
-  // ===========================================================================
   // HELPERS
   // ===========================================================================
 
   InventoryItem _mapToEntity(Map<String, dynamic> map) {
-    // Provide safe defaults and explicit null checks
     final itemName = map['itemName']?.toString() ?? '';
     final category = map['category']?.toString() ?? '';
     final unit = map['unit']?.toString() ?? '';
@@ -500,12 +429,26 @@ class _InventoryScreenState extends State<InventoryScreen>
       throw ArgumentError('Supplier cannot be empty');
     }
 
-    // Parse quantity safely
     double quantity;
     try {
       quantity = (map['quantity'] as num).toDouble();
     } catch (e) {
       throw ArgumentError('Invalid quantity value: ${map['quantity']}');
+    }
+
+    DateTime? lastRestock;
+    if (map['lastRestock'] != null) {
+      if (map['lastRestock'] is DateTime) {
+        lastRestock = map['lastRestock'] as DateTime;
+      } else if (map['lastRestock'] is String) {
+        try {
+          lastRestock = DateTime.parse(map['lastRestock'] as String);
+        } catch (e) {
+          lastRestock = DateTime.now();
+        }
+      }
+    } else {
+      lastRestock = DateTime.now();
     }
 
     return InventoryItem(
@@ -515,7 +458,13 @@ class _InventoryScreenState extends State<InventoryScreen>
       unit: unit,
       minStock: map['minStock'] ?? 0,
       supplier: supplier,
-      lastRestock: DateTime.now(),
+      unitPrice: map['unitPrice'] != null 
+          ? (map['unitPrice'] as num).toDouble() 
+          : null,
+      totalValue: map['totalValue'] != null 
+          ? (map['totalValue'] as num).toDouble() 
+          : null,
+      lastRestock: lastRestock,
       isSynced: false,
     );
   }
@@ -552,20 +501,6 @@ class _InventoryScreenState extends State<InventoryScreen>
       builder: (_) => _ItemDetailsSheet(item: item),
     );
   }
-}
-
-// ============================================================================
-// VALIDATION RESULT
-// ============================================================================
-
-class ValidationResult {
-  final bool isValid;
-  final List<String> missingFields;
-
-  ValidationResult({
-    required this.isValid,
-    required this.missingFields,
-  });
 }
 
 // ============================================================================
@@ -625,8 +560,8 @@ class _ItemDetailsSheet extends StatelessWidget {
                     Text(
                       item.category,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                   ],

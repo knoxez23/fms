@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'local_data.dart';
 import '../services/sale_service.dart';
+import '../services/inventory_service.dart';
 import 'inventory_sync_worker.dart';
+import '../database/database_helper.dart';
 
 class SyncWorker {
   static final SyncWorker _instance = SyncWorker._internal();
@@ -45,6 +47,96 @@ class SyncWorker {
       developer.log('SyncWorker: unexpected error: $e', error: e, stackTrace: st);
     } finally {
       _running = false;
+    }
+  }
+
+  /// Pull data from server to local database
+  Future<void> syncFromServer() async {
+    try {
+      developer.log('📥 Syncing data from server...');
+      
+      // Sync inventory from server
+      await _syncInventoryFromServer();
+      
+      // TODO: Add other entities (sales, animals, crops, etc.)
+      
+      developer.log('✅ Server sync completed');
+    } catch (e, st) {
+      developer.log('❌ Server sync failed: $e', error: e, stackTrace: st);
+    }
+  }
+
+  /// Sync inventory data from server to local DB
+  Future<void> _syncInventoryFromServer() async {
+    try {
+      developer.log('Fetching inventory from server...');
+      
+      final inventoryService = InventoryService();
+      final serverItems = await inventoryService.list();
+      
+      if (serverItems.isEmpty) {
+        developer.log('No inventory items on server');
+        return;
+      }
+
+      final db = await DatabaseHelper().database;
+      int insertedCount = 0;
+      int updatedCount = 0;
+
+      for (final serverItem in serverItems) {
+        final serverId = serverItem['id'];
+        
+        // Check if item already exists locally
+        final existing = await db.query(
+          'inventory',
+          where: 'server_id = ?',
+          whereArgs: [serverId],
+          limit: 1,
+        );
+
+        final itemData = {
+          'item_name': serverItem['item_name'],
+          'category': serverItem['category'],
+          'quantity': serverItem['quantity'],
+          'unit': serverItem['unit'],
+          'min_stock': serverItem['min_stock'] ?? 0,
+          'unit_price': serverItem['unit_price'],
+          'total_value': serverItem['total_value'],
+          'supplier': serverItem['supplier'],
+          'notes': serverItem['notes'],
+          'last_restock': serverItem['last_restock'],
+          'last_updated': serverItem['updated_at'] ?? DateTime.now().toIso8601String(),
+          'is_synced': 1,
+          'server_id': serverId,
+          'conflict': 0,
+        };
+
+        if (existing.isEmpty) {
+          // Insert new item
+          await db.insert('inventory', itemData);
+          insertedCount++;
+        } else {
+          // Update existing item if server version is newer
+          final localItem = existing.first;
+          final localUpdated = DateTime.tryParse(localItem['last_updated'] as String? ?? '');
+          final serverUpdated = DateTime.tryParse(serverItem['updated_at'] as String? ?? '');
+
+          if (serverUpdated != null && 
+              (localUpdated == null || serverUpdated.isAfter(localUpdated))) {
+            await db.update(
+              'inventory',
+              itemData,
+              where: 'id = ?',
+              whereArgs: [localItem['id']],
+            );
+            updatedCount++;
+          }
+        }
+      }
+
+      developer.log('Inventory sync: $insertedCount inserted, $updatedCount updated');
+    } catch (e, st) {
+      developer.log('Failed to sync inventory from server: $e', error: e, stackTrace: st);
     }
   }
 
