@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local archive dumps / extracted source snapshots
+backend.zip
+source_code.zip
+source_code/
