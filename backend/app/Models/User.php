@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -63,5 +64,22 @@ class User extends Authenticatable
     public function tasks()
     {
         return $this->hasMany(Task::class);
+    }
+
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(Role::class)
+            ->withPivot(['assigned_by'])
+            ->withTimestamps();
+    }
+
+    public function hasPermission(string $permission): bool
+    {
+        return $this->roles->contains(function (Role $role) use ($permission) {
+            $permissions = $role->permissions ?? [];
+
+            return in_array('*', $permissions, true)
+                || in_array($permission, $permissions, true);
+        });
     }
 }

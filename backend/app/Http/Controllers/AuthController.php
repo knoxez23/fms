@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Role;
 use App\Models\User;
 use App\Rules\StrongPassword;
 use App\Services\Auth\TokenService;
@@ -32,6 +33,13 @@ class AuthController extends Controller
             'farm_name' => $validated['farm_name'] ?? null,
             'location' => $validated['location'] ?? null,
         ]);
+
+        $ownerRole = Role::query()->where('name', 'owner')->first();
+        if ($ownerRole) {
+            $user->roles()->syncWithoutDetaching([
+                $ownerRole->id => ['assigned_by' => $user->id],
+            ]);
+        }
 
         $tokenService = new TokenService();
         $tokens = $tokenService->createTokenPair($user);

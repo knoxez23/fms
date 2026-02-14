@@ -88,3 +88,15 @@ flutter test integration_test/app_test.dart -d "iPhone 15"
 Notes:
 - Web is not supported for `integration_test` in this setup.
 - Linux desktop can fail if `libsecret-1` is not installed.
+
+## Release Readiness Checklist
+
+- Set `APP_ENV=production`, `APP_DEBUG=false`, and `APP_VERSION` in `backend/.env`.
+- Set strict `CORS_ALLOWED_ORIGINS` and `SANCTUM_STATEFUL_DOMAINS` to production domains only.
+- Ensure HTTPS termination and certificate renewal are configured.
+- Verify health endpoint: `GET /api/v1/health`.
+- Run smoke checks on staging:
+  - `flutter analyze`
+  - `flutter test`
+  - `php artisan test`
+  - `flutter test integration_test/app_test.dart -d <mobile-device-id>`
