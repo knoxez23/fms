@@ -2,71 +2,49 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Crop\StoreCropRequest;
+use App\Http\Requests\Crop\UpdateCropRequest;
+use App\Http\Resources\CropResource;
 use App\Models\Crop;
-use Illuminate\Http\Request;
+use App\Services\Farm\CropService;
 
 class CropController extends Controller
 {
-    public function index()
+    public function __construct(private readonly CropService $cropService)
     {
-        return Crop::where('user_id', auth()->id())
-            ->orderBy('created_at', 'desc')
-            ->get();
     }
 
-    public function store(Request $request)
+    public function index()
     {
-        $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'variety' => 'nullable|string|max:255',
-            'planted_date' => 'required|date',
-            'expected_harvest_date' => 'nullable|date',
-            'area' => 'required|numeric',
-            'status' => 'required|string|max:255',
-            'notes' => 'nullable|string',
-        ]);
+        $crops = $this->cropService->listForUser((int) auth()->id());
 
-        return Crop::create(array_merge(
-            $data,
-            ['user_id' => auth()->id()]
-        ));
+        return $crops->map(fn (Crop $crop) => (new CropResource($crop))->resolve())->values();
+    }
+
+    public function store(StoreCropRequest $request)
+    {
+        $crop = $this->cropService->createForUser((int) auth()->id(), $request->validated());
+
+        return (new CropResource($crop))->response()->setStatusCode(201);
     }
 
     public function show(string $id)
     {
-        return Crop::where('id', $id)
-            ->where('user_id', auth()->id())
-            ->firstOrFail();
+        $crop = $this->cropService->showForUser((int) auth()->id(), $id);
+
+        return new CropResource($crop);
     }
 
-    public function update(Request $request, string $id)
+    public function update(UpdateCropRequest $request, string $id)
     {
-        $crop = Crop::where('id', $id)
-            ->where('user_id', auth()->id())
-            ->firstOrFail();
+        $crop = $this->cropService->updateForUser((int) auth()->id(), $id, $request->validated());
 
-        $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'variety' => 'nullable|string|max:255',
-            'planted_date' => 'required|date',
-            'expected_harvest_date' => 'nullable|date',
-            'area' => 'required|numeric',
-            'status' => 'required|string|max:255',
-            'notes' => 'nullable|string',
-        ]);
-
-        $crop->update($data);
-
-        return $crop;
+        return new CropResource($crop);
     }
 
     public function destroy(string $id)
     {
-        $crop = Crop::where('id', $id)
-            ->where('user_id', auth()->id())
-            ->firstOrFail();
-
-        $crop->delete();
+        $this->cropService->deleteForUser((int) auth()->id(), $id);
 
         return response()->noContent();
     }

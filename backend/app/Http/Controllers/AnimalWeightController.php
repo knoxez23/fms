@@ -2,54 +2,51 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AnimalRecords\StoreAnimalWeightRequest;
+use App\Http\Requests\AnimalRecords\UpdateAnimalWeightRequest;
+use App\Http\Resources\AnimalWeightResource;
 use App\Models\AnimalWeight;
-use Illuminate\Http\Request;
+use App\Services\Farm\AnimalWeightService;
 
 class AnimalWeightController extends Controller
 {
-    public function index()
+    public function __construct(private readonly AnimalWeightService $animalWeightService)
     {
-        $query = AnimalWeight::where('user_id', auth()->id())->with('animal');
-
-        if (request()->has('animal_id')) {
-            $query->where('animal_id', request()->query('animal_id'));
-        }
-
-        // pagination: ?page=1&per_page=20
-        $perPage = (int) request()->query('per_page', 20);
-        return $query->orderBy('recorded_at', 'desc')->paginate($perPage);
     }
 
-    public function store(Request $request)
+    public function index()
     {
-        $request->validate([
-            'animal_id' => 'required|exists:animals,id',
-            'weight' => 'required|numeric',
-            'recorded_at' => 'nullable|date',
-        ]);
+        $perPage = (int) request()->query('per_page', 20);
+        $animalId = request()->query('animal_id');
+        $page = $this->animalWeightService->listForUser((int) auth()->id(), is_string($animalId) ? $animalId : null, $perPage);
+        $page->setCollection(
+            $page->getCollection()
+                ->map(fn (AnimalWeight $record) => (new AnimalWeightResource($record))->resolve())
+        );
+        return $page;
+    }
 
-        $data = $request->all();
-        $data['user_id'] = auth()->id();
-
-        return AnimalWeight::create($data);
+    public function store(StoreAnimalWeightRequest $request)
+    {
+        $created = $this->animalWeightService->createForUser(auth()->user(), $request->validated());
+        return (new AnimalWeightResource($created))->response()->setStatusCode(201);
     }
 
     public function show($id)
     {
-        return AnimalWeight::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
+        $record = AnimalWeight::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
+        return new AnimalWeightResource($record);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateAnimalWeightRequest $request, $id)
     {
-        $record = AnimalWeight::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
-        $record->update($request->all());
-        return $record;
+        $record = $this->animalWeightService->updateForUser(auth()->user(), (string) $id, $request->validated());
+        return new AnimalWeightResource($record);
     }
 
     public function destroy($id)
     {
-        $record = AnimalWeight::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
-        $record->delete();
+        $this->animalWeightService->deleteForUser((int) auth()->id(), (string) $id);
         return response()->noContent();
     }
 }

@@ -2,27 +2,34 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Feeding\StoreFeedingScheduleRequest;
+use App\Http\Requests\Feeding\UpdateFeedingScheduleRequest;
+use App\Http\Resources\FeedingScheduleResource;
 use App\Models\FeedingSchedule;
-use Illuminate\Http\Request;
+use App\Services\Farm\FeedingScheduleService;
 
 class FeedingScheduleController extends Controller
 {
+    public function __construct(private readonly FeedingScheduleService $feedingScheduleService)
+    {
+    }
+
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        $animalIds = auth()->user()->animals->pluck('id');
-        return FeedingSchedule::whereIn('animal_id', $animalIds)->get();
+        $items = $this->feedingScheduleService->listForUser(auth()->user());
+        return $items->map(fn (FeedingSchedule $item) => (new FeedingScheduleResource($item))->resolve())->values();
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreFeedingScheduleRequest $request)
     {
-        $animal = auth()->user()->animals()->findOrFail($request->animal_id);
-        return FeedingSchedule::create($request->all());
+        $created = $this->feedingScheduleService->createForUser(auth()->user(), $request->validated());
+        return (new FeedingScheduleResource($created))->response()->setStatusCode(201);
     }
 
     /**
@@ -30,24 +37,17 @@ class FeedingScheduleController extends Controller
      */
     public function show(string $id)
     {
-        $feedingSchedule = FeedingSchedule::findOrFail($id);
-        if (!auth()->user()->animals->contains('id', $feedingSchedule->animal_id)) {
-            abort(403);
-        }
-        return $feedingSchedule;
+        $feedingSchedule = $this->feedingScheduleService->showForUser(auth()->user(), $id);
+        return new FeedingScheduleResource($feedingSchedule);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(UpdateFeedingScheduleRequest $request, string $id)
     {
-        $feedingSchedule = FeedingSchedule::findOrFail($id);
-        if (!auth()->user()->animals->contains('id', $feedingSchedule->animal_id)) {
-            abort(403);
-        }
-        $feedingSchedule->update($request->all());
-        return $feedingSchedule;
+        $feedingSchedule = $this->feedingScheduleService->updateForUser(auth()->user(), $id, $request->validated());
+        return new FeedingScheduleResource($feedingSchedule);
     }
 
     /**
@@ -55,11 +55,7 @@ class FeedingScheduleController extends Controller
      */
     public function destroy(string $id)
     {
-        $feedingSchedule = FeedingSchedule::findOrFail($id);
-        if (!auth()->user()->animals->contains('id', $feedingSchedule->animal_id)) {
-            abort(403);
-        }
-        $feedingSchedule->delete();
+        $this->feedingScheduleService->deleteForUser(auth()->user(), $id);
         return response()->noContent();
     }
 }

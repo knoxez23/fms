@@ -2,47 +2,45 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AnimalRecords\StoreAnimalProductionLogRequest;
+use App\Http\Requests\AnimalRecords\UpdateAnimalProductionLogRequest;
+use App\Http\Resources\AnimalProductionLogResource;
 use App\Models\AnimalProductionLog;
-use Illuminate\Http\Request;
+use App\Services\Farm\AnimalProductionLogService;
 
 class AnimalProductionLogController extends Controller
 {
-    public function index()
+    public function __construct(private readonly AnimalProductionLogService $animalProductionLogService)
     {
-        return AnimalProductionLog::where('user_id', auth()->id())->with('animal')->get();
     }
 
-    public function store(Request $request)
+    public function index()
     {
-        $request->validate([
-            'animal_id' => 'required|exists:animals,id',
-            'type' => 'required|string',
-            'quantity' => 'nullable|numeric',
-            'produced_at' => 'nullable|date',
-        ]);
+        $items = $this->animalProductionLogService->listForUser((int) auth()->id());
+        return $items->map(fn (AnimalProductionLog $record) => (new AnimalProductionLogResource($record))->resolve())->values();
+    }
 
-        $data = $request->all();
-        $data['user_id'] = auth()->id();
-
-        return AnimalProductionLog::create($data);
+    public function store(StoreAnimalProductionLogRequest $request)
+    {
+        $created = $this->animalProductionLogService->createForUser(auth()->user(), $request->validated());
+        return (new AnimalProductionLogResource($created))->response()->setStatusCode(201);
     }
 
     public function show($id)
     {
-        return AnimalProductionLog::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
+        $record = AnimalProductionLog::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
+        return new AnimalProductionLogResource($record);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateAnimalProductionLogRequest $request, $id)
     {
-        $record = AnimalProductionLog::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
-        $record->update($request->all());
-        return $record;
+        $record = $this->animalProductionLogService->updateForUser(auth()->user(), (string) $id, $request->validated());
+        return new AnimalProductionLogResource($record);
     }
 
     public function destroy($id)
     {
-        $record = AnimalProductionLog::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
-        $record->delete();
+        $this->animalProductionLogService->deleteForUser((int) auth()->id(), (string) $id);
         return response()->noContent();
     }
 }

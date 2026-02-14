@@ -2,74 +2,48 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Sale\StoreSaleRequest;
+use App\Http\Requests\Sale\UpdateSaleRequest;
+use App\Http\Resources\SaleResource;
 use App\Models\Sale;
-use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
+use App\Services\Farm\SaleService;
 
 class SaleController extends Controller
 {
-    public function index()
+    public function __construct(private readonly SaleService $saleService)
     {
-        return Sale::where('user_id', auth()->id())
-            ->orderBy('sale_date', 'desc')
-            ->get();
     }
 
-    public function store(Request $request)
+    public function index()
     {
-        $validated = $request->validate([
-            'product_name' => 'required|string|max:255',
-            'quantity' => 'required|numeric|min:0',
-            'unit' => 'required|string|max:50',
-            'price' => 'required|numeric|min:0',
-            'total_amount' => 'required|numeric|min:0',
-            'customer_name' => 'required|string|max:255',
-            'sale_date' => 'required|date',
-            'payment_status' => 'nullable|string|in:Paid,Pending,Partial',
-            'notes' => 'nullable|string',
-        ]);
+        $sales = $this->saleService->listForUser((int) auth()->id());
 
-        $sale = Sale::create(array_merge($validated, ['user_id' => auth()->id()]));
-        
-        return response()->json($sale, 201);
+        return $sales->map(fn (Sale $sale) => (new SaleResource($sale))->resolve())->values();
+    }
+
+    public function store(StoreSaleRequest $request)
+    {
+        $sale = $this->saleService->createForUser((int) auth()->id(), $request->validated());
+
+        return (new SaleResource($sale))->response()->setStatusCode(201);
     }
 
     public function show(string $id)
     {
-        return Sale::where('id', $id)
-            ->where('user_id', auth()->id())
-            ->firstOrFail();
+        $sale = $this->saleService->showForUser((int) auth()->id(), $id);
+
+        return new SaleResource($sale);
     }
 
-    public function update(Request $request, string $id)
+    public function update(UpdateSaleRequest $request, string $id)
     {
-        $sale = Sale::where('id', $id)
-            ->where('user_id', auth()->id())
-            ->firstOrFail();
-            
-        $validated = $request->validate([
-            'product_name' => 'sometimes|required|string|max:255',
-            'quantity' => 'sometimes|required|numeric|min:0',
-            'unit' => 'sometimes|required|string|max:50',
-            'price' => 'sometimes|required|numeric|min:0',
-            'total_amount' => 'sometimes|required|numeric|min:0',
-            'customer_name' => 'sometimes|required|string|max:255',
-            'sale_date' => 'sometimes|required|date',
-            'payment_status' => 'nullable|string|in:Paid,Pending,Partial',
-            'notes' => 'nullable|string',
-        ]);
-        
-        $sale->update($validated);
-        return $sale;
+        $sale = $this->saleService->updateForUser((int) auth()->id(), $id, $request->validated());
+        return new SaleResource($sale);
     }
 
     public function destroy(string $id)
     {
-        $sale = Sale::where('id', $id)
-            ->where('user_id', auth()->id())
-            ->firstOrFail();
-            
-        $sale->delete();
+        $this->saleService->deleteForUser((int) auth()->id(), $id);
         return response()->noContent();
     }
 }

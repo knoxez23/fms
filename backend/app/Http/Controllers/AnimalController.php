@@ -2,36 +2,34 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Animal\StoreAnimalRequest;
+use App\Http\Requests\Animal\UpdateAnimalRequest;
+use App\Http\Resources\AnimalResource;
 use App\Models\Animal;
-use Illuminate\Http\Request;
+use App\Services\Farm\AnimalService;
 
 class AnimalController extends Controller
 {
+    public function __construct(private readonly AnimalService $animalService)
+    {
+    }
+
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        return Animal::where('user_id', auth()->id())->get();
+        $animals = $this->animalService->listForUser((int) auth()->id());
+        return $animals->map(fn (Animal $animal) => (new AnimalResource($animal))->resolve())->values();
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreAnimalRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'type' => 'required|string|max:255',
-            'breed' => 'nullable|string|max:255',
-            'age' => 'nullable|integer|min:0',
-            'weight' => 'nullable|numeric|min:0',
-            'health_status' => 'nullable|string|max:255',
-            'date_acquired' => 'nullable|date',
-            'notes' => 'nullable|string',
-        ]);
-
-        return Animal::create(array_merge($request->all(), ['user_id' => auth()->id()]));
+        $animal = $this->animalService->createForUser((int) auth()->id(), $request->validated());
+        return (new AnimalResource($animal))->response()->setStatusCode(201);
     }
 
     /**
@@ -39,28 +37,17 @@ class AnimalController extends Controller
      */
     public function show(string $id)
     {
-        return Animal::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
+        $animal = $this->animalService->showForUser((int) auth()->id(), $id);
+        return new AnimalResource($animal);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(UpdateAnimalRequest $request, string $id)
     {
-        $request->validate([
-            'name' => 'sometimes|required|string|max:255',
-            'type' => 'sometimes|required|string|max:255',
-            'breed' => 'nullable|string|max:255',
-            'age' => 'nullable|integer|min:0',
-            'weight' => 'nullable|numeric|min:0',
-            'health_status' => 'nullable|string|max:255',
-            'date_acquired' => 'nullable|date',
-            'notes' => 'nullable|string',
-        ]);
-
-        $animal = Animal::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
-        $animal->update($request->all());
-        return $animal;
+        $animal = $this->animalService->updateForUser((int) auth()->id(), $id, $request->validated());
+        return new AnimalResource($animal);
     }
 
     /**
@@ -68,8 +55,7 @@ class AnimalController extends Controller
      */
     public function destroy(string $id)
     {
-        $animal = Animal::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
-        $animal->delete();
+        $this->animalService->deleteForUser((int) auth()->id(), $id);
         return response()->noContent();
     }
 }

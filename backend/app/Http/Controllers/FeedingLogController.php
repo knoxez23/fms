@@ -2,27 +2,34 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Feeding\StoreFeedingLogRequest;
+use App\Http\Requests\Feeding\UpdateFeedingLogRequest;
+use App\Http\Resources\FeedingLogResource;
 use App\Models\FeedingLog;
-use Illuminate\Http\Request;
+use App\Services\Farm\FeedingLogService;
 
 class FeedingLogController extends Controller
 {
+    public function __construct(private readonly FeedingLogService $feedingLogService)
+    {
+    }
+
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        $animalIds = auth()->user()->animals->pluck('id');
-        return FeedingLog::whereIn('animal_id', $animalIds)->get();
+        $logs = $this->feedingLogService->listForUser(auth()->user());
+        return $logs->map(fn (FeedingLog $log) => (new FeedingLogResource($log))->resolve())->values();
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreFeedingLogRequest $request)
     {
-        $animal = auth()->user()->animals()->findOrFail($request->animal_id);
-        return FeedingLog::create($request->all());
+        $created = $this->feedingLogService->createForUser(auth()->user(), $request->validated());
+        return (new FeedingLogResource($created))->response()->setStatusCode(201);
     }
 
     /**
@@ -30,24 +37,17 @@ class FeedingLogController extends Controller
      */
     public function show(string $id)
     {
-        $feedingLog = FeedingLog::findOrFail($id);
-        if (!auth()->user()->animals->contains('id', $feedingLog->animal_id)) {
-            abort(403);
-        }
-        return $feedingLog;
+        $feedingLog = $this->feedingLogService->showForUser(auth()->user(), $id);
+        return new FeedingLogResource($feedingLog);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(UpdateFeedingLogRequest $request, string $id)
     {
-        $feedingLog = FeedingLog::findOrFail($id);
-        if (!auth()->user()->animals->contains('id', $feedingLog->animal_id)) {
-            abort(403);
-        }
-        $feedingLog->update($request->all());
-        return $feedingLog;
+        $feedingLog = $this->feedingLogService->updateForUser(auth()->user(), $id, $request->validated());
+        return new FeedingLogResource($feedingLog);
     }
 
     /**
@@ -55,11 +55,7 @@ class FeedingLogController extends Controller
      */
     public function destroy(string $id)
     {
-        $feedingLog = FeedingLog::findOrFail($id);
-        if (!auth()->user()->animals->contains('id', $feedingLog->animal_id)) {
-            abort(403);
-        }
-        $feedingLog->delete();
+        $this->feedingLogService->deleteForUser(auth()->user(), $id);
         return response()->noContent();
     }
 }

@@ -3,118 +3,146 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Rules\StrongPassword;
+use App\Services\Auth\TokenService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
     public function register(Request $request)
     {
-        try {
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'email' => 'required|email|unique:users,email',
-                'password' => 'required|string|min:6',
-                'phone' => 'nullable|string|max:20',
-                'farm_name' => 'nullable|string|max:255',
-                'location' => 'nullable|string|max:255',
-            ]);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => ['required', 'string', 'confirmed', new StrongPassword()],
+            'phone' => 'nullable|string|max:20',
+            'farm_name' => 'nullable|string|max:255',
+            'location' => 'nullable|string|max:255',
+        ]);
 
-            $user = User::create([
-                'name' => $validated['name'],
-                'email' => $validated['email'],
-                'password' => Hash::make($validated['password']),
-                'phone' => $validated['phone'] ?? null,
-                'farm_name' => $validated['farm_name'] ?? null,
-                'location' => $validated['location'] ?? null,
-            ]);
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'phone' => $validated['phone'] ?? null,
+            'farm_name' => $validated['farm_name'] ?? null,
+            'location' => $validated['location'] ?? null,
+        ]);
 
-            $token = $user->createToken('api-token')->plainTextToken;
+        $tokenService = new TokenService();
+        $tokens = $tokenService->createTokenPair($user);
 
-            // Log successful registration for monitoring
-            Log::info('User registered successfully', ['user_id' => $user->id, 'email' => $user->email]);
+        Log::info('User registered', ['user_id' => $user->id, 'email' => $user->email]);
 
-            return response()->json([
-                'user' => $user,
-                'token' => $token,
-                'message' => 'Registration successful'
-            ], 201);
-
-        } catch (ValidationException $e) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            Log::error('Registration error', ['error' => $e->getMessage()]);
-            return response()->json([
-                'message' => 'Server error during registration'
-            ], 500);
-        }
+        return response()->json([
+            'user' => $user,
+            ...$tokens,
+        ], 201);
     }
 
     public function login(Request $request)
     {
-        try {
-            $validated = $request->validate([
-                'email' => 'required|email',
-                'password' => 'required|string',
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|string',
+        ]);
+
+        $user = User::where('email', $validated['email'])->first();
+
+        if (!$user || !Hash::check($validated['password'], $user->password)) {
+            Log::warning('Failed login attempt', ['email' => $validated['email'], 'ip' => $request->ip()]);
+
+            throw ValidationException::withMessages([
+                'email' => ['The provided credentials are incorrect.'],
             ]);
-
-            $user = User::where('email', $validated['email'])->first();
-
-            if (!$user || !Hash::check($validated['password'], $user->password)) {
-                // Log failed login attempts for security monitoring
-                Log::warning('Failed login attempt', ['email' => $validated['email']]);
-                
-                return response()->json([
-                    'message' => 'Invalid credentials'
-                ], 401);
-            }
-
-            // Revoke old tokens for security
-            $user->tokens()->delete();
-            
-            $token = $user->createToken('api-token')->plainTextToken;
-
-            Log::info('User logged in successfully', ['user_id' => $user->id]);
-
-            return response()->json([
-                'user' => $user,
-                'token' => $token,
-                'message' => 'Login successful'
-            ], 200);
-
-        } catch (ValidationException $e) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            Log::error('Login error', ['error' => $e->getMessage()]);
-            return response()->json([
-                'message' => 'Server error during login'
-            ], 500);
         }
+
+        $tokenService = new TokenService();
+        $tokens = $tokenService->createTokenPair($user);
+
+        Log::info('User logged in', ['user_id' => $user->id, 'email' => $user->email]);
+
+        return response()->json([
+            'user' => $user,
+            ...$tokens,
+        ]);
     }
 
     public function logout(Request $request)
     {
+        $request->user()->currentAccessToken()->delete();
+
+        Log::info('User logged out', ['user_id' => $request->user()->id]);
+
+        return response()->json(['message' => 'Logged out successfully']);
+    }
+
+    public function refresh(Request $request)
+    {
+        $validated = $request->validate([
+            'refresh_token' => 'required|string',
+        ]);
+
         try {
-            $request->user()->currentAccessToken()->delete();
-            
-            Log::info('User logged out', ['user_id' => $request->user()->id]);
-            
-            return response()->json([
-                'message' => 'Logged out successfully'
-            ], 200);
+            $tokenService = new TokenService();
+            $tokens = $tokenService->refreshToken($validated['refresh_token']);
+
+            return response()->json($tokens);
         } catch (\Exception $e) {
-            Log::error('Logout error', ['error' => $e->getMessage()]);
+            Log::warning('Token refresh failed', ['error' => $e->getMessage()]);
+
             return response()->json([
-                'message' => 'Error during logout'
-            ], 500);
+                'message' => 'Invalid or expired refresh token'
+            ], 401);
         }
+    }
+
+    public function forgotPassword(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+
+        $status = Password::sendResetLink(
+            $request->only('email')
+        );
+
+        if ($status === Password::RESET_LINK_SENT) {
+            return response()->json(['message' => 'Password reset link sent to your email.']);
+        }
+
+        throw ValidationException::withMessages([
+            'email' => [__($status)],
+        ]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'token' => 'required',
+            'email' => 'required|email',
+            'password' => ['required', 'confirmed', new StrongPassword()],
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, $password) {
+                $user->forceFill([
+                    'password' => Hash::make($password)
+                ])->save();
+
+                $user->tokens()->delete();
+            }
+        );
+
+        if ($status === Password::PASSWORD_RESET) {
+            return response()->json(['message' => 'Password reset successfully.']);
+        }
+
+        throw ValidationException::withMessages([
+            'email' => [__($status)],
+        ]);
     }
 }

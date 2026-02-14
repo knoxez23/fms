@@ -2,47 +2,45 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AnimalRecords\StoreAnimalHealthRecordRequest;
+use App\Http\Requests\AnimalRecords\UpdateAnimalHealthRecordRequest;
+use App\Http\Resources\AnimalHealthRecordResource;
 use App\Models\AnimalHealthRecord;
-use Illuminate\Http\Request;
+use App\Services\Farm\AnimalHealthRecordService;
 
 class AnimalHealthRecordController extends Controller
 {
-    public function index()
+    public function __construct(private readonly AnimalHealthRecordService $animalHealthRecordService)
     {
-        return AnimalHealthRecord::where('user_id', auth()->id())->with('animal')->get();
     }
 
-    public function store(Request $request)
+    public function index()
     {
-        $request->validate([
-            'animal_id' => 'required|exists:animals,id',
-            'type' => 'required|string',
-            'name' => 'required|string',
-            'treated_at' => 'nullable|date',
-        ]);
+        $items = $this->animalHealthRecordService->listForUser((int) auth()->id());
+        return $items->map(fn (AnimalHealthRecord $record) => (new AnimalHealthRecordResource($record))->resolve())->values();
+    }
 
-        $data = $request->all();
-        $data['user_id'] = auth()->id();
-
-        return AnimalHealthRecord::create($data);
+    public function store(StoreAnimalHealthRecordRequest $request)
+    {
+        $created = $this->animalHealthRecordService->createForUser(auth()->user(), $request->validated());
+        return (new AnimalHealthRecordResource($created))->response()->setStatusCode(201);
     }
 
     public function show($id)
     {
-        return AnimalHealthRecord::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
+        $record = AnimalHealthRecord::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
+        return new AnimalHealthRecordResource($record);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateAnimalHealthRecordRequest $request, $id)
     {
-        $record = AnimalHealthRecord::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
-        $record->update($request->all());
-        return $record;
+        $record = $this->animalHealthRecordService->updateForUser(auth()->user(), (string) $id, $request->validated());
+        return new AnimalHealthRecordResource($record);
     }
 
     public function destroy($id)
     {
-        $record = AnimalHealthRecord::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
-        $record->delete();
+        $this->animalHealthRecordService->deleteForUser((int) auth()->id(), (string) $id);
         return response()->noContent();
     }
 }

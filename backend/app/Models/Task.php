@@ -17,6 +17,8 @@ class Task extends Model
         'status',
         'category',
         'assigned_to',
+        'source_event_type',
+        'source_event_id',
         'user_id',
     ];
 

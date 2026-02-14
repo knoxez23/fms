@@ -110,6 +110,18 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Password Policy
+    |--------------------------------------------------------------------------
+    */
+
+    'password_min_length' => env('PASSWORD_MIN_LENGTH', 12),
+    'password_require_uppercase' => env('PASSWORD_REQUIRE_UPPERCASE', true),
+    'password_require_lowercase' => env('PASSWORD_REQUIRE_LOWERCASE', true),
+    'password_require_numbers' => env('PASSWORD_REQUIRE_NUMBERS', true),
+    'password_require_symbols' => env('PASSWORD_REQUIRE_SYMBOLS', true),
+
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
 ];
