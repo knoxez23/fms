@@ -28,7 +28,7 @@ php artisan db:seed # optional
 php artisan serve --host=0.0.0.0 --port=8000
 ```
 
-The API will be available at `http://localhost:8000` and API base at `http://localhost:8000/api`.
+The API will be available at `http://localhost:8000` and API base at `http://localhost:8000/api` (versioned routes are under `/v1`).
 
 ## Flutter App
 
@@ -60,4 +60,31 @@ flutter run
 - Login via the app; the app should store the token and navigate to `/home`.
 - Open `Inventory` screen (in the app) to see items fetched from `/api/inventories` when authenticated.
 
-If you want, I can add more details (Postman collection, integration tests, or CI steps).
+## Mobile Integration Tests (Android/iOS)
+
+`integration_test/app_test.dart` is for mobile app navigation flows (onboarding/login/register).
+
+1. Start backend:
+
+```bash
+cd backend
+php artisan serve --host=0.0.0.0 --port=8000
+```
+
+2. Start an Android emulator (or connect a physical device), then run:
+
+```bash
+flutter test integration_test/app_test.dart -d emulator-5554
+```
+
+Use `flutter devices` to get your exact device id.
+
+3. iOS simulator example (macOS):
+
+```bash
+flutter test integration_test/app_test.dart -d "iPhone 15"
+```
+
+Notes:
+- Web is not supported for `integration_test` in this setup.
+- Linux desktop can fail if `libsecret-1` is not installed.
