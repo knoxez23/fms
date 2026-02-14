@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
-import 'package:pamoja_twalima/inventory/application/application.dart';
-import 'package:pamoja_twalima/inventory/infrastructure/factory.dart';
 
 class AddInventoryScreen extends StatefulWidget {
   const AddInventoryScreen({super.key});
@@ -18,8 +16,6 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
   final TextEditingController _supplierController = TextEditingController();
   final TextEditingController _costController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
-
-  late final AddInventoryItem _addInventoryUseCase;
 
   String _selectedCategory = 'Fertilizers';
   String _selectedUnit = 'kg';
@@ -111,7 +107,8 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
-                        value: _selectedCategory,
+                        key: ValueKey(_selectedCategory),
+                        initialValue: _selectedCategory,
                         items: _categories.map((category) {
                           return DropdownMenuItem(
                             value: category,
@@ -136,9 +133,7 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 16),
-
               _AnimatedCard(
                 index: 1,
                 theme: theme,
@@ -178,7 +173,8 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
                           Expanded(
                             flex: 1,
                             child: DropdownButtonFormField<String>(
-                              value: _selectedUnit,
+                              key: ValueKey(_selectedUnit),
+                              initialValue: _selectedUnit,
                               items: currentUnits.map((unit) {
                                 return DropdownMenuItem(
                                   value: unit,
@@ -220,9 +216,7 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 16),
-
               _AnimatedCard(
                 index: 2,
                 theme: theme,
@@ -267,9 +261,7 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 16),
-
               _AnimatedCard(
                 index: 3,
                 theme: theme,
@@ -289,7 +281,8 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
                         controller: _notesController,
                         decoration: const InputDecoration(
                           labelText: 'Notes',
-                          hintText: 'Any special storage instructions, usage notes...',
+                          hintText:
+                              'Any special storage instructions, usage notes...',
                           border: OutlineInputBorder(),
                         ),
                         maxLines: 3,
@@ -298,9 +291,7 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 24),
-
               _AnimatedCard(
                 index: 4,
                 theme: theme,
@@ -326,11 +317,12 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
                       const SizedBox(height: 8),
                       Text(
                         '• Set realistic minimum stock levels to avoid shortages\n'
-                            '• Record supplier information for easy reordering\n'
-                            '• Track costs for better budget management\n'
-                            '• Note any special storage requirements',
+                        '• Record supplier information for easy reordering\n'
+                        '• Track costs for better budget management\n'
+                        '• Note any special storage requirements',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -341,37 +333,52 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
           ),
         ),
       ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _saveItem,
+                  child: const Text('Save Item'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _addInventoryUseCase = InventoryFactory.createAddInventoryItem();
   }
 
   Future<void> _saveItem() async {
     if (_formKey.currentState!.validate()) {
       final quantity = int.parse(_quantityController.text);
       final minStock = int.parse(_minStockController.text);
-      final unitPrice = _costController.text.isNotEmpty 
-          ? double.parse(_costController.text) 
+      final unitPrice = _costController.text.isNotEmpty
+          ? double.parse(_costController.text)
           : null;
       final totalValue = (unitPrice != null) ? (unitPrice * quantity) : null;
 
-      
-      final newItem = {        
+      final newItem = {
         'itemName': _nameController.text,
         'category': _selectedCategory,
         'quantity': quantity,
-        'unit': _selectedUnit,        
+        'unit': _selectedUnit,
         'minStock': minStock,
         'supplier': _supplierController.text,
         'unitPrice': unitPrice,
         'totalValue': totalValue,
         'notes': _notesController.text,
         'lastRestock': DateTime.now(),
-        
+
         // Also include API-compatible field names for when this gets sent to the backend
         // 'item_name': _nameController.text,
         // 'min_stock': minStock,

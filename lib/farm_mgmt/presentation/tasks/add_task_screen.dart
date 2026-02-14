@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/entities/task_entity.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/value_objects/value_objects.dart';
 
 class AddTaskScreen extends StatefulWidget {
   const AddTaskScreen({super.key});
@@ -47,26 +51,16 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
+    return AppScaffold(
       backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          'Create New Task',
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+      includeDrawer: false,
+      appBar: ModernAppBar(
+        title: 'Create New Task',
+        variant: AppBarVariant.standard,
         actions: [
           TextButton(
             onPressed: _saveTask,
-            child: Text(
-              'Save',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -347,22 +341,18 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   void _saveTask() {
     if (_formKey.currentState!.validate()) {
-      // Save task logic here
-      final newTask = {
-        'title': _titleController.text,
-        'description': _descriptionController.text,
-        'category': _selectedCategory,
-        'priority': _selectedPriority,
-        'assignedTo': _selectedAssignee,
-        'dueDate': _dueDate?.toIso8601String() ?? '',
-        'estimatedTime': _estimatedTimeController.text,
-        'notes': _notesController.text,
-        'status': 'pending',
-        'createdDate': DateTime.now().toIso8601String(),
-      };
+      final title = _titleController.text.trim();
+      final task = TaskEntity(
+        title: TaskTitle(title),
+        description: _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
+        dueDate: _dueDate,
+        isCompleted: false,
+      );
 
       // Navigate back with result or save to database
-      Navigator.pop(context, newTask);
+      Navigator.pop(context, task);
     }
   }
 

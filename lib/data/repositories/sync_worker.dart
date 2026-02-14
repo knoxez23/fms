@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'package:pamoja_twalima/inventory/domain/repositories/inventory_repository.dart';
 import 'local_data.dart';
+import 'sync_data.dart';
 import '../services/sale_service.dart';
-import '../services/inventory_service.dart';
 import 'inventory_sync_worker.dart';
-import '../database/database_helper.dart';
+import '../../core/di/injection.dart';
 
 class SyncWorker {
   static final SyncWorker _instance = SyncWorker._internal();
@@ -19,7 +20,8 @@ class SyncWorker {
   void start({Duration interval = const Duration(minutes: 2)}) {
     if (_timer != null) return;
     _timer = Timer.periodic(interval, (_) => _runOnce());
-    developer.log('SyncWorker started, interval: ${interval.inMinutes} minutes');
+    developer
+        .log('SyncWorker started, interval: ${interval.inMinutes} minutes');
     // Run cleanup and sync immediately once
     _runOnce();
   }
@@ -44,7 +46,8 @@ class SyncWorker {
       // Sync inventory items
       await _syncInventory();
     } catch (e, st) {
-      developer.log('SyncWorker: unexpected error: $e', error: e, stackTrace: st);
+      developer.log('SyncWorker: unexpected error: $e',
+          error: e, stackTrace: st);
     } finally {
       _running = false;
     }
@@ -54,89 +57,21 @@ class SyncWorker {
   Future<void> syncFromServer() async {
     try {
       developer.log('📥 Syncing data from server...');
-      
-      // Sync inventory from server
-      await _syncInventoryFromServer();
-      
-      // TODO: Add other entities (sales, animals, crops, etc.)
-      
+
+      final syncData = getIt<SyncData>();
+
+      // Keep pull logic centralized in repositories/sync data.
+      await getIt<InventoryRepository>().getItems();
+      await syncData.getAnimals();
+      await syncData.getCrops();
+      await syncData.getTasks();
+      await syncData.getFeedingSchedules();
+      await syncData.getFeedingLogs();
+      await syncData.getSales();
+
       developer.log('✅ Server sync completed');
     } catch (e, st) {
       developer.log('❌ Server sync failed: $e', error: e, stackTrace: st);
-    }
-  }
-
-  /// Sync inventory data from server to local DB
-  Future<void> _syncInventoryFromServer() async {
-    try {
-      developer.log('Fetching inventory from server...');
-      
-      final inventoryService = InventoryService();
-      final serverItems = await inventoryService.list();
-      
-      if (serverItems.isEmpty) {
-        developer.log('No inventory items on server');
-        return;
-      }
-
-      final db = await DatabaseHelper().database;
-      int insertedCount = 0;
-      int updatedCount = 0;
-
-      for (final serverItem in serverItems) {
-        final serverId = serverItem['id'];
-        
-        // Check if item already exists locally
-        final existing = await db.query(
-          'inventory',
-          where: 'server_id = ?',
-          whereArgs: [serverId],
-          limit: 1,
-        );
-
-        final itemData = {
-          'item_name': serverItem['item_name'],
-          'category': serverItem['category'],
-          'quantity': serverItem['quantity'],
-          'unit': serverItem['unit'],
-          'min_stock': serverItem['min_stock'] ?? 0,
-          'unit_price': serverItem['unit_price'],
-          'total_value': serverItem['total_value'],
-          'supplier': serverItem['supplier'],
-          'notes': serverItem['notes'],
-          'last_restock': serverItem['last_restock'],
-          'last_updated': serverItem['updated_at'] ?? DateTime.now().toIso8601String(),
-          'is_synced': 1,
-          'server_id': serverId,
-          'conflict': 0,
-        };
-
-        if (existing.isEmpty) {
-          // Insert new item
-          await db.insert('inventory', itemData);
-          insertedCount++;
-        } else {
-          // Update existing item if server version is newer
-          final localItem = existing.first;
-          final localUpdated = DateTime.tryParse(localItem['last_updated'] as String? ?? '');
-          final serverUpdated = DateTime.tryParse(serverItem['updated_at'] as String? ?? '');
-
-          if (serverUpdated != null && 
-              (localUpdated == null || serverUpdated.isAfter(localUpdated))) {
-            await db.update(
-              'inventory',
-              itemData,
-              where: 'id = ?',
-              whereArgs: [localItem['id']],
-            );
-            updatedCount++;
-          }
-        }
-      }
-
-      developer.log('Inventory sync: $insertedCount inserted, $updatedCount updated');
-    } catch (e, st) {
-      developer.log('Failed to sync inventory from server: $e', error: e, stackTrace: st);
     }
   }
 
@@ -147,7 +82,8 @@ class SyncWorker {
       await worker.sync();
       developer.log('SyncWorker: inventory sync completed');
     } catch (e, st) {
-      developer.log('SyncWorker: inventory sync failed: $e', error: e, stackTrace: st);
+      developer.log('SyncWorker: inventory sync failed: $e',
+          error: e, stackTrace: st);
     }
   }
 
@@ -168,14 +104,16 @@ class SyncWorker {
       try {
         payload = jsonDecode(payloadText) as Map<String, dynamic>;
       } catch (e) {
-        developer.log('SyncWorker: invalid JSON for pending sale id=$id, deleting');
+        developer
+            .log('SyncWorker: invalid JSON for pending sale id=$id, deleting');
         await LocalData.deletePendingSale(id);
         continue;
       }
 
       // Validate product_name before attempting sync
       if (!_isValidSale(payload)) {
-        developer.log('SyncWorker: deleting invalid pending sale id=$id (validation failed)');
+        developer.log(
+            'SyncWorker: deleting invalid pending sale id=$id (validation failed)');
         await LocalData.deletePendingSale(id);
         continue;
       }
@@ -184,20 +122,17 @@ class SyncWorker {
       final transformedPayload = _transformPayloadForApi(payload);
 
       try {
-        final result = await SaleService().create(transformedPayload);
-        developer.log('SyncWorker: successfully synced pending sale id=$id, server returned: $result');
-        
+        final result = await getIt<SaleService>().create(transformedPayload);
+        developer.log(
+            'SyncWorker: successfully synced pending sale id=$id, server returned: $result');
+
+        if (result.containsKey('id')) {
+          await _upsertLocalSaleFromSync(payload, result);
+        }
+
         // On success, remove from pending queue
         await LocalData.deletePendingSale(id);
-        
-        // Update local sales with server response (includes server-generated ID)
-        if (result.containsKey('id')) {
-          await LocalData.insertSale({
-            ...payload,
-            'id': result['id'], // Use server ID
-          });
-        }
-        
+
         developer.log('SyncWorker: completed sync for pending sale id=$id');
       } catch (e, st) {
         developer.log(
@@ -244,7 +179,8 @@ class SyncWorker {
       }
 
       if (deletedCount > 0) {
-        developer.log('SyncWorker cleanup: removed $deletedCount invalid entries');
+        developer
+            .log('SyncWorker cleanup: removed $deletedCount invalid entries');
       }
     } catch (e, st) {
       developer.log('Cleanup failed: $e', error: e, stackTrace: st);
@@ -254,17 +190,59 @@ class SyncWorker {
   /// Validate sale data
   bool _isValidSale(Map<String, dynamic> payload) {
     final productName = payload['product_name'];
-    if (productName == null || productName is! String || productName.trim().isEmpty) {
+    if (productName == null ||
+        productName is! String ||
+        productName.trim().isEmpty) {
       return false;
     }
 
     // Add more validation as needed
-    final quantity = payload['quantity'];
-    if (quantity == null || (quantity is num && quantity <= 0)) {
+    final quantity = _parseNum(payload['quantity']);
+    if (quantity == null || quantity <= 0) {
       return false;
     }
 
     return true;
+  }
+
+  Future<void> _upsertLocalSaleFromSync(
+    Map<String, dynamic> payload,
+    Map<String, dynamic> serverResult,
+  ) async {
+    final merged = {
+      ...payload,
+      ...serverResult,
+      'server_id': serverResult['id'],
+      'sale_date': serverResult['sale_date'] ?? payload['sale_date'],
+      'customer_name':
+          serverResult['customer_name'] ?? payload['customer_name'],
+    };
+
+    final serverId = _parseInt(serverResult['id']);
+    int? localId = _parseInt(payload['local_id']);
+    if (localId == null && serverId != null) {
+      localId = await LocalData.findSaleIdByServerId(serverId);
+    }
+    localId ??= await LocalData.findSaleIdByPayload(payload);
+
+    if (localId != null) {
+      await LocalData.updateSale(localId, merged);
+      return;
+    }
+
+    await LocalData.upsertSaleFromServer(merged);
+  }
+
+  int? _parseInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  double? _parseNum(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
   }
 
   /// Transform Flutter payload to match Laravel API expectations

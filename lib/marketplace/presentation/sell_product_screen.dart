@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
-import 'package:pamoja_twalima/marketplace/application/application.dart';
-import 'package:pamoja_twalima/marketplace/infrastructure/factory.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/marketplace/domain/entities/product_entity.dart';
+import 'package:pamoja_twalima/marketplace/domain/value_objects/value_objects.dart';
 
 class SellProductScreen extends StatefulWidget {
   const SellProductScreen({super.key});
@@ -35,9 +37,7 @@ class _SellProductScreenState extends State<SellProductScreen> {
   // Export & Quality
   bool _isExportReady = false;
   bool _isBulkAvailable = true;
-  String _shelfLife = '';
   String _qualityGrade = 'A';
-  final List<String> _tags = [];
 
   // Images
   final List<String> _productImages = [];
@@ -66,20 +66,54 @@ class _SellProductScreenState extends State<SellProductScreen> {
     'Other': ['Other']
   };
 
-  final List<String> _units = ['kg', 'grams', 'liters', 'pieces', 'crates', 'bags', 'tons'];
-  final List<String> _certifications = ['Organic', 'KEBS', 'GlobalG.A.P.', 'Fair Trade', 'UTZ', 'HACCP'];
-  final List<String> _deliveryOptions = ['Pickup', 'Local Delivery', 'Nationwide', 'International Shipping', 'Cold Chain'];
-  final List<String> _paymentMethods = ['M-Pesa', 'Bank Transfer', 'Cash on Delivery', 'Escrow', 'Letter of Credit'];
-  final List<String> _qualityGrades = ['A', 'B', 'C', 'Premium', 'Export Quality'];
+  final List<String> _units = [
+    'kg',
+    'grams',
+    'liters',
+    'pieces',
+    'crates',
+    'bags',
+    'tons'
+  ];
+  final List<String> _certifications = [
+    'Organic',
+    'KEBS',
+    'GlobalG.A.P.',
+    'Fair Trade',
+    'UTZ',
+    'HACCP'
+  ];
+  final List<String> _deliveryOptions = [
+    'Pickup',
+    'Local Delivery',
+    'Nationwide',
+    'International Shipping',
+    'Cold Chain'
+  ];
+  final List<String> _paymentMethods = [
+    'M-Pesa',
+    'Bank Transfer',
+    'Cash on Delivery',
+    'Escrow',
+    'Letter of Credit'
+  ];
+  final List<String> _qualityGrades = [
+    'A',
+    'B',
+    'C',
+    'Premium',
+    'Export Quality'
+  ];
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
+    return AppScaffold(
       backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: const Text('Sell Product'),
+      appBar: ModernAppBar(
+        title: 'Sell Product',
+        variant: AppBarVariant.home,
         actions: [
           TextButton(
             onPressed: _saveAsDraft,
@@ -114,10 +148,7 @@ class _SellProductScreenState extends State<SellProductScreen> {
   @override
   void initState() {
     super.initState();
-    _addProductUseCase = MarketplaceFactory.createAddProduct();
   }
-
-  late final AddProduct _addProductUseCase;
 
   Widget _buildProgressIndicator(ThemeData theme) {
     return Container(
@@ -147,12 +178,18 @@ class _SellProductScreenState extends State<SellProductScreen> {
 
   String _getStepTitle(int step) {
     switch (step) {
-      case 0: return 'Product Information';
-      case 1: return 'Product Details';
-      case 2: return 'Pricing & Quantity';
-      case 3: return 'Export & Quality';
-      case 4: return 'Review & Publish';
-      default: return '';
+      case 0:
+        return 'Product Information';
+      case 1:
+        return 'Product Details';
+      case 2:
+        return 'Pricing & Quantity';
+      case 3:
+        return 'Export & Quality';
+      case 4:
+        return 'Review & Publish';
+      default:
+        return '';
     }
   }
 
@@ -290,7 +327,8 @@ class _SellProductScreenState extends State<SellProductScreen> {
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     initialValue: _selectedSubCategory,
-                    items: (_subCategories[_selectedCategory] ?? ['Other']).map((subCategory) {
+                    items: (_subCategories[_selectedCategory] ?? ['Other'])
+                        .map((subCategory) {
                       return DropdownMenuItem(
                         value: subCategory,
                         child: Text(subCategory),
@@ -333,7 +371,8 @@ class _SellProductScreenState extends State<SellProductScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: _certifications.map((certification) {
-                      final isSelected = _selectedCertifications.contains(certification);
+                      final isSelected =
+                          _selectedCertifications.contains(certification);
                       return FilterChip(
                         label: Text(certification),
                         selected: isSelected,
@@ -347,7 +386,8 @@ class _SellProductScreenState extends State<SellProductScreen> {
                           });
                         },
                         backgroundColor: theme.cardTheme.color,
-                        selectedColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                        selectedColor:
+                            theme.colorScheme.primary.withValues(alpha: 0.15),
                         checkmarkColor: theme.colorScheme.primary,
                       );
                     }).toList(),
@@ -540,15 +580,18 @@ class _SellProductScreenState extends State<SellProductScreen> {
                   const SizedBox(height: 16),
                   SwitchListTile(
                     title: const Text('Export Ready'),
-                    subtitle: const Text('This product meets international export standards'),
+                    subtitle: const Text(
+                        'This product meets international export standards'),
                     value: _isExportReady,
-                    onChanged: (value) => setState(() => _isExportReady = value),
+                    onChanged: (value) =>
+                        setState(() => _isExportReady = value),
                   ),
                   SwitchListTile(
                     title: const Text('Bulk Orders Available'),
                     subtitle: const Text('Accept large quantity orders'),
                     value: _isBulkAvailable,
-                    onChanged: (value) => setState(() => _isBulkAvailable = value),
+                    onChanged: (value) =>
+                        setState(() => _isBulkAvailable = value),
                   ),
                 ],
               ),
@@ -593,7 +636,7 @@ class _SellProductScreenState extends State<SellProductScreen> {
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
-                    onChanged: (value) => _shelfLife = value,
+                    onChanged: (_) {},
                     decoration: const InputDecoration(
                       labelText: 'Shelf Life',
                       border: OutlineInputBorder(),
@@ -684,7 +727,7 @@ class _SellProductScreenState extends State<SellProductScreen> {
                   const SizedBox(height: 12),
                   const Text(
                     'By publishing this product, you agree to our marketplace terms and conditions. '
-                        'You confirm that the product information is accurate and you have the right to sell this product.',
+                    'You confirm that the product information is accurate and you have the right to sell this product.',
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -713,51 +756,56 @@ class _SellProductScreenState extends State<SellProductScreen> {
           ),
           child: _productImages.isEmpty
               ? Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(LucideIcons.image, size: 40, color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
-              const SizedBox(height: 8),
-              Text(
-                'Add Product Images',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
-              ),
-            ],
-          )
-              : GridView.builder(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 4,
-              mainAxisSpacing: 4,
-            ),
-            itemCount: _productImages.length,
-            itemBuilder: (context, index) {
-              return Stack(
-                children: [
-                  Image.asset(
-                    _productImages[index],
-                    fit: BoxFit.cover,
-                  ),
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: GestureDetector(
-                      onTap: () => _removeImage(index),
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.close, size: 14, color: Colors.white),
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(LucideIcons.image,
+                        size: 40,
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.3)),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Add Product Images',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
+                  ],
+                )
+              : GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 4,
+                    mainAxisSpacing: 4,
                   ),
-                ],
-              );
-            },
-          ),
+                  itemCount: _productImages.length,
+                  itemBuilder: (context, index) {
+                    return Stack(
+                      children: [
+                        Image.asset(
+                          _productImages[index],
+                          fit: BoxFit.cover,
+                        ),
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: GestureDetector(
+                            onTap: () => _removeImage(index),
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(Icons.close,
+                                  size: 14, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
         ),
         const SizedBox(height: 12),
         ElevatedButton.icon(
@@ -773,7 +821,8 @@ class _SellProductScreenState extends State<SellProductScreen> {
     );
   }
 
-  Widget _buildMultiSelectSection(String title, List<String> options, List<String> selected, ThemeData theme) {
+  Widget _buildMultiSelectSection(String title, List<String> options,
+      List<String> selected, ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -880,7 +929,8 @@ class _SellProductScreenState extends State<SellProductScreen> {
       case 1:
         return _selectedCategory.isNotEmpty && _selectedSubCategory.isNotEmpty;
       case 2:
-        return _priceController.text.isNotEmpty && _quantityController.text.isNotEmpty;
+        return _priceController.text.isNotEmpty &&
+            _quantityController.text.isNotEmpty;
       default:
         return true;
     }
@@ -907,32 +957,30 @@ class _SellProductScreenState extends State<SellProductScreen> {
   Future<void> _publishProduct() async {
     if (!_validateCurrentStep()) return;
 
-    final product = {
-      'name': _productNameController.text,
-      'description': _descriptionController.text,
-      'price': double.tryParse(_priceController.text) ?? 0.0,
-      'quantity': double.tryParse(_quantityController.text) ?? 0.0,
-      'category': _selectedCategory,
-      'subCategory': _selectedSubCategory,
-      'unit': _selectedUnit,
-      'certifications': _selectedCertifications,
-      'exportReady': _isExportReady,
-      'images': _productImages,
-    };
-
-    try {
-      await _addProductUseCase.execute(product);
-      if (!mounted) return;
+    final name = _productNameController.text.trim();
+    if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Product published successfully!')),
+        const SnackBar(content: Text('Product name is required')),
       );
-      Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to publish product')),
-      );
+      return;
     }
+
+    final price = double.tryParse(_priceController.text) ?? 0.0;
+    final quantity = double.tryParse(_quantityController.text) ?? 0.0;
+
+    final product = ProductEntity(
+      name: ProductName(name),
+      category: _selectedCategory,
+      price: Price(price),
+      quantity: quantity,
+      unit: _selectedUnit,
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Product published successfully!')),
+    );
+    Navigator.pop(context, product);
   }
 }
 

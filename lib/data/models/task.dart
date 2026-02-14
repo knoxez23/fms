@@ -9,6 +9,8 @@ class Task {
   final String? assignedTo;
   final String? createdAt;
   final int? userId;
+  final String? sourceEventType;
+  final String? sourceEventId;
 
   Task({
     this.id,
@@ -21,6 +23,8 @@ class Task {
     this.assignedTo,
     this.createdAt,
     this.userId,
+    this.sourceEventType,
+    this.sourceEventId,
   });
 
   Map<String, dynamic> toMap() {
@@ -35,6 +39,8 @@ class Task {
       'assigned_to': assignedTo,
       'created_at': createdAt,
       'user_id': userId,
+      'source_event_type': sourceEventType,
+      'source_event_id': sourceEventId,
     };
   }
 
@@ -50,6 +56,8 @@ class Task {
       assignedTo: map['assigned_to'],
       createdAt: map['created_at'],
       userId: map['user_id'],
+      sourceEventType: map['source_event_type'],
+      sourceEventId: map['source_event_id'],
     );
   }
 }

@@ -1,48 +1,46 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../auth/providers/auth_provider.dart';
-import 'package:pamoja_twalima/core/presentation/themes/app_colors.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'bloc/auth/auth_bloc.dart';
+import 'package:pamoja_twalima/core/presentation/themes.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  Widget build(BuildContext context) {
+    return const LoginView();
+  }
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class LoginView extends StatefulWidget {
+  const LoginView({super.key});
+
+  @override
+  State<LoginView> createState() => _LoginViewState();
+}
+
+class _LoginViewState extends State<LoginView> {
+  final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  // Auth is handled by AuthProvider now
-  bool _loading = false;
   bool _obscurePassword = true;
 
-  void _submit() async {
-    setState(() => _loading = true);
-    try {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final res = await auth.login(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
-
-      if (!mounted) return;
-      if (res['token'] != null) {
-        Navigator.of(context).pushReplacementNamed('/home');
-      } else {
-        _showError('Invalid login credentials');
-      }
-    } catch (e) {
-      _showError(e.toString());
-    } finally {
-      setState(() => _loading = false);
-    }
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
-  void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
-    );
+  void _handleLogin() {
+    if (_formKey.currentState?.validate() ?? false) {
+      context.read<AuthBloc>().add(
+            AuthEvent.loginRequested(
+              email: _emailController.text.trim(),
+              password: _passwordController.text,
+            ),
+          );
+    }
   }
 
   @override
@@ -50,126 +48,186 @@ class _LoginScreenState extends State<LoginScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                // LOGO / BRAND
-                Icon(Icons.agriculture,
-                    size: 64, color: theme.colorScheme.primary),
-                const SizedBox(height: 12),
-                Text(
-                  'Pamoja Twalima',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: BlocConsumer<AuthBloc, AuthState>(
+        listener: (context, state) {
+          state.when(
+            initial: () {},
+            loading: () {},
+            authenticated: (user) {
+              Navigator.of(context).pushReplacementNamed('/home');
+            },
+            unauthenticated: () {},
+            error: (message) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(message),
+                  backgroundColor: Colors.red,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'Manage your farm. Grow together.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
+              );
+            },
+          );
+        },
+        builder: (context, state) {
+          final isLoading = state.maybeWhen(
+            loading: () => true,
+            orElse: () => false,
+          );
 
-                const SizedBox(height: 30),
-
-                // CARD
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: theme.cardTheme.color,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [AppColors.subtleShadow],
-                  ),
+          return SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Form(
+                  key: _formKey,
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        'Welcome back',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 20),
-                      TextField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: _inputDecoration(
-                          label: 'Email',
-                          icon: Icons.email_outlined,
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: AppColors.primaryGradient,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [AppColors.cardShadow],
+                        ),
+                        child: Column(
+                          children: [
+                            const Icon(
+                              Icons.agriculture,
+                              size: 64,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Welcome Back',
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Login to manage your farm',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: Colors.white.withValues(alpha: 0.9),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      TextField(
+                      const SizedBox(height: 24),
+                      TextFormField(
+                        key: const Key('login_email_input'),
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: const Icon(Icons.email_outlined),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your email';
+                          }
+                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                              .hasMatch(value)) {
+                            return 'Please enter a valid email';
+                          }
+                          return null;
+                        },
+                        enabled: !isLoading,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        key: const Key('login_password_input'),
                         controller: _passwordController,
                         obscureText: _obscurePassword,
-                        decoration: _inputDecoration(
-                          label: 'Password',
-                          icon: Icons.lock_outline,
-                        ).copyWith(
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          prefixIcon: const Icon(Icons.lock_outlined),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
                                   ? Icons.visibility_outlined
                                   : Icons.visibility_off_outlined,
                             ),
-                            onPressed: () => setState(
-                                () => _obscurePassword = !_obscurePassword),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your password';
+                          }
+                          return null;
+                        },
+                        enabled: !isLoading,
                       ),
                       const SizedBox(height: 24),
                       ElevatedButton(
-                        onPressed: _loading ? null : _submit,
+                        key: const Key('login_submit_button'),
+                        onPressed: isLoading ? null : _handleLogin,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: _loading
+                        child: isLoading
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,
                                 child: CircularProgressIndicator(
-                                  color: Colors.white,
                                   strokeWidth: 2,
+                                  color: Colors.white,
                                 ),
                               )
-                            : const Text('Login'),
+                            : const Text(
+                                'Login',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "Don't have an account? ",
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          TextButton(
+                            key: const Key('login_to_register_button'),
+                            onPressed: isLoading
+                                ? null
+                                : () {
+                                    Navigator.of(context)
+                                        .pushReplacementNamed('/register');
+                                  },
+                            child: const Text('Create account'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-
-                const SizedBox(height: 20),
-
-                TextButton(
-                  onPressed: () => Navigator.of(context).pushNamed('/register'),
-                  child: const Text("Don't have an account? Register"),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  InputDecoration _inputDecoration({
-    required String label,
-    required IconData icon,
-  }) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+          );
+        },
       ),
     );
   }

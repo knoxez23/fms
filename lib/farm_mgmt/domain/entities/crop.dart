@@ -1,1 +1,1 @@
-export 'package:pamoja_twalima/data/models/crop.dart';
+export 'crop_entity.dart';

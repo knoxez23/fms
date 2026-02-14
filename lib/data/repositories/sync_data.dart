@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'package:injectable/injectable.dart';
 
 import '../network/api_service.dart';
 import '../services/connectivity_service.dart';
@@ -11,6 +12,7 @@ import '../models/task.dart';
 import '../models/feeding_schedule.dart';
 import '../models/feeding_log.dart';
 
+@lazySingleton
 class SyncData {
   static final SyncData _instance = SyncData._internal();
   factory SyncData() => _instance;
@@ -35,7 +37,7 @@ class SyncData {
 
         // Store locally for offline access
         for (var animal in animals) {
-          await LocalData.insertAnimal(animal);
+          await LocalData.upsertAnimal(animal);
         }
 
         return animals;
@@ -55,7 +57,7 @@ class SyncData {
         final response =
             await _apiService.post('/animals', data: animal.toMap());
         final createdAnimal = Animal.fromMap(response.data);
-        return await LocalData.insertAnimal(createdAnimal);
+        return await LocalData.upsertAnimal(createdAnimal);
       } catch (e, st) {
         developer.log('insertAnimal API failed, storing locally: $e',
             error: e, stackTrace: st);
@@ -102,7 +104,7 @@ class SyncData {
         final crops = data.map((json) => Crop.fromMap(json)).toList();
 
         for (var crop in crops) {
-          await LocalData.insertCrop(crop);
+          await LocalData.upsertCrop(crop);
         }
 
         return crops;
@@ -120,7 +122,7 @@ class SyncData {
       try {
         final response = await _apiService.post('/crops', data: crop.toMap());
         final createdCrop = Crop.fromMap(response.data);
-        return await LocalData.insertCrop(createdCrop);
+        return await LocalData.upsertCrop(createdCrop);
       } catch (e, st) {
         developer.log('insertCrop API failed, storing locally: $e',
             error: e, stackTrace: st);
@@ -164,7 +166,7 @@ class SyncData {
         final tasks = data.map((json) => Task.fromMap(json)).toList();
 
         for (var task in tasks) {
-          await LocalData.insertTask(task);
+          await LocalData.upsertTask(task);
         }
 
         return tasks;
@@ -182,7 +184,7 @@ class SyncData {
       try {
         final response = await _apiService.post('/tasks', data: task.toMap());
         final createdTask = Task.fromMap(response.data);
-        return await LocalData.insertTask(createdTask);
+        return await LocalData.upsertTask(createdTask);
       } catch (e, st) {
         developer.log('insertTask API failed, storing locally: $e',
             error: e, stackTrace: st);
@@ -227,7 +229,7 @@ class SyncData {
             data.map((json) => FeedingSchedule.fromMap(json)).toList();
 
         for (var schedule in schedules) {
-          await LocalData.insertFeedingSchedule(schedule);
+          await LocalData.upsertFeedingSchedule(schedule);
         }
 
         return schedules;
@@ -247,7 +249,7 @@ class SyncData {
         final response = await _apiService.post('/feeding-schedules',
             data: schedule.toMap());
         final createdSchedule = FeedingSchedule.fromMap(response.data);
-        return await LocalData.insertFeedingSchedule(createdSchedule);
+        return await LocalData.upsertFeedingSchedule(createdSchedule);
       } catch (e, st) {
         developer.log('insertFeedingSchedule API failed, storing locally: $e',
             error: e, stackTrace: st);
@@ -296,7 +298,7 @@ class SyncData {
         final logs = data.map((json) => FeedingLog.fromMap(json)).toList();
 
         for (var log in logs) {
-          await LocalData.insertFeedingLog(log);
+          await LocalData.upsertFeedingLog(log);
         }
 
         return logs;
@@ -316,7 +318,7 @@ class SyncData {
         final response =
             await _apiService.post('/feeding-logs', data: log.toMap());
         final createdLog = FeedingLog.fromMap(response.data);
-        return await LocalData.insertFeedingLog(createdLog);
+        return await LocalData.upsertFeedingLog(createdLog);
       } catch (e, st) {
         developer.log('insertFeedingLog API failed, storing locally: $e',
             error: e, stackTrace: st);
@@ -356,6 +358,29 @@ class SyncData {
     return await LocalData.getFarmSummary();
   }
 
+  // Sales operations
+  Future<List<Map<String, dynamic>>> getSales() async {
+    if (await _isOnline()) {
+      try {
+        final response = await _apiService.get('/sales');
+        final List<dynamic> data = response.data;
+        final rows =
+            data.map((json) => Map<String, dynamic>.from(json as Map)).toList();
+
+        for (final row in rows) {
+          await LocalData.upsertSaleFromServer(row);
+        }
+
+        return rows;
+      } catch (e, st) {
+        developer.log('getSales API failed: $e', error: e, stackTrace: st);
+        return await LocalData.getSales();
+      }
+    } else {
+      return await LocalData.getSales();
+    }
+  }
+
   // Market prices (still mock)
   Future<List<Map<String, String>>> getMarketPrices() async {
     return await LocalData.getMarketPrices();
@@ -377,11 +402,96 @@ class SyncDataRepository {
   }) async {
     try {
       final db = await _dbHelper.database;
+      final encodedPayload = jsonEncode(payload);
+      final existing = await db.query(
+        'inventory_sync_queue',
+        where: 'inventory_local_id = ?',
+        whereArgs: [localId],
+        orderBy: 'created_at DESC',
+      );
+
+      if (action == 'delete') {
+        // Delete supersedes any pending create/update for the same local row.
+        await db.delete(
+          'inventory_sync_queue',
+          where: 'inventory_local_id = ?',
+          whereArgs: [localId],
+        );
+      } else if (action == 'update') {
+        final createEntry = existing
+            .where((row) => row['action'] == 'create')
+            .cast<Map<String, dynamic>>()
+            .toList();
+        if (createEntry.isNotEmpty) {
+          // Collapse create+update into a single create with latest payload.
+          final createId = createEntry.first['id'];
+          await db.update(
+            'inventory_sync_queue',
+            {
+              'payload': encodedPayload,
+              'created_at': DateTime.now().toIso8601String(),
+              'retry_count': 0,
+            },
+            where: 'id = ?',
+            whereArgs: [createId],
+          );
+
+          await db.delete(
+            'inventory_sync_queue',
+            where: 'inventory_local_id = ? AND action = ? AND id != ?',
+            whereArgs: [localId, 'update', createId],
+          );
+
+          developer.log(
+              'Coalesced inventory update into pending create for local_id=$localId');
+          return;
+        }
+
+        final latestUpdate = existing.firstWhere(
+          (row) => row['action'] == 'update',
+          orElse: () => const <String, dynamic>{},
+        );
+        if (latestUpdate.isNotEmpty) {
+          await db.update(
+            'inventory_sync_queue',
+            {
+              'payload': encodedPayload,
+              'created_at': DateTime.now().toIso8601String(),
+              'retry_count': 0,
+            },
+            where: 'id = ?',
+            whereArgs: [latestUpdate['id']],
+          );
+          developer
+              .log('Replaced pending inventory update for local_id=$localId');
+          return;
+        }
+      } else if (action == 'create') {
+        final latestCreate = existing.firstWhere(
+          (row) => row['action'] == 'create',
+          orElse: () => const <String, dynamic>{},
+        );
+        if (latestCreate.isNotEmpty) {
+          await db.update(
+            'inventory_sync_queue',
+            {
+              'payload': encodedPayload,
+              'created_at': DateTime.now().toIso8601String(),
+              'retry_count': 0,
+            },
+            where: 'id = ?',
+            whereArgs: [latestCreate['id']],
+          );
+          developer
+              .log('Replaced pending inventory create for local_id=$localId');
+          return;
+        }
+      }
 
       final queueItem = {
         'inventory_local_id': localId,
         'action': action,
-        'payload': jsonEncode(payload),
+        'payload': encodedPayload,
         'created_at': DateTime.now().toIso8601String(),
         'retry_count': 0,
       };
@@ -414,6 +524,16 @@ class SyncDataRepository {
       'inventory_sync_queue',
       where: 'id = ?',
       whereArgs: [queueId],
+    );
+  }
+
+  /// Remove all sync actions for a local inventory item
+  Future<void> removeInventoryActionsForLocalId(int localId) async {
+    final db = await _dbHelper.database;
+    await db.delete(
+      'inventory_sync_queue',
+      where: 'inventory_local_id = ?',
+      whereArgs: [localId],
     );
   }
 

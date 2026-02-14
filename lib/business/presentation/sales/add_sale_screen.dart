@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
-import '../../../data/services/sale_service.dart';
-import 'package:provider/provider.dart';
-import '../../../auth/providers/auth_provider.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/business/domain/entities/sale_entity.dart';
+import 'package:pamoja_twalima/business/domain/value_objects/value_objects.dart';
 
 class AddSaleScreen extends StatefulWidget {
   const AddSaleScreen({super.key});
@@ -70,26 +71,16 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
     final currentUnits = _units[_selectedType] ?? ['units'];
     final currentAnimals = _animals[_selectedType] ?? ['N/A'];
 
-    return Scaffold(
+    return AppScaffold(
       backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          'Record Sale',
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+      includeDrawer: false,
+      appBar: ModernAppBar(
+        title: 'Record Sale',
+        variant: AppBarVariant.standard,
         actions: [
           TextButton(
             onPressed: _saveSale,
-            child: Text(
-              'Save',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -471,6 +462,28 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
           ),
         ),
       ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _saveSale,
+                  child: const Text('Save Sale'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -505,37 +518,38 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
 
   void _saveSale() {
     if (_formKey.currentState!.validate()) {
-      // Create sale with correct field names matching the database schema
-      final newSale = {
-        'product_name': _productController.text, // Changed from 'product'
-        'type': _selectedType,
-        'quantity': double.tryParse(_quantityController.text) ?? 0,
-        'unit': _selectedUnit,
-        'price': double.tryParse(_priceController.text) ??
-            0, // Changed from 'pricePerUnit'
-        'total_amount': double.tryParse(_totalController.text) ??
-            0, // Changed from 'totalAmount'
-        'customer_name': _customerController.text, // Changed from 'customer'
-        'sale_date': _saleDate?.toIso8601String() ??
-            DateTime.now().toIso8601String(), // Changed from 'date'
-        'animal': _selectedAnimal,
-        'payment_status': _paymentStatus, // Changed from 'paymentStatus'
-        'notes': _notesController.text,
-        'created_at':
-            DateTime.now().toIso8601String(), // Changed from 'createdDate'
-      };
-
-      // Validate before returning
-      if (newSale['product_name'] == null ||
-          (newSale['product_name'] as String).trim().isEmpty) {
+      final productName = _productController.text.trim();
+      if (productName.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Product name is required')),
         );
         return;
       }
 
+      final qty = double.tryParse(_quantityController.text) ?? 0;
+      final unitPrice = double.tryParse(_priceController.text) ?? 0;
+      final total = double.tryParse(_totalController.text) ?? (qty * unitPrice);
+
+      final sale = SaleEntity(
+        productName: productName,
+        type: _selectedType,
+        quantity: BusinessQuantity(qty),
+        unit: _selectedUnit,
+        pricePerUnit: Money(unitPrice),
+        totalAmount: Money(total),
+        customer: _customerController.text.trim().isEmpty
+            ? '-'
+            : _customerController.text.trim(),
+        paymentStatus: _paymentStatus,
+        animal: _selectedAnimal.isEmpty ? null : _selectedAnimal,
+        date: _saleDate ?? DateTime.now(),
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
+      );
+
       // Return to parent screen
-      Navigator.pop(context, newSale);
+      Navigator.pop(context, sale);
     }
   }
 

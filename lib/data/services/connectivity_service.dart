@@ -1,5 +1,7 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:injectable/injectable.dart';
 
+@LazySingleton()
 class ConnectivityService {
   static final ConnectivityService _instance = ConnectivityService._internal();
   factory ConnectivityService() => _instance;
@@ -11,11 +13,12 @@ class ConnectivityService {
   }
 
   Future<bool> isOnline() async {
-    var connectivityResult = await _connectivity.checkConnectivity();
-    return connectivityResult != ConnectivityResult.none;
+    final results = await _connectivity.checkConnectivity();
+    return results.any((result) => result != ConnectivityResult.none);
   }
 
   Stream<bool> get onConnectivityChanged {
-    return _connectivity.onConnectivityChanged.map((result) => result != ConnectivityResult.none);
+    return _connectivity.onConnectivityChanged
+        .map((results) => results.any((r) => r != ConnectivityResult.none));
   }
 }

@@ -1,2 +1,2 @@
 // Barrel for auth domain entities
-export 'user.dart';
+export 'user_entity.dart';

@@ -1,6 +1,8 @@
 import '../network/api_service.dart';
 import 'dart:developer' as developer;
+import 'package:injectable/injectable.dart';
 
+@LazySingleton()
 class SaleService {
   final ApiService _api = ApiService();
 

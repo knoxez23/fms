@@ -83,6 +83,19 @@ class LocalData {
     return await db.insert('animals', animal.toMap());
   }
 
+  static Future<int> upsertAnimal(Animal animal) async {
+    final db = await _dbHelper.database;
+    final map = animal.toMap();
+    if (animal.id == null) {
+      return await db.insert('animals', map);
+    }
+    return await db.insert(
+      'animals',
+      map,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
   static Future<int> updateAnimal(Animal animal) async {
     final db = await _dbHelper.database;
     return await db.update(
@@ -108,6 +121,23 @@ class LocalData {
   static Future<int> insertCrop(Crop crop) async {
     final db = await _dbHelper.database;
     return await db.insert('crops', crop.toMap());
+  }
+
+  static Future<int> upsertCrop(Crop crop) async {
+    final db = await _dbHelper.database;
+    final map = {
+      'id': crop.id,
+      ...crop.toMap(),
+    };
+    if (crop.id == null) {
+      map.remove('id');
+      return await db.insert('crops', map);
+    }
+    return await db.insert(
+      'crops',
+      map,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   static Future<int> updateCrop(Crop crop) async {
@@ -137,6 +167,19 @@ class LocalData {
     return await db.insert('tasks', task.toMap());
   }
 
+  static Future<int> upsertTask(Task task) async {
+    final db = await _dbHelper.database;
+    final map = task.toMap();
+    if (task.id == null) {
+      return await db.insert('tasks', map);
+    }
+    return await db.insert(
+      'tasks',
+      map,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
   static Future<int> updateTask(Task task) async {
     final db = await _dbHelper.database;
     return await db.update(
@@ -162,6 +205,19 @@ class LocalData {
   static Future<int> insertFeedingSchedule(FeedingSchedule schedule) async {
     final db = await _dbHelper.database;
     return await db.insert('feeding_schedules', schedule.toMap());
+  }
+
+  static Future<int> upsertFeedingSchedule(FeedingSchedule schedule) async {
+    final db = await _dbHelper.database;
+    final map = schedule.toMap();
+    if (schedule.id == null) {
+      return await db.insert('feeding_schedules', map);
+    }
+    return await db.insert(
+      'feeding_schedules',
+      map,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   static Future<int> updateFeedingSchedule(FeedingSchedule schedule) async {
@@ -192,6 +248,19 @@ class LocalData {
     return await db.insert('feeding_logs', log.toMap());
   }
 
+  static Future<int> upsertFeedingLog(FeedingLog log) async {
+    final db = await _dbHelper.database;
+    final map = log.toMap();
+    if (log.id == null) {
+      return await db.insert('feeding_logs', map);
+    }
+    return await db.insert(
+      'feeding_logs',
+      map,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
   static Future<int> updateFeedingLog(FeedingLog log) async {
     final db = await _dbHelper.database;
     return await db.update(
@@ -220,6 +289,7 @@ class LocalData {
 
     // Ensure proper field mapping
     final row = <String, dynamic>{
+      'server_id': sale['server_id'] ?? sale['id'],
       'product_name': sale['product_name'],
       'quantity': sale['quantity'],
       'unit': sale['unit'],
@@ -242,6 +312,115 @@ class LocalData {
     }
 
     return await db.insert('sales', row);
+  }
+
+  static Future<int> upsertSaleFromServer(Map<String, dynamic> sale) async {
+    final db = await _dbHelper.database;
+    final serverId = sale['id'];
+    if (serverId == null) {
+      return await insertSale(sale);
+    }
+
+    final row = <String, dynamic>{
+      'server_id': serverId,
+      'product_name': sale['product_name'],
+      'quantity': sale['quantity'],
+      'unit': sale['unit'],
+      'price': sale['price'],
+      'total_amount': sale['total_amount'],
+      'customer_name': sale['customer_name'] ?? sale['customer'],
+      'sale_date': sale['sale_date'] ?? sale['date'],
+      'payment_status': sale['payment_status'] ?? 'Pending',
+      'notes': sale['notes'] ?? '',
+      'user_id': sale['user_id'],
+    };
+
+    final existing = await db.query(
+      'sales',
+      columns: ['id'],
+      where: 'server_id = ?',
+      whereArgs: [serverId],
+      limit: 1,
+    );
+
+    if (existing.isNotEmpty) {
+      final localId = existing.first['id'] as int;
+      await db.update('sales', row, where: 'id = ?', whereArgs: [localId]);
+      return localId;
+    }
+
+    return await db.insert('sales', row);
+  }
+
+  static Future<int> updateSale(int id, Map<String, dynamic> sale) async {
+    final db = await _dbHelper.database;
+
+    final row = <String, dynamic>{
+      'server_id': sale['server_id'] ?? sale['id'],
+      'product_name': sale['product_name'],
+      'quantity': sale['quantity'],
+      'unit': sale['unit'],
+      'price': sale['price'],
+      'total_amount': sale['total_amount'],
+      'customer_name': sale['customer_name'] ?? sale['customer'],
+      'sale_date': sale['sale_date'] ?? sale['date'],
+      'payment_status': sale['payment_status'] ?? 'Pending',
+      'notes': sale['notes'] ?? '',
+      'user_id': sale['user_id'],
+    };
+
+    return await db.update(
+      'sales',
+      row,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  static Future<int> deleteSale(int id) async {
+    final db = await _dbHelper.database;
+    return await db.delete('sales', where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<int?> findSaleIdByPayload(Map<String, dynamic> sale) async {
+    final db = await _dbHelper.database;
+
+    final customerName = sale['customer_name'] ?? sale['customer'];
+    final saleDate = sale['sale_date'] ?? sale['date'];
+
+    final rows = await db.query(
+      'sales',
+      columns: ['id'],
+      where:
+          'product_name = ? AND quantity = ? AND unit = ? AND price = ? AND total_amount = ? AND customer_name = ? AND sale_date = ?',
+      whereArgs: [
+        sale['product_name'],
+        sale['quantity'],
+        sale['unit'],
+        sale['price'],
+        sale['total_amount'],
+        customerName,
+        saleDate,
+      ],
+      limit: 1,
+    );
+
+    if (rows.isEmpty) return null;
+    return rows.first['id'] as int?;
+  }
+
+  static Future<int?> findSaleIdByServerId(int serverId) async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      'sales',
+      columns: ['id'],
+      where: 'server_id = ?',
+      whereArgs: [serverId],
+      limit: 1,
+    );
+
+    if (rows.isEmpty) return null;
+    return rows.first['id'] as int?;
   }
 
   // Pending sales (offline sync queue)

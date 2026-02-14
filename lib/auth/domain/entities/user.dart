@@ -1,1 +1,1 @@
-export 'package:pamoja_twalima/data/models/user.dart';
+export 'user_entity.dart';

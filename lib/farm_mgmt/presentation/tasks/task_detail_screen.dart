@@ -1,398 +1,191 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/entities/task_entity.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/bloc/tasks/tasks_bloc.dart';
 
-class TaskDetailScreen extends StatefulWidget {
-  final Map<String, dynamic> task;
+class TaskDetailScreen extends StatelessWidget {
+  final TaskEntity entity;
 
-  const TaskDetailScreen({super.key, required this.task});
+  const TaskDetailScreen({
+    super.key,
+    required this.entity,
+  });
 
-  @override
-  State<TaskDetailScreen> createState() => _TaskDetailScreenState();
-}
+  const TaskDetailScreen.fromEntity({
+    Key? key,
+    required TaskEntity entity,
+  }) : this(key: key, entity: entity);
 
-class _TaskDetailScreenState extends State<TaskDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isCompleted = widget.task['status'] == 'completed';
-    final isOverdue = widget.task['status'] == 'overdue';
+    final item = entity;
+    final isCompleted = item.isCompleted;
 
-    return Scaffold(
+    return AppScaffold(
       backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          'Task Details',
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () {
-              // Navigate to edit screen
-            },
-          ),
-        ],
+      includeDrawer: false,
+      appBar: const ModernAppBar(
+        title: 'Task Details',
+        variant: AppBarVariant.standard,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Task Header
-            _AnimatedCard(
-              index: 0,
+            _TaskCard(
               theme: theme,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            widget.task['title'],
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              decoration: isCompleted ? TextDecoration.lineThrough : null,
-                            ),
-                          ),
-                        ),
-                        Checkbox(
-                          value: isCompleted,
-                          onChanged: (value) {
-                            setState(() {
-                              widget.task['status'] = value! ? 'completed' : 'pending';
-                            });
-                          },
-                          activeColor: theme.colorScheme.primary,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      widget.task['description'],
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        _TaskBadge(
-                          label: widget.task['priority'],
-                          color: _getPriorityColor(widget.task['priority']),
-                          theme: theme,
-                        ),
-                        const SizedBox(width: 8),
-                        _TaskBadge(
-                          label: _getStatusText(widget.task['status']),
-                          color: _getStatusColor(widget.task['status']),
-                          theme: theme,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              title: item.title.value,
+              description: item.description ?? '',
+              dueDate: item.dueDate,
+              isCompleted: item.isCompleted,
+              isOverdue: item.isOverdue,
+              originLabel: _originLabel(item.sourceEventType),
             ),
-
             const SizedBox(height: 16),
-
-            // Task Details
-            _AnimatedCard(
-              index: 1,
+            _ActionRow(
               theme: theme,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Task Details',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _DetailRow(
-                      icon: Icons.category,
-                      label: 'Category',
-                      value: widget.task['category'],
-                      theme: theme,
-                    ),
-                    _DetailRow(
-                      icon: Icons.person,
-                      label: 'Assigned To',
-                      value: widget.task['assignedTo'],
-                      theme: theme,
-                    ),
-                    _DetailRow(
-                      icon: Icons.access_time,
-                      label: 'Estimated Time',
-                      value: widget.task['estimatedTime'],
-                      theme: theme,
-                    ),
-                    _DetailRow(
-                      icon: Icons.calendar_today,
-                      label: 'Due Date',
-                      value: _formatDate(widget.task['dueDate']),
-                      theme: theme,
-                      valueColor: isOverdue ? Colors.red : null,
-                    ),
-                  ],
-                ),
-              ),
+              isCompleted: isCompleted,
+              onToggleStatus: () => _toggleStatus(context, item),
+              onDelete: () => _deleteTask(context, item),
             ),
-
-            const SizedBox(height: 16),
-
-            // Progress & Notes
-            _AnimatedCard(
-              index: 2,
-              theme: theme,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Progress & Notes',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (!isCompleted)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Progress',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          LinearProgressIndicator(
-                            value: 0.3, // Mock progress
-                            backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-                            color: theme.colorScheme.primary,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '30% Complete',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                            ),
-                          ),
-                        ],
-                      ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Notes',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: theme.dividerColor.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Text(
-                        widget.task['notes'] ?? 'No additional notes for this task.',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Action Buttons
-            _AnimatedCard(
-              index: 3,
-              theme: theme,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Actions',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              // Mark as complete/incomplete
-                              setState(() {
-                                widget.task['status'] = isCompleted ? 'pending' : 'completed';
-                              });
-                            },
-                            icon: Icon(
-                              isCompleted ? Icons.refresh : Icons.check_circle,
-                              size: 16,
-                            ),
-                            label: Text(isCompleted ? 'Reopen Task' : 'Mark Complete'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              // Start/stop timer
-                            },
-                            icon: const Icon(Icons.timer, size: 16),
-                            label: const Text('Start Timer'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: theme.colorScheme.primary,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        // Add note
-                      },
-                      icon: const Icon(Icons.note_add, size: 16),
-                      label: const Text('Add Note'),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 48),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Related Tasks (if any)
-            if (_hasRelatedTasks(widget.task['category']))
-              _AnimatedCard(
-                index: 4,
-                theme: theme,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Related Tasks',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _RelatedTaskItem(
-                        title: 'Weed control in maize field',
-                        dueDate: '2024-03-18',
-                        theme: theme,
-                      ),
-                      _RelatedTaskItem(
-                        title: 'Apply second round of fertilizer',
-                        dueDate: '2024-03-25',
-                        theme: theme,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
           ],
         ),
       ),
     );
   }
 
-  Color _getPriorityColor(String priority) {
-    switch (priority.toLowerCase()) {
-      case 'high':
-        return Colors.red;
-      case 'medium':
-        return Colors.orange;
-      case 'low':
-        return Colors.green;
+  void _toggleStatus(BuildContext context, TaskEntity task) {
+    final updated = TaskEntity(
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      dueDate: task.dueDate,
+      isCompleted: !task.isCompleted,
+      sourceEventType: task.sourceEventType,
+      sourceEventId: task.sourceEventId,
+    );
+    context.read<TasksBloc>().add(TasksEvent.update(task: updated));
+    Navigator.pop(context);
+  }
+
+  void _deleteTask(BuildContext context, TaskEntity task) {
+    final id = task.id;
+    if (id == null || id.isEmpty) return;
+    context.read<TasksBloc>().add(TasksEvent.delete(id: id));
+    Navigator.pop(context);
+  }
+
+  String? _originLabel(String? sourceEventType) {
+    switch (sourceEventType) {
+      case 'AnimalBred':
+        return 'Breeding Follow-up';
+      case 'CropHarvested':
+        return 'Harvest Follow-up';
+      case 'InventoryLowStock':
+        return 'Low Stock Alert';
       default:
-        return Colors.grey;
+        return null;
     }
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'pending':
-        return Colors.orange;
-      case 'overdue':
-        return Colors.red;
-      case 'completed':
-        return Colors.green;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _getStatusText(String status) {
-    switch (status) {
-      case 'pending':
-        return 'Pending';
-      case 'overdue':
-        return 'Overdue';
-      case 'completed':
-        return 'Completed';
-      default:
-        return 'Pending';
-    }
-  }
-
-  String _formatDate(String date) {
-    final parts = date.split('-');
-    if (parts.length == 3) {
-      return '${parts[2]}/${parts[1]}/${parts[0]}';
-    }
-    return date;
-  }
-
-  bool _hasRelatedTasks(String category) {
-    return category == 'Crops'; // Mock condition
   }
 }
 
-class _TaskBadge extends StatelessWidget {
-  final String label;
-  final Color color;
+class _TaskCard extends StatelessWidget {
   final ThemeData theme;
+  final String title;
+  final String description;
+  final DateTime? dueDate;
+  final bool isCompleted;
+  final bool isOverdue;
+  final String? originLabel;
 
-  const _TaskBadge({
-    required this.label,
-    required this.color,
+  const _TaskCard({
     required this.theme,
+    required this.title,
+    required this.description,
+    required this.dueDate,
+    required this.isCompleted,
+    required this.isOverdue,
+    required this.originLabel,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.cardTheme.color,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [AppColors.subtleShadow],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              decoration: isCompleted ? TextDecoration.lineThrough : null,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description.isEmpty ? 'No description provided.' : description,
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          if (originLabel != null) ...[
+            Row(
+              children: [
+                Icon(Icons.link, size: 16, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Origin: $originLabel',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          Row(
+            children: [
+              _badge(theme, isCompleted ? 'Completed' : 'Pending',
+                  isCompleted ? Colors.green : Colors.orange),
+              const SizedBox(width: 8),
+              if (isOverdue) _badge(theme, 'Overdue', Colors.red),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(Icons.calendar_today,
+                  size: 16, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                dueDate == null
+                    ? 'No due date'
+                    : '${dueDate!.year}-${dueDate!.month.toString().padLeft(2, '0')}-${dueDate!.day.toString().padLeft(2, '0')}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isOverdue ? Colors.red : null,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _badge(ThemeData theme, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
@@ -408,188 +201,40 @@ class _TaskBadge extends StatelessWidget {
   }
 }
 
-class _DetailRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
+class _ActionRow extends StatelessWidget {
   final ThemeData theme;
-  final Color? valueColor;
+  final bool isCompleted;
+  final VoidCallback onToggleStatus;
+  final VoidCallback onDelete;
 
-  const _DetailRow({
-    required this.icon,
-    required this.label,
-    required this.value,
+  const _ActionRow({
     required this.theme,
-    this.valueColor,
+    required this.isCompleted,
+    required this.onToggleStatus,
+    required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-            size: 20,
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: onToggleStatus,
+            icon: Icon(isCompleted ? Icons.refresh : Icons.check_circle),
+            label: Text(isCompleted ? 'Reopen' : 'Complete'),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-          ),
-          Text(
-            value,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: valueColor ?? theme.colorScheme.onSurface,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RelatedTaskItem extends StatelessWidget {
-  final String title;
-  final String dueDate;
-  final ThemeData theme;
-
-  const _RelatedTaskItem({
-    required this.title,
-    required this.dueDate,
-    required this.theme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.bodyMedium,
-                ),
-                Text(
-                  'Due: ${_formatDate(dueDate)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatDate(String date) {
-    final parts = date.split('-');
-    if (parts.length == 3) {
-      return '${parts[2]}/${parts[1]}';
-    }
-    return date;
-  }
-}
-
-// Reuse the _AnimatedCard widget
-class _AnimatedCard extends StatefulWidget {
-  final Widget child;
-  final ThemeData theme;
-  final int index;
-
-  const _AnimatedCard({
-    required this.child,
-    required this.theme,
-    required this.index,
-  });
-
-  @override
-  State<_AnimatedCard> createState() => _AnimatedCardState();
-}
-
-class _AnimatedCardState extends State<_AnimatedCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _opacity;
-  late Animation<Offset> _offset;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-
-    final start = (0.1 * widget.index).clamp(0.0, 0.6);
-    final end = (0.3 + 0.1 * widget.index).clamp(0.4, 1.0);
-
-    _opacity = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Interval(start, end, curve: Curves.easeOut),
-      ),
-    );
-
-    _offset = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOut,
-      ),
-    );
-
-    Future.delayed(Duration(milliseconds: 100 * widget.index), () {
-      if (mounted) _controller.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _opacity,
-      child: SlideTransition(
-        position: _offset,
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(
-            color: widget.theme.cardTheme.color,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [AppColors.subtleShadow],
-          ),
-          child: widget.child,
         ),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: onDelete,
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            icon: const Icon(Icons.delete_outline, color: Colors.white),
+            label: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ),
+      ],
     );
   }
 }

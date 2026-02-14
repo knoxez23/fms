@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pamoja_twalima/core/di/injection.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/entities/animal_entity.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/entities/production_log_entity.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/value_objects/value_objects.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/bloc/animals/animals_bloc.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/bloc/production/production_log_cubit.dart';
 
 class ProductionLoggingScreen extends StatefulWidget {
-  final List<Map<String, dynamic>> animals;
-
-  const ProductionLoggingScreen({super.key, required this.animals});
+  const ProductionLoggingScreen({super.key});
 
   @override
-  State<ProductionLoggingScreen> createState() => _ProductionLoggingScreenState();
+  State<ProductionLoggingScreen> createState() =>
+      _ProductionLoggingScreenState();
 }
 
 class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
@@ -43,380 +51,395 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
     'Other': ['kg', 'liters', 'pieces'],
   };
 
-  // Recent production records
-  final List<Map<String, dynamic>> _productionRecords = [
-    {
-      'id': '1',
-      'animalName': 'Daisy',
-      'productType': 'Milk',
-      'quantity': 18.5,
-      'unit': 'liters',
-      'quality': 'Good',
-      'date': '2024-03-15',
-      'time': '08:30',
-    },
-    {
-      'id': '2',
-      'animalName': 'Chicken Flock A',
-      'productType': 'Eggs',
-      'quantity': 120,
-      'unit': 'pieces',
-      'quality': 'Excellent',
-      'date': '2024-03-15',
-      'time': '10:15',
-    },
-    {
-      'id': '3',
-      'animalName': 'Bella',
-      'productType': 'Milk',
-      'quantity': 15.0,
-      'unit': 'liters',
-      'quality': 'Good',
-      'date': '2024-03-15',
-      'time': '08:45',
-    },
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    // Set default animal if available
-    if (widget.animals.isNotEmpty) {
-      _selectedAnimal = widget.animals.first['name'] as String;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final dairyAnimals = widget.animals.where((animal) =>
-    (animal['type'] as String).contains('Cow') ||
-        (animal['type'] as String).contains('Dairy')).toList();
-    final poultryAnimals = widget.animals.where((animal) =>
-    (animal['type'] as String).contains('Layers') ||
-        (animal['type'] as String).contains('Chicken')).toList();
 
-    // Calculate today's totals
-    final today = DateTime.now().toString().substring(0, 10);
-    final todayRecords = _productionRecords.where((record) =>
-    (record['date'] as String) == today).toList();
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => getIt<AnimalsBloc>()..add(const AnimalsEvent.load()),
+        ),
+        BlocProvider(
+          create: (_) => getIt<ProductionLogCubit>()..load(),
+        ),
+      ],
+      child: BlocBuilder<AnimalsBloc, AnimalsState>(
+        builder: (context, animalsState) {
+          return BlocConsumer<ProductionLogCubit, ProductionLogState>(
+            listener: (context, logsState) {
+              final message = logsState.error;
+              if (message == null || message.isEmpty) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(message)),
+              );
+            },
+            builder: (context, logsState) {
+              final animals = animalsState.maybeWhen(
+                loaded: (items) => items,
+                orElse: () => <AnimalEntity>[],
+              );
+              final productionRecords = _mapLogsToView(logsState.logs, animals);
 
-    final totalMilk = todayRecords
-        .where((record) => (record['productType'] as String) == 'Milk')
-        .fold(0.0, (sum, record) => sum + (record['quantity'] as double));
+              if (_selectedAnimal.isEmpty && animals.isNotEmpty) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  setState(() {
+                    _selectedAnimal = animals.first.name.value;
+                  });
+                });
+              }
 
-    final totalEggs = todayRecords
-        .where((record) => (record['productType'] as String) == 'Eggs')
-        .fold(0, (sum, record) => sum + (record['quantity'] as int));
+              // Calculate today's totals
+              final today = DateTime.now().toString().substring(0, 10);
+              final todayRecords = productionRecords
+                  .where((record) => record.date == today)
+                  .toList();
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: const Text('Production Logging'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.analytics),
-            onPressed: _viewAnalytics,
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Today's Summary
-            _AnimatedCard(
-              index: 0,
-              theme: theme,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Text(
-                      "Today's Production",
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        _ProductionSummaryItem(
-                          value: '${totalMilk.toStringAsFixed(1)}L',
-                          label: 'Milk',
-                          color: Colors.blue,
-                          theme: theme,
-                        ),
-                        const SizedBox(width: 12),
-                        _ProductionSummaryItem(
-                          value: '$totalEggs',
-                          label: 'Eggs',
-                          color: Colors.orange,
-                          theme: theme,
-                        ),
-                        const SizedBox(width: 12),
-                        _ProductionSummaryItem(
-                          value: todayRecords.length.toString(),
-                          label: 'Records',
-                          color: theme.colorScheme.primary,
-                          theme: theme,
-                        ),
-                      ],
+              final totalMilk = todayRecords
+                  .where((record) => record.productType == 'Milk')
+                  .fold(0.0, (sum, record) => sum + record.quantity);
+
+              final totalEggs = todayRecords
+                  .where((record) => record.productType == 'Eggs')
+                  .fold(0, (sum, record) => sum + record.quantity.toInt());
+
+              return AppScaffold(
+                backgroundColor: theme.colorScheme.surface,
+                includeDrawer: false,
+                appBar: ModernAppBar(
+                  title: 'Production Logging',
+                  variant: AppBarVariant.standard,
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Icons.analytics),
+                      onPressed: _viewAnalytics,
                     ),
                   ],
                 ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Production Log Form
-            _AnimatedCard(
-              index: 1,
-              theme: theme,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Form(
-                  key: _formKey,
+                body: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Log Production',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Animal Selection
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedAnimal.isNotEmpty ? _selectedAnimal : null,
-                        items: widget.animals.map((animal) {
-                          return DropdownMenuItem(
-                            value: animal['name'] as String,
-                            child: Text(animal['name'] as String),
-                          );
-                        }).toList(),
-                        decoration: const InputDecoration(
-                          labelText: 'Animal/Group *',
-                          border: OutlineInputBorder(),
-                        ),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedAnimal = value!;
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please select an animal';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Product Type
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedProductType,
-                        items: _productTypes.entries.expand((entry) => entry.value).map((product) {
-                          return DropdownMenuItem(
-                            value: product,
-                            child: Text(product),
-                          );
-                        }).toList(),
-                        decoration: const InputDecoration(
-                          labelText: 'Product Type *',
-                          border: OutlineInputBorder(),
-                        ),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedProductType = value!;
-                            _selectedUnit = _units[value]?.first ?? 'units';
-                          });
-                        },
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Quantity and Unit
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              controller: _quantityController,
-                              decoration: const InputDecoration(
-                                labelText: 'Quantity *',
-                                border: OutlineInputBorder(),
+                      // Today's Summary
+                      _AnimatedCard(
+                        index: 0,
+                        theme: theme,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              Text(
+                                "Today's Production",
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                              keyboardType: TextInputType.number,
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter quantity';
-                                }
-                                if (double.tryParse(value) == null) {
-                                  return 'Please enter a valid number';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 1,
-                            child: DropdownButtonFormField<String>(
-                              initialValue: _selectedUnit,
-                              items: (_units[_selectedProductType] ?? ['units']).map((unit) {
-                                return DropdownMenuItem(
-                                  value: unit,
-                                  child: Text(unit),
-                                );
-                              }).toList(),
-                              decoration: const InputDecoration(
-                                labelText: 'Unit',
-                                border: OutlineInputBorder(),
-                              ),
-                              onChanged: (value) {
-                                setState(() {
-                                  _selectedUnit = value!;
-                                });
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Quality and Date/Time
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              initialValue: _qualityController.text.isNotEmpty
-                                  ? _qualityController.text
-                                  : 'Good',
-                              items: ['Excellent', 'Good', 'Fair', 'Poor'].map((quality) {
-                                return DropdownMenuItem(
-                                  value: quality,
-                                  child: Text(quality),
-                                );
-                              }).toList(),
-                              decoration: const InputDecoration(
-                                labelText: 'Quality',
-                                border: OutlineInputBorder(),
-                              ),
-                              onChanged: (value) {
-                                _qualityController.text = value!;
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextButton(
-                              onPressed: _selectDateTime,
-                              style: TextButton.styleFrom(
-                                alignment: Alignment.centerLeft,
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              const SizedBox(height: 16),
+                              Row(
                                 children: [
-                                  Text(
-                                    'Date & Time',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                                    ),
+                                  _ProductionSummaryItem(
+                                    value: '${totalMilk.toStringAsFixed(1)}L',
+                                    label: 'Milk',
+                                    color: Colors.blue,
+                                    theme: theme,
                                   ),
-                                  Text(
-                                    '${_formatDate(_selectedDate)} ${_selectedTime.format(context)}',
-                                    style: theme.textTheme.bodyMedium,
+                                  const SizedBox(width: 12),
+                                  _ProductionSummaryItem(
+                                    value: '$totalEggs',
+                                    label: 'Eggs',
+                                    color: Colors.orange,
+                                    theme: theme,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  _ProductionSummaryItem(
+                                    value: todayRecords.length.toString(),
+                                    label: 'Records',
+                                    color: theme.colorScheme.primary,
+                                    theme: theme,
                                   ),
                                 ],
                               ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Production Log Form
+                      _AnimatedCard(
+                        index: 1,
+                        theme: theme,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Log Production',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Animal Selection
+                                DropdownButtonFormField<String>(
+                                  initialValue: _selectedAnimal.isNotEmpty
+                                      ? _selectedAnimal
+                                      : null,
+                                  items: animals.map((animal) {
+                                    return DropdownMenuItem(
+                                      value: animal.name.value,
+                                      child: Text(animal.name.value),
+                                    );
+                                  }).toList(),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Animal/Group *',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedAnimal = value!;
+                                    });
+                                  },
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please select an animal';
+                                    }
+                                    return null;
+                                  },
+                                ),
+
+                                const SizedBox(height: 16),
+
+                                // Product Type
+                                DropdownButtonFormField<String>(
+                                  initialValue: _selectedProductType,
+                                  items: _productTypes.entries
+                                      .expand((entry) => entry.value)
+                                      .map((product) {
+                                    return DropdownMenuItem(
+                                      value: product,
+                                      child: Text(product),
+                                    );
+                                  }).toList(),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Product Type *',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedProductType = value!;
+                                      _selectedUnit =
+                                          _units[value]?.first ?? 'units';
+                                    });
+                                  },
+                                ),
+
+                                const SizedBox(height: 16),
+
+                                // Quantity and Unit
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 2,
+                                      child: TextFormField(
+                                        controller: _quantityController,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Quantity *',
+                                          border: OutlineInputBorder(),
+                                        ),
+                                        keyboardType: TextInputType.number,
+                                        validator: (value) {
+                                          if (value == null || value.isEmpty) {
+                                            return 'Please enter quantity';
+                                          }
+                                          if (double.tryParse(value) == null) {
+                                            return 'Please enter a valid number';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      flex: 1,
+                                      child: DropdownButtonFormField<String>(
+                                        initialValue: _selectedUnit,
+                                        items: (_units[_selectedProductType] ??
+                                                ['units'])
+                                            .map((unit) {
+                                          return DropdownMenuItem(
+                                            value: unit,
+                                            child: Text(unit),
+                                          );
+                                        }).toList(),
+                                        decoration: const InputDecoration(
+                                          labelText: 'Unit',
+                                          border: OutlineInputBorder(),
+                                        ),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _selectedUnit = value!;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 16),
+
+                                // Quality and Date/Time
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: DropdownButtonFormField<String>(
+                                        initialValue:
+                                            _qualityController.text.isNotEmpty
+                                                ? _qualityController.text
+                                                : 'Good',
+                                        items: [
+                                          'Excellent',
+                                          'Good',
+                                          'Fair',
+                                          'Poor'
+                                        ].map((quality) {
+                                          return DropdownMenuItem(
+                                            value: quality,
+                                            child: Text(quality),
+                                          );
+                                        }).toList(),
+                                        decoration: const InputDecoration(
+                                          labelText: 'Quality',
+                                          border: OutlineInputBorder(),
+                                        ),
+                                        onChanged: (value) {
+                                          _qualityController.text = value!;
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: TextButton(
+                                        onPressed: _selectDateTime,
+                                        style: TextButton.styleFrom(
+                                          alignment: Alignment.centerLeft,
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Date & Time',
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                color: theme
+                                                    .colorScheme.onSurface
+                                                    .withValues(alpha: 0.6),
+                                              ),
+                                            ),
+                                            Text(
+                                              '${_formatDate(_selectedDate)} ${_selectedTime.format(context)}',
+                                              style: theme.textTheme.bodyMedium,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 16),
+
+                                // Notes
+                                TextFormField(
+                                  controller: _notesController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Notes',
+                                    hintText: 'Any additional observations...',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  maxLines: 3,
+                                ),
+
+                                const SizedBox(height: 16),
+
+                                // Submit Button
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: _submitProduction,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          theme.colorScheme.primary,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 16),
+                                    ),
+                                    child: const Text('Log Production'),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Notes
-                      TextFormField(
-                        controller: _notesController,
-                        decoration: const InputDecoration(
-                          labelText: 'Notes',
-                          hintText: 'Any additional observations...',
-                          border: OutlineInputBorder(),
                         ),
-                        maxLines: 3,
                       ),
 
                       const SizedBox(height: 16),
 
-                      // Submit Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _submitProduction,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: theme.colorScheme.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                      // Recent Production Records
+                      _AnimatedCard(
+                        index: 2,
+                        theme: theme,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    'Recent Records',
+                                    style:
+                                        theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  TextButton(
+                                    onPressed: _viewAllRecords,
+                                    child: const Text('View All'),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              ...productionRecords.take(3).map((record) {
+                                return _ProductionRecordRow(
+                                  record: record,
+                                  theme: theme,
+                                  onTap: () => _editRecord(record),
+                                );
+                              }),
+                            ],
                           ),
-                          child: const Text('Log Production'),
                         ),
                       ),
+
+                      const SizedBox(height: 32),
                     ],
                   ),
                 ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Recent Production Records
-            _AnimatedCard(
-              index: 2,
-              theme: theme,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'Recent Records',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: _viewAllRecords,
-                          child: const Text('View All'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    ..._productionRecords.take(3).map((record) {
-                      return _ProductionRecordRow(
-                        record: record,
-                        theme: theme,
-                        onTap: () => _editRecord(record),
-                      );
-                    }),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 32),
-          ],
-        ),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -430,12 +453,14 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
     );
 
     if (pickedDate != null) {
+      if (!mounted) return;
       final TimeOfDay? pickedTime = await showTimePicker(
         context: context,
         initialTime: _selectedTime,
       );
 
       if (pickedTime != null) {
+        if (!mounted) return;
         setState(() {
           _selectedDate = pickedDate;
           _selectedTime = pickedTime;
@@ -446,22 +471,43 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
 
   void _submitProduction() {
     if (_formKey.currentState!.validate()) {
-      final newRecord = {
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
-        'animalName': _selectedAnimal,
-        'productType': _selectedProductType,
-        'quantity': double.parse(_quantityController.text),
-        'unit': _selectedUnit,
-        'quality': _qualityController.text.isNotEmpty ? _qualityController.text : 'Good',
-        'date': _formatDate(_selectedDate),
-        'time': _selectedTime.format(context),
-        'notes': _notesController.text,
-        'timestamp': DateTime.now().toIso8601String(),
-      };
+      final animalsState = context.read<AnimalsBloc>().state;
+      final animals = animalsState.maybeWhen(
+        loaded: (items) => items,
+        orElse: () => <AnimalEntity>[],
+      );
+      final selected = animals.cast<AnimalEntity?>().firstWhere(
+            (a) => a?.name.value == _selectedAnimal,
+            orElse: () => null,
+          );
+      if (selected?.id == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Selected animal not found')),
+        );
+        return;
+      }
 
-      setState(() {
-        _productionRecords.insert(0, newRecord);
-      });
+      final combinedDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _selectedTime.hour,
+        _selectedTime.minute,
+      );
+
+      final entity = ProductionLogEntity(
+        animalId: selected!.id!,
+        productType: _selectedProductType,
+        quantity: Quantity(double.parse(_quantityController.text)),
+        unit: MeasurementUnit(_selectedUnit),
+        recordedAt: combinedDateTime,
+        quality: _qualityController.text.isNotEmpty
+            ? _qualityController.text
+            : 'Good',
+        notes: _notesController.text.isEmpty ? null : _notesController.text,
+      );
+
+      context.read<ProductionLogCubit>().add(entity);
 
       // Reset form
       _quantityController.clear();
@@ -490,7 +536,7 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
     );
   }
 
-  void _editRecord(Map<String, dynamic> record) {
+  void _editRecord(_ProductionRecordView record) {
     // Edit record functionality
     showDialog(
       context: context,
@@ -513,6 +559,32 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
 
   String _formatDate(DateTime date) {
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+  }
+
+  List<_ProductionRecordView> _mapLogsToView(
+    List<ProductionLogEntity> logs,
+    List<AnimalEntity> animals,
+  ) {
+    final nameById = <String, String>{
+      for (final animal in animals)
+        if (animal.id != null) animal.id!: animal.name.value,
+    };
+
+    return logs.map((log) {
+      final localTime = log.recordedAt.toLocal();
+      return _ProductionRecordView(
+        id: log.id ?? '',
+        animalName: nameById[log.animalId] ?? 'Unknown',
+        productType: log.productType,
+        quantity: log.quantity.value,
+        unit: log.unit.value,
+        quality: log.quality ?? 'Good',
+        date: _formatDate(localTime),
+        time:
+            '${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}',
+        notes: log.notes ?? '',
+      );
+    }).toList();
   }
 }
 
@@ -562,7 +634,7 @@ class _ProductionSummaryItem extends StatelessWidget {
 }
 
 class _ProductionRecordRow extends StatelessWidget {
-  final Map<String, dynamic> record;
+  final _ProductionRecordView record;
   final ThemeData theme;
   final VoidCallback onTap;
 
@@ -574,14 +646,6 @@ class _ProductionRecordRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final animalName = record['animalName'] as String;
-    final productType = record['productType'] as String;
-    final quantity = record['quantity'];
-    final unit = record['unit'] as String;
-    final quality = record['quality'] as String;
-    final date = record['date'] as String;
-    final time = record['time'] as String;
-
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
@@ -590,17 +654,17 @@ class _ProductionRecordRow extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: _getProductColor(productType).withValues(alpha: 0.1),
+            color: _getProductColor(record.productType).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
-            _getProductIcon(productType),
-            color: _getProductColor(productType),
+            _getProductIcon(record.productType),
+            color: _getProductColor(record.productType),
             size: 20,
           ),
         ),
         title: Text(
-          animalName,
+          record.animalName,
           style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w600,
           ),
@@ -608,27 +672,29 @@ class _ProductionRecordRow extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('$quantity $unit • $productType'),
+            Text('${record.quantity} ${record.unit} • ${record.productType}'),
             const SizedBox(height: 2),
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _getQualityColor(quality).withValues(alpha: 0.1),
+                    color:
+                        _getQualityColor(record.quality).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    quality,
+                    record.quality,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: _getQualityColor(quality),
+                      color: _getQualityColor(record.quality),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '$date $time',
+                  '${record.date} ${record.time}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
@@ -701,6 +767,30 @@ class _ProductionRecordRow extends StatelessWidget {
         return Colors.grey;
     }
   }
+}
+
+class _ProductionRecordView {
+  final String id;
+  final String animalName;
+  final String productType;
+  final double quantity;
+  final String unit;
+  final String quality;
+  final String date;
+  final String time;
+  final String notes;
+
+  const _ProductionRecordView({
+    required this.id,
+    required this.animalName,
+    required this.productType,
+    required this.quantity,
+    required this.unit,
+    required this.quality,
+    required this.date,
+    required this.time,
+    required this.notes,
+  });
 }
 
 class _AnimatedCard extends StatefulWidget {

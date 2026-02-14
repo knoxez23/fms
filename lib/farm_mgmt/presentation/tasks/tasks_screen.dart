@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pamoja_twalima/core/di/injection.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/animations/animated_card.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 import 'add_task_screen.dart';
 import 'task_detail_screen.dart';
 import 'task_calendar_screen.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/bloc/tasks/tasks_bloc.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/entities/task_entity.dart';
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
@@ -13,69 +18,12 @@ class TasksScreen extends StatefulWidget {
 }
 
 class _TasksScreenState extends State<TasksScreen> {
-  final List<Map<String, dynamic>> tasks = [
-    {
-      'id': '1',
-      'title': 'Irrigate maize field',
-      'description': 'Water the entire maize field in plot A',
-      'dueDate': '2024-03-15',
-      'priority': 'High',
-      'status': 'pending',
-      'category': 'Crops',
-      'assignedTo': 'John M.',
-      'estimatedTime': '2 hours',
-    },
-    {
-      'id': '2',
-      'title': 'Vaccinate chickens',
-      'description': 'Administer Newcastle disease vaccine',
-      'dueDate': '2024-03-16',
-      'priority': 'Medium',
-      'status': 'pending',
-      'category': 'Poultry',
-      'assignedTo': 'Self',
-      'estimatedTime': '1 hour',
-    },
-    {
-      'id': '3',
-      'title': 'Apply fertilizer to tomatoes',
-      'description': 'Apply NPK fertilizer to tomato greenhouse',
-      'dueDate': '2024-03-14',
-      'priority': 'High',
-      'status': 'overdue',
-      'category': 'Crops',
-      'assignedTo': 'Self',
-      'estimatedTime': '3 hours',
-    },
-    {
-      'id': '4',
-      'title': 'Clean animal shelters',
-      'description': 'Clean and disinfect cow sheds',
-      'dueDate': '2024-03-13',
-      'priority': 'Medium',
-      'status': 'completed',
-      'category': 'Animals',
-      'assignedTo': 'Peter K.',
-      'estimatedTime': '4 hours',
-    },
-    {
-      'id': '5',
-      'title': 'Harvest kale',
-      'description': 'Harvest mature kale from vegetable garden',
-      'dueDate': '2024-03-17',
-      'priority': 'Medium',
-      'status': 'pending',
-      'category': 'Vegetables',
-      'assignedTo': 'Self',
-      'estimatedTime': '2 hours',
-    },
-  ];
-
   String _selectedFilter = 'All';
   String _selectedStatus = 'All';
 
   final List<String> _filters = [
     'All',
+    'Auto-generated',
     'Crops',
     'Animals',
     'Poultry',
@@ -95,166 +43,214 @@ class _TasksScreenState extends State<TasksScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final filteredTasks = tasks.where((task) {
-      final categoryMatch =
-          _selectedFilter == 'All' || task['category'] == _selectedFilter;
-      final statusMatch = _selectedStatus == 'All' ||
-          _getStatusText(task['status']) == _selectedStatus;
-      return categoryMatch && statusMatch;
-    }).toList();
+    return BlocProvider(
+      create: (_) => getIt<TasksBloc>()..add(const TasksEvent.load()),
+      child: BlocConsumer<TasksBloc, TasksState>(
+        listener: (context, state) {
+          state.whenOrNull(
+            error: (message) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(message)),
+              );
+            },
+          );
+        },
+        builder: (context, state) {
+          final tasks = state.maybeWhen<List<TaskEntity>>(
+            loaded: (items) => items,
+            orElse: () => <TaskEntity>[],
+          );
 
-    final pendingCount =
-        tasks.where((task) => task['status'] == 'pending').length;
-    final overdueCount =
-        tasks.where((task) => task['status'] == 'overdue').length;
-    final completedCount =
-        tasks.where((task) => task['status'] == 'completed').length;
+          final filteredTasks = tasks.where((task) {
+            final categoryMatch = _selectedFilter == 'All'
+                ? true
+                : _selectedFilter == 'Auto-generated'
+                    ? task.sourceEventType != null &&
+                        task.sourceEventType!.isNotEmpty
+                    : _taskCategory(task) == _selectedFilter;
+            final statusMatch = _selectedStatus == 'All' ||
+                _statusLabel(task) == _selectedStatus;
+            return categoryMatch && statusMatch;
+          }).toList();
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      body: CustomScrollView(
-        slivers: [
-          // Header with task stats
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  _TaskStat(
-                    count: pendingCount,
-                    label: 'Pending',
-                    color: Colors.orange,
-                    theme: theme,
-                  ),
-                  const SizedBox(width: 12),
-                  _TaskStat(
-                    count: overdueCount,
-                    label: 'Overdue',
-                    color: Colors.red,
-                    theme: theme,
-                  ),
-                  const SizedBox(width: 12),
-                  _TaskStat(
-                    count: completedCount,
-                    label: 'Completed',
-                    color: Colors.green,
-                    theme: theme,
-                  ),
-                ],
-              ),
-            ),
-          ),
+          final pendingCount =
+              tasks.where((task) => _statusKey(task) == 'pending').length;
+          final overdueCount =
+              tasks.where((task) => _statusKey(task) == 'overdue').length;
+          final completedCount =
+              tasks.where((task) => _statusKey(task) == 'completed').length;
 
-          // Filter Row
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _TaskFilterDropdown(
-                      value: _selectedFilter,
-                      items: _filters,
-                      onChanged: (value) =>
-                          setState(() => _selectedFilter = value!),
-                      theme: theme,
+          return AppScaffold(
+            backgroundColor: theme.colorScheme.surface,
+            body: CustomScrollView(
+              slivers: [
+                // Header with task stats
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        _TaskStat(
+                          count: pendingCount,
+                          label: 'Pending',
+                          color: Colors.orange,
+                          theme: theme,
+                        ),
+                        const SizedBox(width: 12),
+                        _TaskStat(
+                          count: overdueCount,
+                          label: 'Overdue',
+                          color: Colors.red,
+                          theme: theme,
+                        ),
+                        const SizedBox(width: 12),
+                        _TaskStat(
+                          count: completedCount,
+                          label: 'Completed',
+                          color: Colors.green,
+                          theme: theme,
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _TaskFilterDropdown(
-                      value: _selectedStatus,
-                      items: _statusOptions,
-                      onChanged: (value) =>
-                          setState(() => _selectedStatus = value!),
-                      theme: theme,
+                ),
+
+                // Filter Row
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _TaskFilterDropdown(
+                            value: _selectedFilter,
+                            items: _filters,
+                            onChanged: (value) =>
+                                setState(() => _selectedFilter = value!),
+                            theme: theme,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _TaskFilterDropdown(
+                            value: _selectedStatus,
+                            items: _statusOptions,
+                            onChanged: (value) =>
+                                setState(() => _selectedStatus = value!),
+                            theme: theme,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
+                ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-          // Tasks List (SliverList instead of ListView)
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                  final task = filteredTasks[index];
-                  return AnimatedCard(
-                    index: index,
-                    child: _TaskItem(
-                      task: task,
-                      theme: theme,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => TaskDetailScreen(task: task),
+                // Tasks List (SliverList instead of ListView)
+                SliverPadding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final task = filteredTasks[index];
+                        return AnimatedCard(
+                          index: index,
+                          child: _TaskItem(
+                            task: task,
+                            theme: theme,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      TaskDetailScreen.fromEntity(entity: task),
+                                ),
+                              );
+                            },
+                            onToggleComplete: () {
+                              final updated = TaskEntity(
+                                id: task.id,
+                                title: task.title,
+                                description: task.description,
+                                dueDate: task.dueDate,
+                                isCompleted: !task.isCompleted,
+                                sourceEventType: task.sourceEventType,
+                                sourceEventId: task.sourceEventId,
+                              );
+                              context
+                                  .read<TasksBloc>()
+                                  .add(TasksEvent.update(task: updated));
+                            },
                           ),
                         );
                       },
-                      onStatusChange: (newStatus) {
-                        setState(() {
-                          task['status'] = newStatus;
-                        });
-                      },
+                      childCount: filteredTasks.length,
                     ),
-                  );
-                },
-                childCount: filteredTasks.length,
+                  ),
+                ),
+
+                // Add extra space at bottom so FABs don't overlap content
+                const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              ],
+            ),
+
+            // Floating action buttons
+            floatingActionButton: Padding(
+              padding: const EdgeInsets.only(bottom: 90),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  FloatingActionButton(
+                    heroTag: 'calendar',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const TaskCalendarScreen()),
+                      );
+                    },
+                    backgroundColor: theme.colorScheme.secondary,
+                    mini: true,
+                    child:
+                        const Icon(Icons.calendar_today, color: Colors.white),
+                  ),
+                  const SizedBox(height: 12),
+                  FloatingActionButton(
+                    heroTag: 'addTaskFAB',
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const AddTaskScreen()),
+                      );
+                      if (result is! TaskEntity) return;
+                      if (!context.mounted) return;
+                      context
+                          .read<TasksBloc>()
+                          .add(TasksEvent.add(task: result));
+                    },
+                    backgroundColor: theme.colorScheme.primary,
+                    child: const Icon(Icons.add, color: Colors.white),
+                  ),
+                ],
               ),
             ),
-          ),
-
-          // Add extra space at bottom so FABs don't overlap content
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
-        ],
-      ),
-
-      // Floating action buttons
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 90),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            FloatingActionButton(
-              heroTag: 'calendar',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const TaskCalendarScreen()),
-                );
-              },
-              backgroundColor: theme.colorScheme.secondary,
-              mini: true,
-              child: const Icon(Icons.calendar_today, color: Colors.white),
-            ),
-            const SizedBox(height: 12),
-            FloatingActionButton(
-              heroTag: 'addTaskFAB',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddTaskScreen()),
-                );
-              },
-              backgroundColor: theme.colorScheme.primary,
-              child: const Icon(Icons.add, color: Colors.white),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
-
   }
 
-  String _getStatusText(String status) {
-    switch (status) {
+  String _statusKey(TaskEntity task) {
+    if (task.isCompleted) return 'completed';
+    if (task.isOverdue) return 'overdue';
+    return 'pending';
+  }
+
+  String _statusLabel(TaskEntity task) {
+    switch (_statusKey(task)) {
       case 'pending':
         return 'Pending';
       case 'overdue':
@@ -264,6 +260,30 @@ class _TasksScreenState extends State<TasksScreen> {
       default:
         return 'Pending';
     }
+  }
+
+  String _taskCategory(TaskEntity task) {
+    final text = '${task.title.value} ${task.description ?? ''}'.toLowerCase();
+    if (text.contains('crop') ||
+        text.contains('harvest') ||
+        text.contains('irrigat')) {
+      return 'Crops';
+    }
+    if (text.contains('animal') || text.contains('livestock')) return 'Animals';
+    if (text.contains('poultry') ||
+        text.contains('chicken') ||
+        text.contains('egg')) {
+      return 'Poultry';
+    }
+    if (text.contains('vegetable') || text.contains('garden')) {
+      return 'Vegetables';
+    }
+    if (text.contains('maint') ||
+        text.contains('repair') ||
+        text.contains('fix')) {
+      return 'Maintenance';
+    }
+    return 'Administrative';
   }
 }
 
@@ -373,22 +393,28 @@ class _TaskFilterDropdown extends StatelessWidget {
 }
 
 class _TaskItem extends StatelessWidget {
-  final Map<String, dynamic> task;
+  final TaskEntity task;
   final ThemeData theme;
   final VoidCallback onTap;
-  final Function(String) onStatusChange;
+  final VoidCallback onToggleComplete;
 
   const _TaskItem({
     required this.task,
     required this.theme,
     required this.onTap,
-    required this.onStatusChange,
+    required this.onToggleComplete,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isOverdue = task['status'] == 'overdue';
-    final isCompleted = task['status'] == 'completed';
+    final isOverdue = task.isOverdue;
+    final isCompleted = task.isCompleted;
+    final priority = _priorityFor(task);
+    final status = _statusFor(task);
+    final origin = _originLabel(task.sourceEventType);
+    final dueDateText = task.dueDate == null
+        ? '—'
+        : '${task.dueDate!.year}-${task.dueDate!.month.toString().padLeft(2, '0')}-${task.dueDate!.day.toString().padLeft(2, '0')}';
 
     return Card(
       elevation: 0,
@@ -397,12 +423,12 @@ class _TaskItem extends StatelessWidget {
         leading: Checkbox(
           value: isCompleted,
           onChanged: (value) {
-            onStatusChange(value! ? 'completed' : 'pending');
+            onToggleComplete();
           },
           activeColor: theme.colorScheme.primary,
         ),
         title: Text(
-          task['title'],
+          task.title.value,
           style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w600,
             decoration: isCompleted ? TextDecoration.lineThrough : null,
@@ -412,7 +438,7 @@ class _TaskItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              task['description'],
+              task.description ?? '',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
@@ -426,13 +452,13 @@ class _TaskItem extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _getPriorityColor(task['priority']).withValues(alpha: 0.1),
+                    color: _getPriorityColor(priority).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    task['priority'],
+                    priority,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: _getPriorityColor(task['priority']),
+                      color: _getPriorityColor(priority),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -442,17 +468,35 @@ class _TaskItem extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(task['status']).withValues(alpha: 0.1),
+                    color: _getStatusColor(status).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    _getStatusText(task['status']),
+                    _getStatusText(status),
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: _getStatusColor(task['status']),
+                      color: _getStatusColor(status),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
+                if (origin != null) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      origin,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
@@ -462,7 +506,7 @@ class _TaskItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
-              _formatDate(task['dueDate']),
+              _formatDate(dueDateText),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: isOverdue
                     ? Colors.red
@@ -472,7 +516,7 @@ class _TaskItem extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              task['estimatedTime'],
+              '—',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
@@ -529,5 +573,35 @@ class _TaskItem extends StatelessWidget {
       return '${parts[2]}/${parts[1]}';
     }
     return date;
+  }
+
+  String _statusFor(TaskEntity task) {
+    if (task.isCompleted) return 'completed';
+    if (task.isOverdue) return 'overdue';
+    return 'pending';
+  }
+
+  String _priorityFor(TaskEntity task) {
+    final text = '${task.title.value} ${task.description ?? ''}'.toLowerCase();
+    if (text.contains('urgent') ||
+        text.contains('critical') ||
+        text.contains('immediately')) {
+      return 'High';
+    }
+    if (task.isOverdue) return 'High';
+    return 'Medium';
+  }
+
+  String? _originLabel(String? sourceEventType) {
+    switch (sourceEventType) {
+      case 'AnimalBred':
+        return 'Breeding';
+      case 'CropHarvested':
+        return 'Harvest';
+      case 'InventoryLowStock':
+        return 'Low Stock';
+      default:
+        return null;
+    }
   }
 }

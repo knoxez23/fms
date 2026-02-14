@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/business/domain/entities/sale_entity.dart';
 
 class SaleDetailScreen extends StatefulWidget {
-  final Map<String, dynamic> sale;
+  final SaleEntity sale;
 
   const SaleDetailScreen({super.key, required this.sale});
 
@@ -14,19 +17,23 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isPending = widget.sale['paymentStatus'] == 'Pending';
-    final isPartial = widget.sale['paymentStatus'] == 'Partial';
+    final status = widget.sale.paymentStatus;
+    final statusLower = status.toLowerCase();
+    final isPending = statusLower == 'pending';
+    final isPartial = statusLower == 'partial';
+    final total = widget.sale.totalAmount.value;
+    final paidAmount =
+        statusLower == 'paid' ? total : (isPartial ? total * 0.5 : 0.0);
+    final dueAmount = (total - paidAmount).clamp(0.0, total);
+    final animal = widget.sale.animal;
+    final notes = widget.sale.notes;
 
-    return Scaffold(
+    return AppScaffold(
       backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          'Sale Details',
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+      includeDrawer: false,
+      appBar: ModernAppBar(
+        title: 'Sale Details',
+        variant: AppBarVariant.standard,
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
@@ -54,12 +61,13 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                           width: 60,
                           height: 60,
                           decoration: BoxDecoration(
-                            color: _getProductColor(widget.sale['type']).withValues(alpha: 0.1),
+                            color: _getProductColor(widget.sale.type)
+                                .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
-                            _getProductIcon(widget.sale['product']),
-                            color: _getProductColor(widget.sale['type']),
+                            _getProductIcon(widget.sale.productName),
+                            color: _getProductColor(widget.sale.type),
                             size: 32,
                           ),
                         ),
@@ -69,31 +77,34 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                widget.sale['product'],
+                                widget.sale.productName,
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${widget.sale['quantity']} ${widget.sale['unit']}',
+                                '${widget.sale.quantity.value} ${widget.sale.unit}',
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.7),
                                 ),
                               ),
                             ],
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: _getStatusColor(widget.sale['paymentStatus']).withValues(alpha: 0.1),
+                            color: _getStatusColor(widget.sale.paymentStatus)
+                                .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            widget.sale['paymentStatus'],
+                            widget.sale.paymentStatus,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: _getStatusColor(widget.sale['paymentStatus']),
+                              color: _getStatusColor(widget.sale.paymentStatus),
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -104,7 +115,8 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.05),
+                        color:
+                            theme.colorScheme.primary.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -116,11 +128,12 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                               Text(
                                 'Total Amount',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.6),
                                 ),
                               ),
                               Text(
-                                'KSh ${widget.sale['totalAmount']}',
+                                'KSh ${widget.sale.totalAmount.value}',
                                 style: theme.textTheme.headlineSmall?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: theme.colorScheme.primary,
@@ -168,33 +181,34 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                     const SizedBox(height: 16),
                     _DetailRow(
                       label: 'Product Type',
-                      value: widget.sale['type'],
+                      value: widget.sale.type,
                       theme: theme,
                     ),
                     _DetailRow(
                       label: 'Quantity',
-                      value: '${widget.sale['quantity']} ${widget.sale['unit']}',
+                      value:
+                          '${widget.sale.quantity.value} ${widget.sale.unit}',
                       theme: theme,
                     ),
                     _DetailRow(
                       label: 'Unit Price',
-                      value: 'KSh ${widget.sale['pricePerUnit']}',
+                      value: 'KSh ${widget.sale.pricePerUnit.value}',
                       theme: theme,
                     ),
                     _DetailRow(
                       label: 'Customer',
-                      value: widget.sale['customer'],
+                      value: widget.sale.customer,
                       theme: theme,
                     ),
-                    if (widget.sale['animal'] != null && widget.sale['animal'].isNotEmpty)
+                    if (animal != null && animal.isNotEmpty)
                       _DetailRow(
                         label: 'Source',
-                        value: widget.sale['animal'],
+                        value: animal,
                         theme: theme,
                       ),
                     _DetailRow(
                       label: 'Sale Date',
-                      value: _formatDisplayDate(widget.sale['date']),
+                      value: _formatDisplayDate(widget.sale.date),
                       theme: theme,
                     ),
                   ],
@@ -222,26 +236,26 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                     const SizedBox(height: 16),
                     _DetailRow(
                       label: 'Payment Status',
-                      value: widget.sale['paymentStatus'],
+                      value: widget.sale.paymentStatus,
                       theme: theme,
-                      valueColor: _getStatusColor(widget.sale['paymentStatus']),
+                      valueColor: _getStatusColor(widget.sale.paymentStatus),
                     ),
                     _DetailRow(
                       label: 'Total Amount',
-                      value: 'KSh ${widget.sale['totalAmount']}',
+                      value: 'KSh ${widget.sale.totalAmount.value}',
                       theme: theme,
                       isHighlighted: true,
                     ),
-                    if (widget.sale.containsKey('paidAmount') && isPartial)
+                    if (isPartial)
                       _DetailRow(
                         label: 'Paid Amount',
-                        value: 'KSh ${widget.sale['paidAmount']}',
+                        value: 'KSh ${paidAmount.toStringAsFixed(2)}',
                         theme: theme,
                       ),
-                    if (widget.sale.containsKey('dueAmount') && isPartial)
+                    if (isPartial || isPending)
                       _DetailRow(
                         label: 'Due Amount',
-                        value: 'KSh ${widget.sale['dueAmount']}',
+                        value: 'KSh ${dueAmount.toStringAsFixed(2)}',
                         theme: theme,
                         valueColor: Colors.orange,
                       ),
@@ -251,7 +265,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
             ),
 
             // Notes Section (if available)
-            if (widget.sale['notes'] != null && widget.sale['notes'].isNotEmpty)
+            if (notes != null && notes.isNotEmpty)
               Column(
                 children: [
                   const SizedBox(height: 16),
@@ -271,9 +285,10 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            widget.sale['notes'],
+                            notes,
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.8),
                             ),
                           ),
                         ],
@@ -396,13 +411,9 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
     }
   }
 
-  String _formatDisplayDate(String date) {
-    try {
-      final dateTime = DateTime.parse(date);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
-    } catch (e) {
-      return date;
-    }
+  String _formatDisplayDate(DateTime? date) {
+    if (date == null) return '—';
+    return '${date.day}/${date.month}/${date.year}';
   }
 
   void _markAsPaid() {
@@ -443,7 +454,8 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Sale'),
-        content: const Text('Are you sure you want to delete this sale record? This action cannot be undone.'),
+        content: const Text(
+            'Are you sure you want to delete this sale record? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -499,7 +511,10 @@ class _DetailRow extends StatelessWidget {
             value,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
-              color: valueColor ?? (isHighlighted ? theme.colorScheme.primary : theme.colorScheme.onSurface),
+              color: valueColor ??
+                  (isHighlighted
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurface),
             ),
           ),
         ],

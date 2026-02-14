@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/entities/animal_entity.dart';
 
 class AnimalDetailScreen extends StatefulWidget {
-  final Map<String, dynamic> animal;
+  final AnimalEntity entity;
 
-  const AnimalDetailScreen({super.key, required this.animal});
+  const AnimalDetailScreen.fromEntity({
+    Key? key,
+    required AnimalEntity entity,
+  }) : this(key: key, entity: entity);
+
+  const AnimalDetailScreen({
+    super.key,
+    required this.entity,
+  });
 
   @override
   State<AnimalDetailScreen> createState() => _AnimalDetailScreenState();
@@ -15,21 +26,18 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final animal = _AnimalDetailView.fromEntity(widget.entity);
     final theme = Theme.of(context);
-    final isGroup = widget.animal['groupType'] == 'Group';
-    final quantity = widget.animal['quantity'] ?? 1;
-    final purchasePrice = widget.animal['purchasePrice'] ?? 0;
+    final isGroup = animal.groupType == 'Group';
+    final quantity = animal.quantity;
+    final purchasePrice = animal.purchasePrice;
 
-    return Scaffold(
+    return AppScaffold(
       backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          widget.animal['name'],
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+      includeDrawer: false,
+      appBar: ModernAppBar(
+        title: animal.name,
+        variant: AppBarVariant.standard,
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
@@ -56,10 +64,11 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                         children: [
                           CircleAvatar(
                             radius: 35,
-                            backgroundColor: _getAnimalColor(widget.animal['type']).withValues(alpha: 0.1),
+                            backgroundColor: _getAnimalColor(animal.type)
+                                .withValues(alpha: 0.1),
                             child: Icon(
-                              _getAnimalIcon(widget.animal['type']),
-                              color: _getAnimalColor(widget.animal['type']),
+                              _getAnimalIcon(animal.type),
+                              color: _getAnimalColor(animal.type),
                               size: 30,
                             ),
                           ),
@@ -90,15 +99,16 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              widget.animal['name'],
+                              animal.name,
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             Text(
-                              '${widget.animal['type']} • ${widget.animal['breed']}',
+                              '${animal.type} • ${animal.breed}',
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.6),
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -106,29 +116,34 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                               spacing: 8,
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: _getStatusColor(widget.animal['status']).withValues(alpha: 0.1),
+                                    color: _getStatusColor(animal.status)
+                                        .withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
-                                    widget.animal['status'],
+                                    animal.status,
                                     style: theme.textTheme.bodySmall?.copyWith(
-                                      color: _getStatusColor(widget.animal['status']),
+                                      color: _getStatusColor(animal.status),
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ),
                                 if (isGroup)
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                                      color: theme.colorScheme.primary
+                                          .withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
                                       'Group',
-                                      style: theme.textTheme.bodySmall?.copyWith(
+                                      style:
+                                          theme.textTheme.bodySmall?.copyWith(
                                         color: theme.colorScheme.primary,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -151,13 +166,13 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                       _DetailItem(
                         icon: Icons.cake,
                         label: isGroup ? 'Avg Age' : 'Age',
-                        value: widget.animal['age'] ?? 'Not set',
+                        value: animal.age,
                         theme: theme,
                       ),
                       _DetailItem(
                         icon: Icons.monitor_heart,
                         label: 'Health',
-                        value: '${widget.animal['healthScore']}%',
+                        value: '${animal.healthScore}%',
                         theme: theme,
                       ),
                       if (purchasePrice > 0)
@@ -176,21 +191,23 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                         ),
                     ],
                   ),
-                  if (widget.animal['shed'] != null) ...[
+                  if (animal.shed != null) ...[
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.location_on,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.6),
                           size: 16,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'Location: ${widget.animal['shed']}',
+                          'Location: ${animal.shed}',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
                           ),
                         ),
                       ],
@@ -238,9 +255,9 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
             child: IndexedStack(
               index: _selectedTab,
               children: [
-                _HealthTab(animal: widget.animal, theme: theme),
-                _ProductionTab(animal: widget.animal, theme: theme),
-                _HistoryTab(animal: widget.animal, theme: theme),
+                _HealthTab(animal: animal, theme: theme),
+                _ProductionTab(animal: animal, theme: theme),
+                _HistoryTab(theme: theme),
               ],
             ),
           ),
@@ -361,7 +378,9 @@ class _DetailTab extends StatelessWidget {
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: isSelected ? Colors.white : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              color: isSelected
+                  ? Colors.white
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
         ),
@@ -370,8 +389,68 @@ class _DetailTab extends StatelessWidget {
   }
 }
 
+class _AnimalDetailView {
+  final String id;
+  final String name;
+  final String type;
+  final String breed;
+  final String status;
+  final int healthScore;
+  final String age;
+  final String groupType;
+  final int quantity;
+  final double purchasePrice;
+  final String? shed;
+  final String? production;
+  final String? weight;
+
+  const _AnimalDetailView({
+    required this.id,
+    required this.name,
+    required this.type,
+    required this.breed,
+    required this.status,
+    required this.healthScore,
+    required this.age,
+    required this.groupType,
+    required this.quantity,
+    required this.purchasePrice,
+    required this.shed,
+    required this.production,
+    required this.weight,
+  });
+
+  factory _AnimalDetailView.fromEntity(AnimalEntity entity) {
+    final rawType = entity.type.value.trim();
+    final type = rawType.isEmpty
+        ? 'Other'
+        : rawType[0].toUpperCase() + rawType.substring(1);
+    final age = entity.birthDate == null
+        ? 'Not set'
+        : '${DateTime.now().difference(entity.birthDate!).inDays ~/ 365}y';
+
+    return _AnimalDetailView(
+      id: entity.id ?? '',
+      name: entity.name.value,
+      type: type,
+      breed: entity.breed ?? 'Unknown',
+      status: 'Healthy',
+      healthScore: 90,
+      age: age,
+      groupType: 'Single',
+      quantity: 1,
+      purchasePrice: 0,
+      shed: null,
+      production: null,
+      weight: entity.weight == null
+          ? null
+          : '${entity.weight!.toStringAsFixed(1)} kg',
+    );
+  }
+}
+
 class _HealthTab extends StatelessWidget {
-  final Map<String, dynamic> animal;
+  final _AnimalDetailView animal;
   final ThemeData theme;
 
   const _HealthTab({required this.animal, required this.theme});
@@ -397,9 +476,10 @@ class _HealthTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 LinearProgressIndicator(
-                  value: animal['healthScore'] / 100,
-                  backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-                  color: _getHealthColor(animal['healthScore']),
+                  value: animal.healthScore / 100,
+                  backgroundColor:
+                      theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                  color: _getHealthColor(animal.healthScore),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -408,14 +488,15 @@ class _HealthTab extends StatelessWidget {
                     Text(
                       'Health Score',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                     Text(
-                      '${animal['healthScore']}%',
+                      '${animal.healthScore}%',
                       style: theme.textTheme.bodySmall?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: _getHealthColor(animal['healthScore']),
+                        color: _getHealthColor(animal.healthScore),
                       ),
                     ),
                   ],
@@ -424,9 +505,7 @@ class _HealthTab extends StatelessWidget {
             ),
           ),
         ),
-
         const SizedBox(height: 16),
-
         _AnimatedCard(
           index: 2,
           theme: theme,
@@ -464,9 +543,7 @@ class _HealthTab extends StatelessWidget {
             ),
           ),
         ),
-
         const SizedBox(height: 16),
-
         _AnimatedCard(
           index: 3,
           theme: theme,
@@ -534,7 +611,9 @@ class _VaccineItem extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: isDue ? Colors.red.withValues(alpha: 0.1) : theme.colorScheme.primary.withValues(alpha: 0.1),
+              color: isDue
+                  ? Colors.red.withValues(alpha: 0.1)
+                  : theme.colorScheme.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -628,7 +707,8 @@ class _HealthCheckItem extends StatelessWidget {
                     Text(
                       date,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -651,7 +731,7 @@ class _HealthCheckItem extends StatelessWidget {
 }
 
 class _ProductionTab extends StatelessWidget {
-  final Map<String, dynamic> animal;
+  final _AnimalDetailView animal;
   final ThemeData theme;
 
   const _ProductionTab({required this.animal, required this.theme});
@@ -676,17 +756,17 @@ class _ProductionTab extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                if (animal['production'] != null)
+                if (animal.production != null)
                   _ProductionMetric(
                     label: 'Daily Production',
-                    value: animal['production'],
+                    value: animal.production!,
                     trend: '+2%',
                     theme: theme,
                   ),
-                if (animal['weight'] != null)
+                if (animal.weight != null)
                   _ProductionMetric(
                     label: 'Current Weight',
-                    value: animal['weight'],
+                    value: animal.weight!,
                     trend: '+5kg',
                     theme: theme,
                   ),
@@ -700,9 +780,7 @@ class _ProductionTab extends StatelessWidget {
             ),
           ),
         ),
-
         const SizedBox(height: 16),
-
         _AnimatedCard(
           index: 2,
           theme: theme,
@@ -732,9 +810,7 @@ class _ProductionTab extends StatelessWidget {
             ),
           ),
         ),
-
         const SizedBox(height: 16),
-
         _AnimatedCard(
           index: 3,
           theme: theme,
@@ -925,38 +1001,37 @@ class _MilkingRecord extends StatelessWidget {
 }
 
 class _HistoryTab extends StatelessWidget {
-  final Map<String, dynamic> animal;
   final ThemeData theme;
 
-  const _HistoryTab({required this.animal, required this.theme});
+  const _HistoryTab({required this.theme});
 
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> history = [
-      {
-        'date': '2024-02-20',
-        'event': 'Health Check',
-        'details': 'Routine checkup - all normal',
-        'vet': 'Dr. Kamau',
-      },
-      {
-        'date': '2024-02-15',
-        'event': 'Vaccination',
-        'details': 'Foot and Mouth vaccine administered',
-        'vet': 'Dr. Wanjiku',
-      },
-      {
-        'date': '2024-01-30',
-        'event': 'Breeding',
-        'details': 'Artificial insemination performed',
-        'vet': 'Dr. Otieno',
-      },
-      {
-        'date': '2024-01-15',
-        'event': 'Purchase',
-        'details': 'Animal purchased and added to farm',
-        'source': 'Local breeder',
-      },
+    final history = <_HistoryEntry>[
+      const _HistoryEntry(
+        date: '2024-02-20',
+        event: 'Health Check',
+        details: 'Routine checkup - all normal',
+        vet: 'Dr. Kamau',
+      ),
+      const _HistoryEntry(
+        date: '2024-02-15',
+        event: 'Vaccination',
+        details: 'Foot and Mouth vaccine administered',
+        vet: 'Dr. Wanjiku',
+      ),
+      const _HistoryEntry(
+        date: '2024-01-30',
+        event: 'Breeding',
+        details: 'Artificial insemination performed',
+        vet: 'Dr. Otieno',
+      ),
+      const _HistoryEntry(
+        date: '2024-01-15',
+        event: 'Purchase',
+        details: 'Animal purchased and added to farm',
+        source: 'Local breeder',
+      ),
     ];
 
     return ListView(
@@ -977,7 +1052,8 @@ class _HistoryTab extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                ...history.map((entry) => _HistoryItem(entry: entry, theme: theme)),
+                ...history
+                    .map((entry) => _HistoryItem(entry: entry, theme: theme)),
               ],
             ),
           ),
@@ -988,7 +1064,7 @@ class _HistoryTab extends StatelessWidget {
 }
 
 class _HistoryItem extends StatelessWidget {
-  final Map<String, dynamic> entry;
+  final _HistoryEntry entry;
   final ThemeData theme;
 
   const _HistoryItem({required this.entry, required this.theme});
@@ -1008,7 +1084,7 @@ class _HistoryItem extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              _getEventIcon(entry['event']),
+              _getEventIcon(entry.event),
               color: theme.colorScheme.primary,
               size: 20,
             ),
@@ -1019,36 +1095,37 @@ class _HistoryItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  entry['event'],
+                  entry.event,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
-                  entry['details'],
+                  entry.details,
                   style: theme.textTheme.bodySmall,
                 ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
                     Text(
-                      entry['date'],
+                      entry.date,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    if (entry['vet'] != null)
+                    if (entry.vet != null)
                       Text(
-                        'by ${entry['vet']}',
+                        'by ${entry.vet}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                    if (entry['source'] != null)
+                    if (entry.source != null)
                       Text(
-                        'from ${entry['source']}',
+                        'from ${entry.source}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w600,
@@ -1078,6 +1155,22 @@ class _HistoryItem extends StatelessWidget {
         return Icons.history;
     }
   }
+}
+
+class _HistoryEntry {
+  final String date;
+  final String event;
+  final String details;
+  final String? vet;
+  final String? source;
+
+  const _HistoryEntry({
+    required this.date,
+    required this.event,
+    required this.details,
+    this.vet,
+    this.source,
+  });
 }
 
 // Reuse the _AnimatedCard widget

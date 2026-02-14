@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pamoja_twalima/core/di/injection.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/animations/animated_card.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/bloc/animals/animals_bloc.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/entities/animal_entity.dart';
 import 'add_animal_screen.dart';
 import 'animal_detail_screen.dart';
 import 'breeding_schedule_screen.dart';
@@ -17,69 +23,6 @@ class AnimalsScreen extends StatefulWidget {
 }
 
 class _AnimalsScreenState extends State<AnimalsScreen> {
-  final List<Map<String, dynamic>> animals = [
-    {
-      'id': '1',
-      'name': 'Daisy',
-      'type': 'Dairy Cow',
-      'breed': 'Friesian',
-      'age': '3 years',
-      'status': 'Healthy',
-      'lastMilking': '4 hours ago',
-      'production': '18L/day',
-      'healthScore': 95,
-      'weight': '450 kg',
-      'feedRequirement': '25 kg/day',
-    },
-    {
-      'id': '2',
-      'name': 'Bella',
-      'type': 'Dairy Cow',
-      'breed': 'Jersey',
-      'age': '4 years',
-      'status': 'Pregnant',
-      'lastMilking': '6 hours ago',
-      'production': '15L/day',
-      'healthScore': 88,
-      'weight': '380 kg',
-      'feedRequirement': '22 kg/day',
-    },
-    {
-      'id': '3',
-      'name': 'Rocky',
-      'type': 'Beef Cattle',
-      'breed': 'Borana',
-      'age': '2 years',
-      'status': 'Growing',
-      'weight': '320 kg',
-      'healthScore': 92,
-      'feedRequirement': '18 kg/day',
-    },
-    {
-      'id': '4',
-      'name': 'Chicken Flock A',
-      'type': 'Layers',
-      'breed': 'Kienyeji',
-      'age': '8 months',
-      'status': 'Laying',
-      'eggProduction': '85%',
-      'healthScore': 90,
-      'quantity': 120,
-      'feedRequirement': '15 kg/day',
-    },
-    {
-      'id': '5',
-      'name': 'Billy',
-      'type': 'Goat',
-      'breed': 'Galla',
-      'age': '1 year',
-      'status': 'Healthy',
-      'weight': '45 kg',
-      'healthScore': 96,
-      'feedRequirement': '2.5 kg/day',
-    },
-  ];
-
   String _selectedFilter = 'All';
   int _selectedTab = 0;
 
@@ -124,55 +67,83 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final filteredAnimals = _selectedFilter == 'All'
-        ? animals
-        : animals
-        .where((animal) =>
-    _getAnimalCategory(animal['type']) == _selectedFilter)
-        .toList();
-
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        backgroundColor: theme.colorScheme.surface,
-        appBar: AppBar(
-          toolbarHeight: 0,
-          automaticallyImplyLeading: false,
-          bottom: TabBar(
-            tabs: const [
-              Tab(text: 'Animals', icon: Icon(Icons.pets)),
-              Tab(text: 'Feed Tools', icon: Icon(Icons.restaurant)),
-              Tab(text: 'Calendar', icon: Icon(Icons.calendar_today)),
-              Tab(text: 'Production', icon: Icon(Icons.analytics)),
-            ],
-            onTap: (index) {
-              setState(() {
-                _selectedTab = index;
-              });
+    return BlocProvider(
+      create: (_) => getIt<AnimalsBloc>()..add(const AnimalsEvent.load()),
+      child: BlocConsumer<AnimalsBloc, AnimalsState>(
+        listener: (context, state) {
+          state.whenOrNull(
+            error: (message) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(message)),
+              );
             },
-          ),
-        ),
-        body: TabBarView(
-          children: [
-            // Animals Tab
-            _buildAnimalsTab(theme, filteredAnimals),
+          );
+        },
+        builder: (context, state) {
+          final animals = state.maybeWhen<List<AnimalEntity>>(
+            loaded: (items) => items,
+            orElse: () => <AnimalEntity>[],
+          );
 
-            // Feed Tools Tab
-            _buildFeedToolsTab(theme),
+          final filteredAnimals = _selectedFilter == 'All'
+              ? animals
+              : animals
+                  .where(
+                      (animal) => _getAnimalCategory(animal) == _selectedFilter)
+                  .toList();
 
-            // Calendar Tab
-            _buildCalendarTab(theme),
+          return DefaultTabController(
+            length: 4,
+            child: AppScaffold(
+              backgroundColor: theme.colorScheme.surface,
+              appBar: ModernAppBar(
+                bottom: TabBar(
+                  tabs: const [
+                    Tab(text: 'Animals', icon: Icon(Icons.pets)),
+                    Tab(text: 'Feed Tools', icon: Icon(Icons.restaurant)),
+                    Tab(text: 'Calendar', icon: Icon(Icons.calendar_today)),
+                    Tab(text: 'Production', icon: Icon(Icons.analytics)),
+                  ],
+                  onTap: (index) {
+                    setState(() {
+                      _selectedTab = index;
+                    });
+                  },
+                ),
+                bottomHeight: 48,
+              ),
+              body: TabBarView(
+                children: [
+                  // Animals Tab
+                  _buildAnimalsTab(
+                    theme,
+                    animals,
+                    filteredAnimals,
+                  ),
 
-            // Production Tab
-            _buildProductionTab(theme),
-          ],
-        ),
-        floatingActionButton: _buildFloatingActionButtons(theme),
+                  // Feed Tools Tab
+                  _buildFeedToolsTab(theme, animals),
+
+                  // Calendar Tab
+                  _buildCalendarTab(theme, animals),
+
+                  // Production Tab
+                  _buildProductionTab(theme),
+                ],
+              ),
+              floatingActionButton: _buildFloatingActionButtons(theme, animals),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildAnimalsTab(ThemeData theme, List<Map<String, dynamic>> filteredAnimals) {
+  Widget _buildAnimalsTab(
+    ThemeData theme,
+    List<AnimalEntity> animals,
+    List<AnimalEntity> filteredAnimals,
+  ) {
     return CustomScrollView(
       slivers: [
         // Header section with animal stats
@@ -221,13 +192,14 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
                     label: Text(filter),
                     selected: isSelected,
                     checkmarkColor: theme.colorScheme.primary,
-                    selectedColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                    selectedColor:
+                        theme.colorScheme.primary.withValues(alpha: 0.15),
                     labelStyle: TextStyle(
                       color: isSelected
                           ? theme.colorScheme.primary
                           : theme.colorScheme.onSurface.withValues(alpha: 0.8),
                       fontWeight:
-                      isSelected ? FontWeight.bold : FontWeight.normal,
+                          isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
                     onSelected: (_) => setState(() => _selectedFilter = filter),
                     backgroundColor: theme.cardTheme.color,
@@ -253,7 +225,7 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
-                  (context, index) {
+              (context, index) {
                 final animal = filteredAnimals[index];
                 return AnimatedCard(
                   index: index,
@@ -264,7 +236,8 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => AnimalDetailScreen(animal: animal),
+                          builder: (_) =>
+                              AnimalDetailScreen.fromEntity(entity: animal),
                         ),
                       );
                     },
@@ -284,7 +257,10 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
     );
   }
 
-  Widget _buildFeedToolsTab(ThemeData theme) {
+  Widget _buildFeedToolsTab(
+    ThemeData theme,
+    List<AnimalEntity> animals,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -427,7 +403,10 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
     );
   }
 
-  Widget _buildCalendarTab(ThemeData theme) {
+  Widget _buildCalendarTab(
+    ThemeData theme,
+    List<AnimalEntity> animals,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -441,7 +420,8 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.calendar_today, color: theme.colorScheme.primary),
+                      Icon(Icons.calendar_today,
+                          color: theme.colorScheme.primary),
                       const SizedBox(width: 8),
                       Text(
                         'Feeding Schedule',
@@ -464,7 +444,7 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => AnimalFeedingCalendarScreen(animals: animals),
+                          builder: (_) => const AnimalFeedingCalendarScreen(),
                         ),
                       );
                     },
@@ -509,7 +489,7 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => AnimalFeedingCalendarScreen(animals: animals),
+                          builder: (_) => const AnimalFeedingCalendarScreen(),
                         ),
                       );
                     },
@@ -561,7 +541,7 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => ProductionLoggingScreen(animals: animals),
+                          builder: (_) => const ProductionLoggingScreen(),
                         ),
                       );
                     },
@@ -624,7 +604,10 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
     );
   }
 
-  Widget _buildFloatingActionButtons(ThemeData theme) {
+  Widget _buildFloatingActionButtons(
+    ThemeData theme,
+    List<AnimalEntity> animals,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 90),
       child: Column(
@@ -636,7 +619,8 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const BreedingScheduleScreen()),
+                  MaterialPageRoute(
+                      builder: (_) => const BreedingScheduleScreen()),
                 );
               },
               backgroundColor: theme.colorScheme.secondary,
@@ -646,11 +630,16 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
             const SizedBox(height: 12),
             FloatingActionButton(
               heroTag: 'addAnimal',
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                final result = await Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const AddAnimalScreen()),
                 );
+                if (result is! AnimalEntity) return;
+                if (!mounted) return;
+                context
+                    .read<AnimalsBloc>()
+                    .add(AnimalsEvent.add(animal: result));
               },
               backgroundColor: theme.colorScheme.primary,
               child: const Icon(Icons.add, color: Colors.white),
@@ -662,7 +651,8 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const FeedFormulaGeneratorScreen()),
+                  MaterialPageRoute(
+                      builder: (_) => const FeedFormulaGeneratorScreen()),
                 );
               },
               backgroundColor: theme.colorScheme.secondary,
@@ -693,7 +683,8 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => AnimalFeedingCalendarScreen(animals: animals)),
+                  MaterialPageRoute(
+                      builder: (_) => const AnimalFeedingCalendarScreen()),
                 );
               },
               backgroundColor: theme.colorScheme.primary,
@@ -706,7 +697,8 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => ProductionLoggingScreen(animals: animals)),
+                  MaterialPageRoute(
+                      builder: (_) => const ProductionLoggingScreen()),
                 );
               },
               backgroundColor: theme.colorScheme.primary,
@@ -718,13 +710,32 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
     );
   }
 
-  String _getAnimalCategory(String type) {
+  String _getAnimalCategory(AnimalEntity animal) {
+    final type = _displayType(animal.type.value);
     if (type.contains('Cow') || type.contains('Cattle')) return 'Cattle';
     if (type.contains('Chicken') || type == 'Layers') return 'Poultry';
     if (type.contains('Goat')) return 'Goats';
     if (type.contains('Sheep')) return 'Sheep';
     if (type.contains('Pig')) return 'Pigs';
     return 'Other';
+  }
+
+  String _displayType(String rawType) {
+    switch (rawType.toLowerCase()) {
+      case 'cattle':
+        return 'Cattle';
+      case 'poultry':
+        return 'Chicken';
+      case 'goat':
+        return 'Goat';
+      case 'sheep':
+        return 'Sheep';
+      case 'pig':
+        return 'Pig';
+      default:
+        if (rawType.trim().isEmpty) return 'Other';
+        return rawType[0].toUpperCase() + rawType.substring(1);
+    }
   }
 }
 
@@ -765,7 +776,7 @@ class _FeedEstimateRow extends StatelessWidget {
 }
 
 class _FeedingTaskRow extends StatelessWidget {
-  final Map<String, dynamic> animal;
+  final AnimalEntity animal;
   final ThemeData theme;
 
   const _FeedingTaskRow({
@@ -775,16 +786,21 @@ class _FeedingTaskRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final type = _displayType(animal.type.value);
+    final feedRequirement = animal.weight == null
+        ? 'Not set'
+        : '${(animal.weight! * 0.05).toStringAsFixed(1)} kg/day';
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundColor: _getAnimalColor(animal['type']).withValues(alpha: 0.1),
+            backgroundColor: _getAnimalColor(type).withValues(alpha: 0.1),
             child: Icon(
-              _getAnimalIcon(animal['type']),
-              color: _getAnimalColor(animal['type']),
+              _getAnimalIcon(type),
+              color: _getAnimalColor(type),
               size: 16,
             ),
           ),
@@ -794,13 +810,13 @@ class _FeedingTaskRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  animal['name'],
+                  animal.name.value,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
-                  'Feed: ${animal['feedRequirement'] ?? 'Not set'}',
+                  'Feed: $feedRequirement',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
@@ -855,6 +871,24 @@ class _FeedingTaskRow extends StatelessWidget {
         return Icons.pets;
     }
   }
+
+  String _displayType(String rawType) {
+    switch (rawType.toLowerCase()) {
+      case 'cattle':
+        return 'Cattle';
+      case 'poultry':
+        return 'Chicken';
+      case 'goat':
+        return 'Goat';
+      case 'sheep':
+        return 'Sheep';
+      case 'pig':
+        return 'Pig';
+      default:
+        if (rawType.trim().isEmpty) return 'Other';
+        return rawType[0].toUpperCase() + rawType.substring(1);
+    }
+  }
 }
 
 class _ProductionSummaryRow extends StatelessWidget {
@@ -895,7 +929,9 @@ class _ProductionSummaryRow extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isPositive ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
+                  color: isPositive
+                      ? Colors.green.withValues(alpha: 0.1)
+                      : Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -960,7 +996,7 @@ class _AnimalStat extends StatelessWidget {
 }
 
 class _AnimalCard extends StatelessWidget {
-  final Map<String, dynamic> animal;
+  final AnimalEntity animal;
   final ThemeData theme;
   final VoidCallback onTap;
 
@@ -972,9 +1008,10 @@ class _AnimalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isGroup = animal['groupType'] == 'Group';
-    final quantity = animal['quantity'] ?? 1;
-    final purchasePrice = animal['purchasePrice'] ?? 0;
+    final type = _displayType(animal.type.value);
+    final breed = animal.breed ?? 'Unknown';
+    const status = 'Healthy';
+    const healthScore = 90;
 
     return Card(
       elevation: 0,
@@ -984,37 +1021,17 @@ class _AnimalCard extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 25,
-              backgroundColor: _getAnimalColor(animal['type']).withValues(alpha: 0.1),
+              backgroundColor: _getAnimalColor(type).withValues(alpha: 0.1),
               child: Icon(
-                _getAnimalIcon(animal['type']),
-                color: _getAnimalColor(animal['type']),
+                _getAnimalIcon(type),
+                color: _getAnimalColor(type),
                 size: 24,
               ),
             ),
-            if (isGroup && quantity > 1)
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Text(
-                    quantity.toString(),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                    ),
-                  ),
-                ),
-              ),
           ],
         ),
         title: Text(
-          animal['name'],
+          animal.name.value,
           style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w600,
           ),
@@ -1022,7 +1039,7 @@ class _AnimalCard extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${animal['type']} • ${animal['breed']}'),
+            Text('$type • $breed'),
             const SizedBox(height: 2),
             Row(
               children: [
@@ -1030,66 +1047,28 @@ class _AnimalCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(animal['status']).withValues(alpha: 0.1),
+                    color: _getStatusColor(status).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    animal['status'],
+                    status,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: _getStatusColor(animal['status']),
+                      color: _getStatusColor(status),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                if (isGroup)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'Group',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
               ],
             ),
-            if (animal['shed'] != null)
-              Text(
-                'Location: ${animal['shed']}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-              ),
           ],
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            if (purchasePrice > 0)
-              Text(
-                'KSh ${purchasePrice.toStringAsFixed(0)}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            if (isGroup && quantity > 1)
-              Text(
-                '$quantity animals',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-              ),
             Text(
-              'Health: ${animal['healthScore']}%',
+              'Health: $healthScore%',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
@@ -1147,6 +1126,24 @@ class _AnimalCard extends StatelessWidget {
         return Colors.red;
       default:
         return Colors.grey;
+    }
+  }
+
+  String _displayType(String rawType) {
+    switch (rawType.toLowerCase()) {
+      case 'cattle':
+        return 'Cattle';
+      case 'poultry':
+        return 'Chicken';
+      case 'goat':
+        return 'Goat';
+      case 'sheep':
+        return 'Sheep';
+      case 'pig':
+        return 'Pig';
+      default:
+        if (rawType.trim().isEmpty) return 'Other';
+        return rawType[0].toUpperCase() + rawType.substring(1);
     }
   }
 }

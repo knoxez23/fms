@@ -1,143 +1,166 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
-import 'package:pamoja_twalima/data/repositories/sync_data.dart';
-// feeding schedule and log are provided via the farm_mgmt domain entities barrel
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pamoja_twalima/core/di/injection.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/bloc/feeding/feeding_bloc.dart';
+// Feeding entities are provided via the farm_mgmt domain entities barrel.
 import 'package:pamoja_twalima/farm_mgmt/domain/entities/entities.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/value_objects/value_objects.dart';
 
 class AnimalFeedingCalendarScreen extends StatefulWidget {
-  final List<Map<String, dynamic>> animals;
-
-  const AnimalFeedingCalendarScreen({super.key, required this.animals});
+  const AnimalFeedingCalendarScreen({super.key});
 
   @override
-  State<AnimalFeedingCalendarScreen> createState() => _AnimalFeedingCalendarScreenState();
+  State<AnimalFeedingCalendarScreen> createState() =>
+      _AnimalFeedingCalendarScreenState();
 }
 
-class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScreen> {
+class _AnimalFeedingCalendarScreenState
+    extends State<AnimalFeedingCalendarScreen> {
   DateTime _selectedDate = DateTime.now();
   String _selectedView = 'Daily';
   String _selectedAnimalFilter = 'All';
   bool _showCompleted = true;
 
   final List<String> _viewOptions = ['Daily', 'Weekly', 'Monthly'];
-  final List<String> _animalFilters = ['All', 'Cattle', 'Poultry', 'Goats', 'Sheep'];
-
-  List<FeedingSchedule> _feedingSchedules = [];
-  List<FeedingLog> _feedingHistory = [];
-  List<Animal> _animals = [];
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    try {
-      final schedules = await SyncData().getFeedingSchedules();
-      final logs = await SyncData().getFeedingLogs();
-      final animals = await SyncData().getAnimals();
-      setState(() {
-        _feedingSchedules = schedules;
-        _feedingHistory = logs;
-        _animals = animals;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading data: $e')),
-      );
-    }
-  }
+  final List<String> _animalFilters = [
+    'All',
+    'Cattle',
+    'Poultry',
+    'Goats',
+    'Sheep'
+  ];
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final filteredSchedules = _getFilteredSchedules();
-    final todaysFeedings = _getTodaysFeedings();
-
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          'Feeding Calendar',
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_alarm),
-            onPressed: _addFeedingSchedule,
-          ),
-          IconButton(
-            icon: const Icon(Icons.inventory),
-            onPressed: _showFeedInventory,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Calendar Header & Filters
-          _buildCalendarHeader(theme),
-
-          // Today's Summary
-          _buildTodaysSummary(theme, todaysFeedings),
-
-          // Main Content
-          Expanded(
-            child: DefaultTabController(
-              length: 2,
-              child: Column(
-                children: [
-                  // Tabs
-                  Container(
-                    decoration: BoxDecoration(
-                      color: theme.cardTheme.color,
-                      border: Border(
-                        bottom: BorderSide(
-                          color: theme.dividerColor.withValues(alpha: 0.3),
-                        ),
-                      ),
-                    ),
-                    child: TabBar(
-                      labelColor: theme.colorScheme.primary,
-                      unselectedLabelColor: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      indicatorColor: theme.colorScheme.primary,
-                      tabs: const [
-                        Tab(text: 'Schedule'),
-                        Tab(text: 'History'),
-                      ],
-                    ),
-                  ),
-
-                  // Tab Content
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        // Schedule Tab
-                        _buildScheduleTab(theme, filteredSchedules),
-
-                        // History Tab
-                        _buildHistoryTab(theme),
-                      ],
-                    ),
-                  ),
-                ],
+    return BlocProvider(
+      create: (_) => getIt<FeedingBloc>()..add(const FeedingEvent.load()),
+      child: BlocConsumer<FeedingBloc, FeedingState>(
+        listener: (context, state) {
+          state.whenOrNull(
+            error: (message) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(message)),
+              );
+            },
+          );
+        },
+        builder: (context, state) {
+          if (state is FeedingLoading || state is FeedingInitial) {
+            return AppScaffold(
+              backgroundColor: theme.colorScheme.surface,
+              includeDrawer: false,
+              appBar: const ModernAppBar(
+                title: 'Feeding Calendar',
+                variant: AppBarVariant.standard,
               ),
+              body: const Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          final loaded = state.maybeWhen(
+            loaded: (schedules, logs, animals) => (schedules, logs, animals),
+            orElse: () => (
+              <FeedingScheduleEntity>[],
+              <FeedingLogEntity>[],
+              <AnimalEntity>[]
             ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'logFeedingFAB',
-        onPressed: _logFeeding,
-        backgroundColor: theme.colorScheme.primary,
-        child: const Icon(Icons.restaurant, color: Colors.white),
+          );
+
+          final schedules = loaded.$1;
+          final logs = loaded.$2;
+          final animals = loaded.$3;
+
+          final filteredSchedules = _getFilteredSchedules(schedules, animals);
+          final todaysFeedings = _getTodaysFeedings(schedules);
+
+          return AppScaffold(
+            backgroundColor: theme.colorScheme.surface,
+            includeDrawer: false,
+            appBar: ModernAppBar(
+              title: 'Feeding Calendar',
+              variant: AppBarVariant.standard,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.add_alarm),
+                  onPressed: _addFeedingSchedule,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.inventory),
+                  onPressed: _showFeedInventory,
+                ),
+              ],
+            ),
+            body: Column(
+              children: [
+                // Calendar Header & Filters
+                _buildCalendarHeader(theme),
+
+                // Today's Summary
+                _buildTodaysSummary(theme, todaysFeedings, schedules),
+
+                // Main Content
+                Expanded(
+                  child: DefaultTabController(
+                    length: 2,
+                    child: Column(
+                      children: [
+                        // Tabs
+                        Container(
+                          decoration: BoxDecoration(
+                            color: theme.cardTheme.color,
+                            border: Border(
+                              bottom: BorderSide(
+                                color:
+                                    theme.dividerColor.withValues(alpha: 0.3),
+                              ),
+                            ),
+                          ),
+                          child: TabBar(
+                            labelColor: theme.colorScheme.primary,
+                            unselectedLabelColor: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
+                            indicatorColor: theme.colorScheme.primary,
+                            tabs: const [
+                              Tab(text: 'Schedule'),
+                              Tab(text: 'History'),
+                            ],
+                          ),
+                        ),
+
+                        // Tab Content
+                        Expanded(
+                          child: TabBarView(
+                            children: [
+                              // Schedule Tab
+                              _buildScheduleTab(
+                                theme,
+                                filteredSchedules,
+                                animals,
+                              ),
+
+                              // History Tab
+                              _buildHistoryTab(theme, logs, animals),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            floatingActionButton: FloatingActionButton(
+              heroTag: 'logFeedingFAB',
+              onPressed: _logFeeding,
+              backgroundColor: theme.colorScheme.primary,
+              child: const Icon(Icons.restaurant, color: Colors.white),
+            ),
+          );
+        },
       ),
     );
   }
@@ -254,7 +277,11 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
     );
   }
 
-  Widget _buildTodaysSummary(ThemeData theme, List<FeedingSchedule> todaysFeedings) {
+  Widget _buildTodaysSummary(
+    ThemeData theme,
+    List<FeedingScheduleEntity> todaysFeedings,
+    List<FeedingScheduleEntity> allSchedules,
+  ) {
     final completed = todaysFeedings.where((f) => f.completed).length;
     final total = todaysFeedings.length;
     final progress = total > 0 ? completed / total : 0.0;
@@ -292,7 +319,7 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
               Expanded(
                 child: _SummaryItem(
                   icon: Icons.notifications_active,
-                  value: '${_getUpcomingFeedings().length}',
+                  value: '${_getUpcomingFeedings(allSchedules).length}',
                   label: 'Upcoming',
                   theme: theme,
                 ),
@@ -333,10 +360,17 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
     );
   }
 
-  Widget _buildScheduleTab(ThemeData theme, List<FeedingSchedule> schedules) {
-    final morningFeedings = schedules.where((s) => s.timeOfDay == 'Morning').toList();
-    final afternoonFeedings = schedules.where((s) => s.timeOfDay == 'Afternoon').toList();
-    final eveningFeedings = schedules.where((s) => s.timeOfDay == 'Evening').toList();
+  Widget _buildScheduleTab(
+    ThemeData theme,
+    List<FeedingScheduleEntity> schedules,
+    List<AnimalEntity> animals,
+  ) {
+    final morningFeedings =
+        schedules.where((s) => s.timeOfDay == 'Morning').toList();
+    final afternoonFeedings =
+        schedules.where((s) => s.timeOfDay == 'Afternoon').toList();
+    final eveningFeedings =
+        schedules.where((s) => s.timeOfDay == 'Evening').toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -350,6 +384,7 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
               theme: theme,
               onToggleComplete: _toggleFeedingComplete,
               onEdit: _editFeedingSchedule,
+              getAnimalName: (id) => _getAnimalNameById(id, animals),
             ),
             const SizedBox(height: 16),
           ],
@@ -361,6 +396,7 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
               theme: theme,
               onToggleComplete: _toggleFeedingComplete,
               onEdit: _editFeedingSchedule,
+              getAnimalName: (id) => _getAnimalNameById(id, animals),
             ),
             const SizedBox(height: 16),
           ],
@@ -372,6 +408,7 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
               theme: theme,
               onToggleComplete: _toggleFeedingComplete,
               onEdit: _editFeedingSchedule,
+              getAnimalName: (id) => _getAnimalNameById(id, animals),
             ),
             const SizedBox(height: 16),
           ],
@@ -408,7 +445,8 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
                         avatar: const Icon(Icons.play_arrow, size: 18),
                         label: const Text('Start All Morning'),
                         onPressed: () => _startAllFeedings('Morning'),
-                        backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                        backgroundColor:
+                            theme.colorScheme.primary.withValues(alpha: 0.1),
                       ),
                       ActionChip(
                         avatar: const Icon(Icons.check, size: 18),
@@ -435,7 +473,11 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
     );
   }
 
-  Widget _buildHistoryTab(ThemeData theme) {
+  Widget _buildHistoryTab(
+    ThemeData theme,
+    List<FeedingLogEntity> history,
+    List<AnimalEntity> animals,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -463,16 +505,17 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
           const SizedBox(height: 16),
 
           // Feeding History
-          if (_feedingHistory.isNotEmpty)
-            ..._feedingHistory.map((history) {
+          if (history.isNotEmpty)
+            ...history.map((history) {
               return _FeedingHistoryCard(
                 history: history,
                 theme: theme,
                 onDelete: _deleteFeedingHistory,
+                getAnimalName: (id) => _getAnimalNameById(id, animals),
               );
             }),
 
-          if (_feedingHistory.isEmpty)
+          if (history.isEmpty)
             _EmptyState(
               icon: Icons.history,
               title: 'No Feeding History',
@@ -487,26 +530,34 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
   }
 
   // Helper Methods
-  List<FeedingSchedule> _getFilteredSchedules() {
-    return _feedingSchedules.where((schedule) {
+  List<FeedingScheduleEntity> _getFilteredSchedules(
+    List<FeedingScheduleEntity> schedules,
+    List<AnimalEntity> animals,
+  ) {
+    return schedules.where((schedule) {
       // For now, filter by time of day since we don't have date in model
       final matchesFilter = _selectedAnimalFilter == 'All' ||
-          _getAnimalCategoryById(schedule.animalId) == _selectedAnimalFilter;
+          _getAnimalCategoryById(schedule.animalId, animals) ==
+              _selectedAnimalFilter;
       return matchesFilter;
     }).toList();
   }
 
-  List<FeedingSchedule> _getTodaysFeedings() {
+  List<FeedingScheduleEntity> _getTodaysFeedings(
+    List<FeedingScheduleEntity> schedules,
+  ) {
     // For now, return all schedules
-    return _feedingSchedules;
+    return schedules;
   }
 
-  List<FeedingSchedule> _getUpcomingFeedings() {
+  List<FeedingScheduleEntity> _getUpcomingFeedings(
+    List<FeedingScheduleEntity> schedules,
+  ) {
     // For now, return all schedules
-    return _feedingSchedules;
+    return schedules;
   }
 
-  double _calculateTotalFeed(List<FeedingSchedule> feedings) {
+  double _calculateTotalFeed(List<FeedingScheduleEntity> feedings) {
     return feedings.fold(0.0, (sum, feeding) => sum + feeding.quantity);
   }
 
@@ -515,7 +566,15 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
   }
 
   String _getDayName(DateTime date) {
-    final days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    final days = [
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday'
+    ];
     return days[date.weekday % 7];
   }
 
@@ -527,23 +586,31 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
     return 'Other';
   }
 
-  String _getAnimalCategoryById(int animalId) {
-    final animal = _animals.firstWhere((a) => a.id == animalId, orElse: () => Animal(name: 'Unknown', type: 'Unknown'));
-    return _getAnimalCategory(animal.type);
+  String _getAnimalCategoryById(
+    int animalId,
+    List<AnimalEntity> animals,
+  ) {
+    final animal = animals.firstWhere(
+      (a) => int.tryParse(a.id ?? '') == animalId,
+      orElse: () => AnimalEntity(
+        id: null,
+        name: AnimalName('Unknown'),
+        type: AnimalType('other'),
+      ),
+    );
+    return _getAnimalCategory(animal.type.value);
   }
 
-  TimeOfDay _parseTimeOfDay(String time) {
-    final parts = time.split(' ');
-    final timeParts = parts[0].split(':');
-    final isPM = parts[1] == 'PM';
-
-    int hour = int.parse(timeParts[0]);
-    final minute = int.parse(timeParts[1]);
-
-    if (isPM && hour != 12) hour += 12;
-    if (!isPM && hour == 12) hour = 0;
-
-    return TimeOfDay(hour: hour, minute: minute);
+  String _getAnimalNameById(int animalId, List<AnimalEntity> animals) {
+    final animal = animals.firstWhere(
+      (a) => int.tryParse(a.id ?? '') == animalId,
+      orElse: () => AnimalEntity(
+        id: null,
+        name: AnimalName('Unknown'),
+        type: AnimalType('other'),
+      ),
+    );
+    return animal.name.value;
   }
 
   // Action Methods
@@ -553,125 +620,80 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
     });
   }
 
-  void _toggleFeedingComplete(int scheduleId) async {
-    final schedule = _feedingSchedules.firstWhere((s) => s.id == scheduleId);
-    final updatedSchedule = FeedingSchedule(
-      id: schedule.id,
-      animalId: schedule.animalId,
-      feedType: schedule.feedType,
-      quantity: schedule.quantity,
-      unit: schedule.unit,
-      timeOfDay: schedule.timeOfDay,
-      frequency: schedule.frequency,
-      startDate: schedule.startDate,
-      endDate: schedule.endDate,
-      notes: schedule.notes,
-      completed: !schedule.completed,
-    );
-
-    await SyncData().updateFeedingSchedule(updatedSchedule);
-
-    if (updatedSchedule.completed) {
-      // Add to feeding log
-      final log = FeedingLog(
-        animalId: schedule.animalId,
-        scheduleId: schedule.id,
-        feedType: schedule.feedType,
-        quantity: schedule.quantity,
-        unit: schedule.unit,
-        fedAt: DateTime.now().toIso8601String(),
-        fedBy: 'User', // TODO: Get current user
-        notes: 'Completed from schedule',
-      );
-      await SyncData().insertFeedingLog(log);
-    }
-
-    _loadData(); // Reload data
+  void _toggleFeedingComplete(int scheduleId) {
+    context
+        .read<FeedingBloc>()
+        .add(FeedingEvent.toggleComplete(scheduleId: scheduleId));
   }
 
   void _addFeedingSchedule() {
-    // TODO: Implement add feeding schedule
+    // NOTE: Implement add feeding schedule
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add feeding schedule feature coming soon!')),
+      const SnackBar(
+          content: Text('Add feeding schedule feature coming soon!')),
     );
   }
 
   void _editFeedingSchedule(int scheduleId) {
-    // TODO: Implement edit feeding schedule
+    // NOTE: Implement edit feeding schedule
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit feeding schedule feature coming soon!')),
+      const SnackBar(
+          content: Text('Edit feeding schedule feature coming soon!')),
     );
   }
 
   void _logFeeding() {
-    // TODO: Implement manual feeding log
+    // NOTE: Implement manual feeding log
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Log manual feeding feature coming soon!')),
     );
   }
 
   void _showFeedInventory() {
-    // TODO: Implement feed inventory
+    // NOTE: Implement feed inventory
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Feed inventory feature coming soon!')),
     );
   }
 
   void _startAllFeedings(String timeOfDay) {
-    // TODO: Implement start all feedings
+    // NOTE: Implement start all feedings
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Starting all $timeOfDay feedings...')),
     );
   }
 
   void _completeAllTodaysFeedings() async {
-    final todaysSchedules = _getTodaysFeedings();
-    for (var schedule in todaysSchedules) {
-      final updatedSchedule = FeedingSchedule(
-        id: schedule.id,
-        animalId: schedule.animalId,
-        feedType: schedule.feedType,
-        quantity: schedule.quantity,
-        unit: schedule.unit,
-        timeOfDay: schedule.timeOfDay,
-        frequency: schedule.frequency,
-        startDate: schedule.startDate,
-        endDate: schedule.endDate,
-        notes: schedule.notes,
-        completed: true,
-      );
-      await SyncData().updateFeedingSchedule(updatedSchedule);
-
-      // Add to feeding log
-      final log = FeedingLog(
-        animalId: schedule.animalId,
-        scheduleId: schedule.id,
-        feedType: schedule.feedType,
-        quantity: schedule.quantity,
-        unit: schedule.unit,
-        fedAt: DateTime.now().toIso8601String(),
-        fedBy: 'User',
-        notes: 'Completed all feedings',
-      );
-      await SyncData().insertFeedingLog(log);
+    final state = context.read<FeedingBloc>().state;
+    final schedules = state.maybeWhen(
+      loaded: (s, _, __) => s,
+      orElse: () => <FeedingScheduleEntity>[],
+    );
+    final todaysSchedules = _getTodaysFeedings(schedules);
+    for (final schedule in todaysSchedules) {
+      if (schedule.completed) continue;
+      context
+          .read<FeedingBloc>()
+          .add(FeedingEvent.toggleComplete(scheduleId: schedule.id ?? 0));
     }
-
-    _loadData(); // Reload data
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('All today\'s feedings marked as completed!')),
+      const SnackBar(
+          content: Text('All today\'s feedings marked as completed!')),
     );
   }
 
   void _setFeedingReminders() {
-    // TODO: Implement feeding reminders
+    // NOTE: Implement feeding reminders
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Setting feeding reminders...')),
     );
   }
 
-  void _deleteFeedingHistory(int historyId) async {
-    await SyncData().deleteFeedingLog(historyId);
-    _loadData(); // Reload data
+  void _deleteFeedingHistory(int historyId) {
+    context
+        .read<FeedingBloc>()
+        .add(FeedingEvent.deleteHistory(logId: historyId));
   }
 
   void _clearHistory() {
@@ -679,7 +701,8 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Clear History'),
-        content: const Text('Are you sure you want to clear all feeding history? This action cannot be undone.'),
+        content: const Text(
+            'Are you sure you want to clear all feeding history? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -687,9 +710,7 @@ class _AnimalFeedingCalendarScreenState extends State<AnimalFeedingCalendarScree
           ),
           ElevatedButton(
             onPressed: () {
-              setState(() {
-                _feedingHistory.clear();
-              });
+              context.read<FeedingBloc>().add(const FeedingEvent.load());
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Feeding history cleared!')),
@@ -754,10 +775,11 @@ class _SummaryItem extends StatelessWidget {
 
 class _FeedingTimeSection extends StatelessWidget {
   final String timeOfDay;
-  final List<FeedingSchedule> feedings;
+  final List<FeedingScheduleEntity> feedings;
   final ThemeData theme;
   final Function(int) onToggleComplete;
   final Function(int) onEdit;
+  final String Function(int) getAnimalName;
 
   const _FeedingTimeSection({
     required this.timeOfDay,
@@ -765,6 +787,7 @@ class _FeedingTimeSection extends StatelessWidget {
     required this.theme,
     required this.onToggleComplete,
     required this.onEdit,
+    required this.getAnimalName,
   });
 
   @override
@@ -803,11 +826,12 @@ class _FeedingTimeSection extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             ...feedings.map((feeding) => _FeedingScheduleCard(
-              feeding: feeding,
-              theme: theme,
-              onToggleComplete: onToggleComplete,
-              onEdit: onEdit,
-            )),
+                  feeding: feeding,
+                  theme: theme,
+                  onToggleComplete: onToggleComplete,
+                  onEdit: onEdit,
+                  getAnimalName: getAnimalName,
+                )),
           ],
         ),
       ),
@@ -816,48 +840,62 @@ class _FeedingTimeSection extends StatelessWidget {
 
   int _getTimeOfDayIndex(String timeOfDay) {
     switch (timeOfDay) {
-      case 'Morning': return 1;
-      case 'Afternoon': return 2;
-      case 'Evening': return 3;
-      default: return 0;
+      case 'Morning':
+        return 1;
+      case 'Afternoon':
+        return 2;
+      case 'Evening':
+        return 3;
+      default:
+        return 0;
     }
   }
 
   IconData _getTimeOfDayIcon(String timeOfDay) {
     switch (timeOfDay) {
-      case 'Morning': return Icons.wb_sunny;
-      case 'Afternoon': return Icons.brightness_5;
-      case 'Evening': return Icons.nights_stay;
-      default: return Icons.schedule;
+      case 'Morning':
+        return Icons.wb_sunny;
+      case 'Afternoon':
+        return Icons.brightness_5;
+      case 'Evening':
+        return Icons.nights_stay;
+      default:
+        return Icons.schedule;
     }
   }
 
   Color _getTimeOfDayColor(String timeOfDay) {
     switch (timeOfDay) {
-      case 'Morning': return Colors.orange;
-      case 'Afternoon': return Colors.blue;
-      case 'Evening': return Colors.purple;
-      default: return Colors.grey;
+      case 'Morning':
+        return Colors.orange;
+      case 'Afternoon':
+        return Colors.blue;
+      case 'Evening':
+        return Colors.purple;
+      default:
+        return Colors.grey;
     }
   }
 }
 
 class _FeedingScheduleCard extends StatelessWidget {
-  final FeedingSchedule feeding;
+  final FeedingScheduleEntity feeding;
   final ThemeData theme;
   final Function(int) onToggleComplete;
   final Function(int) onEdit;
+  final String Function(int) getAnimalName;
 
   const _FeedingScheduleCard({
     required this.feeding,
     required this.theme,
     required this.onToggleComplete,
     required this.onEdit,
+    required this.getAnimalName,
   });
 
   @override
   Widget build(BuildContext context) {
-    final animalName = 'Animal ${feeding.animalId}';
+    final animalName = getAnimalName(feeding.animalId);
     final timeString = _getTimeString(feeding.timeOfDay);
 
     return Container(
@@ -886,8 +924,12 @@ class _FeedingScheduleCard extends StatelessWidget {
                   animalName,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
-                    decoration: feeding.completed ? TextDecoration.lineThrough : TextDecoration.none,
-                    color: feeding.completed ? theme.colorScheme.onSurface.withValues(alpha: 0.5) : theme.colorScheme.onSurface,
+                    decoration: feeding.completed
+                        ? TextDecoration.lineThrough
+                        : TextDecoration.none,
+                    color: feeding.completed
+                        ? theme.colorScheme.onSurface.withValues(alpha: 0.5)
+                        : theme.colorScheme.onSurface,
                   ),
                 ),
                 Text(
@@ -929,38 +971,39 @@ class _FeedingScheduleCard extends StatelessWidget {
     );
   }
 
-  Animal? _getAnimalById(int id) {
-    // Access _animals from the parent class
-    // For now, return null and use placeholder
-    return null;
-  }
-
   String _getTimeString(String timeOfDay) {
     switch (timeOfDay) {
-      case 'Morning': return '6:30 AM';
-      case 'Afternoon': return '2:00 PM';
-      case 'Evening': return '5:30 PM';
-      default: return 'Unknown';
+      case 'Morning':
+        return '6:30 AM';
+      case 'Afternoon':
+        return '2:00 PM';
+      case 'Evening':
+        return '5:30 PM';
+      default:
+        return 'Unknown';
     }
   }
 }
 
 class _FeedingHistoryCard extends StatelessWidget {
-  final FeedingLog history;
+  final FeedingLogEntity history;
   final ThemeData theme;
   final Function(int) onDelete;
+  final String Function(int) getAnimalName;
 
   const _FeedingHistoryCard({
     required this.history,
     required this.theme,
     required this.onDelete,
+    required this.getAnimalName,
   });
 
   @override
   Widget build(BuildContext context) {
-    final animalName = 'Animal ${history.animalId}';
-    final fedDate = DateTime.parse(history.fedAt).toLocal();
-    final timeString = '${fedDate.hour}:${fedDate.minute.toString().padLeft(2, '0')}';
+    final animalName = getAnimalName(history.animalId);
+    final fedDate = history.fedAt.toLocal();
+    final timeString =
+        '${fedDate.hour}:${fedDate.minute.toString().padLeft(2, '0')}';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -1021,24 +1064,6 @@ class _FeedingHistoryCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Color _getAnimalColor(String type) {
-    switch (type) {
-      case 'Dairy Cow': return Colors.blue;
-      case 'Layers': return Colors.orange;
-      case 'Goat': return Colors.green;
-      default: return Colors.grey;
-    }
-  }
-
-  IconData _getAnimalIcon(String type) {
-    switch (type) {
-      case 'Dairy Cow': return Icons.agriculture;
-      case 'Layers': return Icons.egg;
-      case 'Goat': return Icons.pets;
-      default: return Icons.pets;
-    }
   }
 }
 

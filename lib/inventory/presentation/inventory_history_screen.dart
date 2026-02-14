@@ -1,101 +1,98 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
-import 'package:pamoja_twalima/inventory/application/application.dart';
-import 'package:pamoja_twalima/inventory/infrastructure/factory.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pamoja_twalima/core/di/injection.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/inventory/domain/entities/inventory_item.dart';
+import 'package:pamoja_twalima/inventory/presentation/bloc/inventory/inventory_bloc.dart';
 
-class InventoryHistoryScreen extends StatefulWidget {
+class InventoryHistoryScreen extends StatelessWidget {
   const InventoryHistoryScreen({super.key});
 
   @override
-  State<InventoryHistoryScreen> createState() => _InventoryHistoryScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider<InventoryBloc>(
+      create: (_) =>
+          getIt<InventoryBloc>()..add(const InventoryEvent.loadInventory()),
+      child: const InventoryHistoryView(),
+    );
+  }
 }
 
-class _InventoryHistoryScreenState extends State<InventoryHistoryScreen> {
-  int _selectedTab = 0;
-
-  List<Map<String, dynamic>> _restockHistory = [];
-  List<Map<String, dynamic>> _usageHistory = [];
-  List<Map<String, dynamic>> _lowStockAlerts = [];
-
-  late final GetInventory _getInventoryUseCase;
-  List<Map<String, dynamic>> _allItems = [];
+class InventoryHistoryView extends StatefulWidget {
+  const InventoryHistoryView({super.key});
 
   @override
-  void initState() {
-    super.initState();
-    _getInventoryUseCase = InventoryFactory.createGetInventory();
-    _loadInventoryHistory();
-  }
+  State<InventoryHistoryView> createState() => _InventoryHistoryViewState();
+}
 
-  Future<void> _loadInventoryHistory() async {
-    try {
-      final items = await _getInventoryUseCase.execute();
-      _allItems = items.map((item) {
-        // qty and minStock are already typed (double and int), no parsing needed
-        final qty = item.quantity;
-        final minStock = item.minStock;
+class _InventoryHistoryViewState extends State<InventoryHistoryView> {
+  int _selectedTab = 0;
 
-        // format lastRestock from DateTime to String
-        final lastRestock =
-            item.lastRestock != null ? _formatDate(item.lastRestock!) : '';
+  _InventoryHistoryData _buildHistoryFromItems(List<InventoryItem> items) {
+    final allItems = items.map((item) {
+      final qty = item.quantity;
+      final minStock = item.minStock;
 
-        return {
-          'id': item.id ?? '',
-          'name': item.itemName,
-          'quantity': qty,
-          'unit': item.unit,
-          'minStock': minStock,
-          'lastRestock': lastRestock,
-          'supplier': item.supplier ?? '',
-          'unitPrice': item.unitPrice ?? 0,
-          'totalValue': item.totalValue ?? 0,
-        };
-      }).toList();
+      final lastRestock =
+          item.lastRestock != null ? _formatDate(item.lastRestock!) : '';
 
-      // Build low stock alerts
-      _lowStockAlerts = _allItems.where((i) {
-        final q = i['quantity'] as num? ?? 0;
-        final m = i['minStock'] as num? ?? 0;
-        return m > 0 && q <= m;
-      }).map((i) {
-        final q = i['quantity'] as num? ?? 0;
-        final m = i['minStock'] as num? ?? 0;
-        final deficit = m - q;
-        final priority = deficit >= (m * 0.5) ? 'High' : 'Medium';
-        return {
-          'item': i['name'],
-          'currentStock': q,
-          'minStock': m,
-          'unit': i['unit'],
-          'alertDate': i['lastRestock'] ?? '',
-          'priority': priority,
-        };
-      }).toList();
+      return {
+        'id': item.id ?? '',
+        'name': item.itemName,
+        'quantity': qty,
+        'unit': item.unit,
+        'minStock': minStock,
+        'lastRestock': lastRestock,
+        'supplier': item.supplier ?? '',
+        'unitPrice': item.unitPrice ?? 0,
+        'totalValue': item.totalValue ?? 0,
+      };
+    }).toList();
 
-      // Restock summary from available totalValue or unitPrice*quantity
-      _restockHistory = _allItems.map((i) {
-        final total = i['totalValue'] ??
-            ((i['unitPrice'] is num && i['quantity'] is num)
-                ? (i['unitPrice'] * i['quantity'])
-                : 0);
-        return {
-          'item': i['name'],
-          'quantity': i['quantity'],
-          'unit': i['unit'],
-          'date': i['lastRestock'] ?? '',
-          'supplier': i['supplier'] ?? '',
-          'cost': total,
-          'type': 'restock',
-        };
-      }).toList();
+    final lowStockAlerts = allItems.where((i) {
+      final q = i['quantity'] as num? ?? 0;
+      final m = i['minStock'] as num? ?? 0;
+      return m > 0 && q <= m;
+    }).map((i) {
+      final q = i['quantity'] as num? ?? 0;
+      final m = i['minStock'] as num? ?? 0;
+      final deficit = m - q;
+      final priority = deficit >= (m * 0.5) ? 'High' : 'Medium';
+      return {
+        'item': i['name'],
+        'currentStock': q,
+        'minStock': m,
+        'unit': i['unit'],
+        'alertDate': i['lastRestock'] ?? '',
+        'priority': priority,
+      };
+    }).toList();
 
-      // Usage history is not tracked separately; leave empty for now
-      _usageHistory = [];
+    final restockHistory = allItems.map((i) {
+      final total = i['totalValue'] ??
+          ((i['unitPrice'] is num && i['quantity'] is num)
+              ? ((i['unitPrice'] as num) * (i['quantity'] as num))
+              : 0);
+      return {
+        'item': i['name'],
+        'quantity': i['quantity'],
+        'unit': i['unit'],
+        'date': i['lastRestock'] ?? '',
+        'supplier': i['supplier'] ?? '',
+        'cost': total,
+        'type': 'restock',
+      };
+    }).toList();
 
-      setState(() {});
-    } catch (e) {
-      // ignore errors for now
-    }
+    final usageHistory = <Map<String, dynamic>>[];
+
+    return _InventoryHistoryData(
+      restockHistory: restockHistory,
+      usageHistory: usageHistory,
+      lowStockAlerts: lowStockAlerts,
+    );
   }
 
   String _formatDate(DateTime date) {
@@ -107,93 +104,120 @@ class _InventoryHistoryScreenState extends State<InventoryHistoryScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          'Inventory History',
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
-          // Summary Cards
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                _HistoryStat(
-                  value: 'KSh 24,000',
-                  label: 'Total Restock Cost',
-                  icon: Icons.attach_money,
-                  theme: theme,
-                ),
-                const SizedBox(width: 12),
-                _HistoryStat(
-                  value: '3',
-                  label: 'Low Stock Alerts',
-                  icon: Icons.warning,
-                  theme: theme,
-                ),
-                const SizedBox(width: 12),
-                _HistoryStat(
-                  value: '8',
-                  label: 'Monthly Usage',
-                  icon: Icons.trending_up,
-                  theme: theme,
-                ),
-              ],
-            ),
-          ),
+    return BlocConsumer<InventoryBloc, InventoryState>(
+      listener: (context, state) {
+        state.whenOrNull(
+          error: (message) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(message),
+                backgroundColor: Colors.red,
+              ),
+            );
+          },
+        );
+      },
+      builder: (context, state) {
+        final items = state.maybeWhen(
+          loaded: (items, _, __) => items,
+          orElse: () => <InventoryItem>[],
+        );
+        final history = _buildHistoryFromItems(items);
 
-          // Tab Bar
-          Container(
-            margin: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: theme.cardTheme.color,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [AppColors.subtleShadow],
-            ),
-            child: Row(
-              children: [
-                _HistoryTab(
-                  label: 'Restocks',
-                  isSelected: _selectedTab == 0,
-                  onTap: () => setState(() => _selectedTab = 0),
-                  theme: theme,
-                ),
-                _HistoryTab(
-                  label: 'Usage',
-                  isSelected: _selectedTab == 1,
-                  onTap: () => setState(() => _selectedTab = 1),
-                  theme: theme,
-                ),
-                _HistoryTab(
-                  label: 'Alerts',
-                  isSelected: _selectedTab == 2,
-                  onTap: () => setState(() => _selectedTab = 2),
-                  theme: theme,
-                ),
-              ],
-            ),
+        return AppScaffold(
+          backgroundColor: theme.colorScheme.surface,
+          includeDrawer: false,
+          appBar: const ModernAppBar(
+            title: 'Inventory History',
+            variant: AppBarVariant.standard,
           ),
+          body: Column(
+            children: [
+              // Summary Cards
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    _HistoryStat(
+                      value: 'KSh 24,000',
+                      label: 'Total Restock Cost',
+                      icon: Icons.attach_money,
+                      theme: theme,
+                    ),
+                    const SizedBox(width: 12),
+                    _HistoryStat(
+                      value: '3',
+                      label: 'Low Stock Alerts',
+                      icon: Icons.warning,
+                      theme: theme,
+                    ),
+                    const SizedBox(width: 12),
+                    _HistoryStat(
+                      value: '8',
+                      label: 'Monthly Usage',
+                      icon: Icons.trending_up,
+                      theme: theme,
+                    ),
+                  ],
+                ),
+              ),
 
-          // Tab Content
-          Expanded(
-            child: IndexedStack(
-              index: _selectedTab,
-              children: [
-                _RestockTab(restockHistory: _restockHistory, theme: theme),
-                _UsageTab(usageHistory: _usageHistory, theme: theme),
-                _AlertsTab(lowStockAlerts: _lowStockAlerts, theme: theme),
-              ],
-            ),
+              // Tab Bar
+              Container(
+                margin: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.cardTheme.color,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [AppColors.subtleShadow],
+                ),
+                child: Row(
+                  children: [
+                    _HistoryTab(
+                      label: 'Restocks',
+                      isSelected: _selectedTab == 0,
+                      onTap: () => setState(() => _selectedTab = 0),
+                      theme: theme,
+                    ),
+                    _HistoryTab(
+                      label: 'Usage',
+                      isSelected: _selectedTab == 1,
+                      onTap: () => setState(() => _selectedTab = 1),
+                      theme: theme,
+                    ),
+                    _HistoryTab(
+                      label: 'Alerts',
+                      isSelected: _selectedTab == 2,
+                      onTap: () => setState(() => _selectedTab = 2),
+                      theme: theme,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Tab Content
+              Expanded(
+                child: IndexedStack(
+                  index: _selectedTab,
+                  children: [
+                    _RestockTab(
+                      restockHistory: history.restockHistory,
+                      theme: theme,
+                    ),
+                    _UsageTab(
+                      usageHistory: history.usageHistory,
+                      theme: theme,
+                    ),
+                    _AlertsTab(
+                      lowStockAlerts: history.lowStockAlerts,
+                      theme: theme,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -346,6 +370,18 @@ class _RestockTab extends StatelessWidget {
       ],
     );
   }
+}
+
+class _InventoryHistoryData {
+  final List<Map<String, dynamic>> restockHistory;
+  final List<Map<String, dynamic>> usageHistory;
+  final List<Map<String, dynamic>> lowStockAlerts;
+
+  const _InventoryHistoryData({
+    required this.restockHistory,
+    required this.usageHistory,
+    required this.lowStockAlerts,
+  });
 }
 
 class _RestockItem extends StatelessWidget {

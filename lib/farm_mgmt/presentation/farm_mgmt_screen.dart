@@ -1,39 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pamoja_twalima/core/di/injection.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
-import 'package:pamoja_twalima/farm_mgmt/presentation/overview.dart';
-import 'package:pamoja_twalima/farm_mgmt/presentation/crops.dart';
-import 'package:pamoja_twalima/farm_mgmt/presentation/animals.dart';
-import 'package:pamoja_twalima/farm_mgmt/presentation/tasks.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/overview_screen.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/crops/crops_screen.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/animals/animals_screen.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/tasks/tasks_screen.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'bloc/navigation/farm_nav_cubit.dart';
 
-class FarmMgmtScreen extends StatefulWidget {
+class FarmMgmtScreen extends StatelessWidget {
   const FarmMgmtScreen({super.key});
 
   @override
-  State<FarmMgmtScreen> createState() => _FarmMgmtScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => getIt<FarmNavCubit>(),
+      child: const _FarmMgmtView(),
+    );
+  }
 }
 
-class _FarmMgmtScreenState extends State<FarmMgmtScreen>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
+class _FarmMgmtView extends StatelessWidget {
+  const _FarmMgmtView();
 
-  int _selectedIndex = 0;
-
-  final List<Widget> _screens = const [
+  static const List<Widget> _screens = [
     OverviewScreen(),
     CropsScreen(),
     AnimalsScreen(),
     TasksScreen(),
   ];
 
-  final List<String> _categories = [
+  static const List<String> _categories = [
     "Overview",
     "Crops",
     "Animals",
     "Tasks",
   ];
 
-  final List<IconData> _icons = [
+  static const List<IconData> _icons = [
     Icons.dashboard,
     Icons.agriculture,
     Icons.pets,
@@ -42,86 +47,86 @@ class _FarmMgmtScreenState extends State<FarmMgmtScreen>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: const ModernAppBar(
-        title: 'Farm Management',
-        variant: AppBarVariant.home,
-      ),
-      body: Column(
-        children: [
-          // Horizontal Tab Navigation
-          Container(
-            color: theme.colorScheme.surface,
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: List.generate(_categories.length, (index) {
-                  final isSelected = index == _selectedIndex;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _icons[index],
-                            size: 16,
+    return BlocBuilder<FarmNavCubit, FarmNavState>(
+      builder: (context, state) {
+        return AppScaffold(
+          backgroundColor: theme.colorScheme.surface,
+          appBar: const ModernAppBar(
+            title: 'Farm Management',
+            variant: AppBarVariant.home,
+          ),
+          body: Column(
+            children: [
+              Container(
+                color: theme.colorScheme.surface,
+                padding: const EdgeInsets.all(16),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: List.generate(_categories.length, (index) {
+                      final isSelected = index == state.index;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _icons[index],
+                                size: 16,
+                                color: isSelected
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(_categories[index]),
+                            ],
+                          ),
+                          selected: isSelected,
+                          checkmarkColor: theme.colorScheme.primary,
+                          selectedColor:
+                              theme.colorScheme.primary.withValues(alpha: 0.15),
+                          labelStyle: TextStyle(
                             color: isSelected
                                 ? theme.colorScheme.primary
                                 : theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.6),
+                                    .withValues(alpha: 0.8),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
-                          const SizedBox(width: 6),
-                          Text(_categories[index]),
-                        ],
-                      ),
-                      selected: isSelected,
-                      checkmarkColor: theme.colorScheme.primary,
-                      selectedColor:
-                          theme.colorScheme.primary.withValues(alpha: 0.15),
-                      labelStyle: TextStyle(
-                        color: isSelected
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurface
-                                .withValues(alpha: 0.8),
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                      onSelected: (_) => setState(() => _selectedIndex = index),
-                      backgroundColor: theme.cardColor,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        side: BorderSide(
-                          color: isSelected
-                              ? theme.colorScheme.primary
-                              : theme.dividerColor.withValues(alpha: 0.3),
+                          onSelected: (_) =>
+                              context.read<FarmNavCubit>().select(index),
+                          backgroundColor: theme.cardColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                            side: BorderSide(
+                              color: isSelected
+                                  ? theme.colorScheme.primary
+                                  : theme.dividerColor.withValues(alpha: 0.3),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  );
-                }),
+                      );
+                    }),
+                  ),
+                ),
               ),
-            ),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: theme.dividerColor.withValues(alpha: 0.1),
+              ),
+              Expanded(
+                child: _screens[state.index],
+              ),
+            ],
           ),
-
-          // Divider
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: theme.dividerColor.withValues(alpha: 0.1),
-          ),
-
-          // Content Area
-          Expanded(
-            child: _screens[_selectedIndex],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

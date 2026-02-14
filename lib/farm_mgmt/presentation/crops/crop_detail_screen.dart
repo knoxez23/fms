@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/entities/crop_entity.dart';
 
 class CropDetailScreen extends StatefulWidget {
-  final Map<String, dynamic> crop;
+  final CropEntity entity;
 
-  const CropDetailScreen({super.key, required this.crop});
+  const CropDetailScreen({
+    super.key,
+    required this.entity,
+  });
+
+  const CropDetailScreen.fromEntity({
+    Key? key,
+    required CropEntity entity,
+  }) : this(key: key, entity: entity);
 
   @override
   State<CropDetailScreen> createState() => _CropDetailScreenState();
@@ -15,18 +26,15 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final crop = _CropDetailView.fromEntity(widget.entity);
     final theme = Theme.of(context);
 
-    return Scaffold(
+    return AppScaffold(
       backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          widget.crop['name'],
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+      includeDrawer: false,
+      appBar: ModernAppBar(
+        title: crop.name,
+        variant: AppBarVariant.standard,
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
@@ -51,7 +59,8 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
                     children: [
                       CircleAvatar(
                         radius: 30,
-                        backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                        backgroundColor:
+                            theme.colorScheme.primary.withValues(alpha: 0.1),
                         child: Icon(
                           Icons.agriculture,
                           color: theme.colorScheme.primary,
@@ -64,30 +73,33 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              widget.crop['name'],
+                              crop.name,
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             Text(
-                              widget.crop['type'],
+                              crop.type,
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.6),
                               ),
                             ),
                           ],
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: _getStatusColor(widget.crop['status']).withValues(alpha: 0.1),
+                          color: _getStatusColor(crop.status)
+                              .withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          widget.crop['status'],
+                          crop.status,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: _getStatusColor(widget.crop['status']),
+                            color: _getStatusColor(crop.status),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -103,19 +115,19 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
                       _DetailItem(
                         icon: Icons.square_foot,
                         label: 'Area',
-                        value: widget.crop['area'],
+                        value: crop.area,
                         theme: theme,
                       ),
                       _DetailItem(
                         icon: Icons.calendar_today,
                         label: 'Planted',
-                        value: _formatDate(widget.crop['plantedDate']),
+                        value: _formatDate(crop.plantedDate),
                         theme: theme,
                       ),
                       _DetailItem(
                         icon: Icons.assessment,
                         label: 'Est. Yield',
-                        value: widget.crop['yieldEstimate'],
+                        value: crop.yieldEstimate,
                         theme: theme,
                       ),
                     ],
@@ -162,9 +174,9 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
             child: IndexedStack(
               index: _selectedTab,
               children: [
-                _GrowthTab(crop: widget.crop, theme: theme),
-                _TasksTab(crop: widget.crop, theme: theme),
-                _HistoryTab(crop: widget.crop, theme: theme),
+                _GrowthTab(theme: theme),
+                _TasksTab(theme: theme),
+                _HistoryTab(theme: theme),
               ],
             ),
           ),
@@ -191,6 +203,41 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
   String _formatDate(String date) {
     // Simple date formatting - replace with proper date formatting
     return date.split('-').reversed.join('/');
+  }
+}
+
+class _CropDetailView {
+  final String id;
+  final String name;
+  final String type;
+  final String status;
+  final String area;
+  final String plantedDate;
+  final String yieldEstimate;
+
+  const _CropDetailView({
+    required this.id,
+    required this.name,
+    required this.type,
+    required this.status,
+    required this.area,
+    required this.plantedDate,
+    required this.yieldEstimate,
+  });
+
+  factory _CropDetailView.fromEntity(CropEntity entity) {
+    return _CropDetailView(
+      id: entity.id ?? '',
+      name: entity.name.value,
+      type: entity.variety ?? 'General',
+      status: entity.isReadyForHarvest ? 'Excellent' : 'Good',
+      area: 'Not set',
+      plantedDate: (entity.plantedAt ?? DateTime.now())
+          .toIso8601String()
+          .split('T')
+          .first,
+      yieldEstimate: 'Not set',
+    );
   }
 }
 
@@ -259,7 +306,9 @@ class _DetailTab extends StatelessWidget {
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: isSelected ? Colors.white : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              color: isSelected
+                  ? Colors.white
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
         ),
@@ -269,10 +318,9 @@ class _DetailTab extends StatelessWidget {
 }
 
 class _GrowthTab extends StatelessWidget {
-  final Map<String, dynamic> crop;
   final ThemeData theme;
 
-  const _GrowthTab({required this.crop, required this.theme});
+  const _GrowthTab({required this.theme});
 
   @override
   Widget build(BuildContext context) {
@@ -296,7 +344,8 @@ class _GrowthTab extends StatelessWidget {
                 const SizedBox(height: 12),
                 LinearProgressIndicator(
                   value: 0.65, // Mock progress
-                  backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                  backgroundColor:
+                      theme.colorScheme.onSurface.withValues(alpha: 0.1),
                   color: theme.colorScheme.primary,
                 ),
                 const SizedBox(height: 8),
@@ -306,7 +355,8 @@ class _GrowthTab extends StatelessWidget {
                     Text(
                       'Vegetative Stage',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                     Text(
@@ -321,9 +371,7 @@ class _GrowthTab extends StatelessWidget {
             ),
           ),
         ),
-
         const SizedBox(height: 16),
-
         _AnimatedCard(
           index: 2,
           theme: theme,
@@ -361,9 +409,7 @@ class _GrowthTab extends StatelessWidget {
             ),
           ),
         ),
-
         const SizedBox(height: 16),
-
         _AnimatedCard(
           index: 3,
           theme: theme,
@@ -514,32 +560,31 @@ class _ObservationItem extends StatelessWidget {
 }
 
 class _TasksTab extends StatelessWidget {
-  final Map<String, dynamic> crop;
   final ThemeData theme;
 
-  const _TasksTab({required this.crop, required this.theme});
+  const _TasksTab({required this.theme});
 
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> tasks = [
-      {
-        'title': 'Apply fertilizer',
-        'due': 'Tomorrow',
-        'priority': 'High',
-        'completed': false,
-      },
-      {
-        'title': 'Check irrigation',
-        'due': 'In 3 days',
-        'priority': 'Medium',
-        'completed': false,
-      },
-      {
-        'title': 'Weed control',
-        'due': '1 week ago',
-        'priority': 'Medium',
-        'completed': true,
-      },
+    const tasks = <_CropTaskView>[
+      _CropTaskView(
+        title: 'Apply fertilizer',
+        due: 'Tomorrow',
+        priority: 'High',
+        completed: false,
+      ),
+      _CropTaskView(
+        title: 'Check irrigation',
+        due: 'In 3 days',
+        priority: 'Medium',
+        completed: false,
+      ),
+      _CropTaskView(
+        title: 'Weed control',
+        due: '1 week ago',
+        priority: 'Medium',
+        completed: true,
+      ),
     ];
 
     return ListView(
@@ -571,7 +616,8 @@ class _TasksTab extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.colorScheme.primary,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                       ),
                     ),
                   ],
@@ -588,7 +634,7 @@ class _TasksTab extends StatelessWidget {
 }
 
 class _TaskItem extends StatelessWidget {
-  final Map<String, dynamic> task;
+  final _CropTaskView task;
   final ThemeData theme;
 
   const _TaskItem({required this.task, required this.theme});
@@ -600,7 +646,7 @@ class _TaskItem extends StatelessWidget {
       child: Row(
         children: [
           Checkbox(
-            value: task['completed'],
+            value: task.completed,
             onChanged: (value) {},
             activeColor: theme.colorScheme.primary,
           ),
@@ -609,14 +655,15 @@ class _TaskItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  task['title'],
+                  task.title,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w500,
-                    decoration: task['completed'] ? TextDecoration.lineThrough : null,
+                    decoration:
+                        task.completed ? TextDecoration.lineThrough : null,
                   ),
                 ),
                 Text(
-                  'Due: ${task['due']}',
+                  'Due: ${task.due}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
@@ -627,13 +674,13 @@ class _TaskItem extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: _getPriorityColor(task['priority']).withValues(alpha: 0.1),
+              color: _getPriorityColor(task.priority).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              task['priority'],
+              task.priority,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: _getPriorityColor(task['priority']),
+                color: _getPriorityColor(task.priority),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -658,32 +705,31 @@ class _TaskItem extends StatelessWidget {
 }
 
 class _HistoryTab extends StatelessWidget {
-  final Map<String, dynamic> crop;
   final ThemeData theme;
 
-  const _HistoryTab({required this.crop, required this.theme});
+  const _HistoryTab({required this.theme});
 
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> history = [
-      {
-        'date': '2024-02-15',
-        'action': 'Fertilizer Application',
-        'details': 'Applied NPK fertilizer',
-        'amount': '50 kg',
-      },
-      {
-        'date': '2024-02-01',
-        'action': 'Planting',
-        'details': 'Planted maize seeds',
-        'amount': '5 kg seeds',
-      },
-      {
-        'date': '2024-01-20',
-        'action': 'Land Preparation',
-        'details': 'Plowed and prepared field',
-        'amount': '2 acres',
-      },
+    const history = <_CropHistoryEntry>[
+      _CropHistoryEntry(
+        date: '2024-02-15',
+        action: 'Fertilizer Application',
+        details: 'Applied NPK fertilizer',
+        amount: '50 kg',
+      ),
+      _CropHistoryEntry(
+        date: '2024-02-01',
+        action: 'Planting',
+        details: 'Planted maize seeds',
+        amount: '5 kg seeds',
+      ),
+      _CropHistoryEntry(
+        date: '2024-01-20',
+        action: 'Land Preparation',
+        details: 'Plowed and prepared field',
+        amount: '2 acres',
+      ),
     ];
 
     return ListView(
@@ -704,7 +750,8 @@ class _HistoryTab extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                ...history.map((entry) => _HistoryItem(entry: entry, theme: theme)),
+                ...history
+                    .map((entry) => _HistoryItem(entry: entry, theme: theme)),
               ],
             ),
           ),
@@ -715,7 +762,7 @@ class _HistoryTab extends StatelessWidget {
 }
 
 class _HistoryItem extends StatelessWidget {
-  final Map<String, dynamic> entry;
+  final _CropHistoryEntry entry;
   final ThemeData theme;
 
   const _HistoryItem({required this.entry, required this.theme});
@@ -746,33 +793,35 @@ class _HistoryItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  entry['action'],
+                  entry.action,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
-                  entry['details'],
+                  entry.details,
                   style: theme.textTheme.bodySmall,
                 ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
                     Text(
-                      entry['date'],
+                      entry.date,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        entry['amount'],
+                        entry.amount,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w600,
@@ -788,6 +837,34 @@ class _HistoryItem extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CropTaskView {
+  final String title;
+  final String due;
+  final String priority;
+  final bool completed;
+
+  const _CropTaskView({
+    required this.title,
+    required this.due,
+    required this.priority,
+    required this.completed,
+  });
+}
+
+class _CropHistoryEntry {
+  final String date;
+  final String action;
+  final String details;
+  final String amount;
+
+  const _CropHistoryEntry({
+    required this.date,
+    required this.action,
+    required this.details,
+    required this.amount,
+  });
 }
 
 // Reuse the _AnimatedCard widget from overview_screen.dart

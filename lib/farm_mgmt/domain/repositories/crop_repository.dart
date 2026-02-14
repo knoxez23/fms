@@ -1,8 +1,8 @@
-import '../entities/entities.dart';
+import '../entities/crop_entity.dart';
 
 abstract class CropRepository {
-  Future<List<Crop>> getCrops();
-  Future<void> addCrop(Crop crop);
-  Future<void> updateCrop(Crop crop);
-  Future<void> deleteCrop(int id);
+  Future<List<CropEntity>> getCrops();
+  Future<CropEntity> addCrop(CropEntity crop);
+  Future<CropEntity> updateCrop(CropEntity crop);
+  Future<void> deleteCrop(String id);
 }

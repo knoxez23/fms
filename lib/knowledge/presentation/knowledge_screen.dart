@@ -1,269 +1,262 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pamoja_twalima/core/di/injection.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'bloc/knowledge/knowledge_cubit.dart';
 
-class KnowledgeScreen extends StatefulWidget {
+class KnowledgeScreen extends StatelessWidget {
   const KnowledgeScreen({super.key});
 
   @override
-  State<KnowledgeScreen> createState() => _KnowledgeScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => getIt<KnowledgeCubit>()..load(),
+      child: const _KnowledgeView(),
+    );
+  }
 }
 
-class _KnowledgeScreenState extends State<KnowledgeScreen> {
-  final List<Map<String, dynamic>> _knowledgeTopics = [
-    {
-      'title': 'Maize Rust',
-      'subtitle': 'Identify and treat common rust diseases in maize crops',
-      'category': 'Crops',
-      'readTime': '5 min read',
-      'icon': Icons.agriculture,
-    },
-    {
-      'title': 'Foot-and-Mouth Disease',
-      'subtitle': 'Symptoms, prevention and treatment for livestock',
-      'category': 'Livestock',
-      'readTime': '8 min read',
-      'icon': Icons.health_and_safety,
-    },
-    {
-      'title': 'Stored Grain Pests',
-      'subtitle': 'Effective prevention and control methods',
-      'category': 'Storage',
-      'readTime': '6 min read',
-      'icon': Icons.pest_control,
-    },
-    {
-      'title': 'Tomato Blight',
-      'subtitle': 'Early detection and organic treatment options',
-      'category': 'Vegetables',
-      'readTime': '4 min read',
-      'icon': Icons.spa,
-    },
-    {
-      'title': 'Poultry Vaccination',
-      'subtitle': 'Complete vaccination schedule for chickens',
-      'category': 'Poultry',
-      'readTime': '7 min read',
-      'icon': Icons.medical_services,
-    },
-    {
-      'title': 'Soil pH Management',
-      'subtitle': 'Testing and adjusting soil acidity for better yields',
-      'category': 'Soil Health',
-      'readTime': '10 min read',
-      'icon': Icons.terrain,
-    },
-  ];
+class _KnowledgeView extends StatelessWidget {
+  const _KnowledgeView();
 
-  final List<String> _categories = [
+  static const List<String> _categories = [
     'All',
     'Crops',
     'Livestock',
     'Poultry',
     'Vegetables',
     'Soil Health',
-    'Storage'
+    'Storage',
   ];
-
-  String _selectedCategory = 'All';
-  String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final filteredTopics = _knowledgeTopics.where((topic) {
-      final matchesCategory = _selectedCategory == 'All' || topic['category'] == _selectedCategory;
-      final matchesSearch = _searchQuery.isEmpty ||
-          topic['title'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          topic['subtitle'].toLowerCase().contains(_searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch;
-    }).toList();
+    return BlocBuilder<KnowledgeCubit, KnowledgeState>(
+      builder: (context, state) {
+        final filteredTopics = state.topics.where((topic) {
+          final matchesCategory = state.selectedCategory == 'All' ||
+              topic.category == state.selectedCategory;
+          final query = state.searchQuery.trim().toLowerCase();
+          final matchesSearch = query.isEmpty ||
+              topic.title.toLowerCase().contains(query) ||
+              topic.subtitle.toLowerCase().contains(query);
+          return matchesCategory && matchesSearch;
+        }).toList();
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          'Knowledge Base',
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
+        return AppScaffold(
+          backgroundColor: theme.colorScheme.surface,
+          appBar: const ModernAppBar(
+            title: 'Knowledge Base',
+            variant: AppBarVariant.home,
           ),
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 80),
-        child: Column(
-          children: [
-            // 🔍 Search Bar
-            _AnimatedCard(
-              index: 0,
-              theme: theme,
-              child: TextField(
-                onChanged: (value) => setState(() => _searchQuery = value),
-                decoration: InputDecoration(
-                  hintText: 'Search diseases, crops, or treatments...',
-                  prefixIcon: Icon(Icons.search, color: theme.iconTheme.color?.withValues(alpha: 0.6)),
-                  filled: true,
-                  fillColor: theme.cardTheme.color,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
+          body: Padding(
+            padding:
+                const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 80),
+            child: Column(
+              children: [
+                _AnimatedCard(
+                  index: 0,
+                  theme: theme,
+                  child: TextField(
+                    onChanged: (value) =>
+                        context.read<KnowledgeCubit>().updateSearch(value),
+                    decoration: InputDecoration(
+                      hintText: 'Search diseases, crops, or treatments...',
+                      prefixIcon: Icon(
+                        Icons.search,
+                        color: theme.iconTheme.color?.withValues(alpha: 0.6),
+                      ),
+                      filled: true,
+                      fillColor: theme.cardTheme.color,
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 0,
+                        horizontal: 16,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
+                const SizedBox(height: 12),
+                _AnimatedCard(
+                  index: 1,
+                  theme: theme,
+                  child: SizedBox(
+                    height: 40,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _categories.length,
+                      itemBuilder: (context, index) {
+                        final category = _categories[index];
+                        final isSelected = category == state.selectedCategory;
 
-            const SizedBox(height: 12),
-
-            // 🏷️ Category Chips
-            _AnimatedCard(
-              index: 1,
-              theme: theme,
-              child: SizedBox(
-                height: 40,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _categories.length,
-                  itemBuilder: (context, index) {
-                    final category = _categories[index];
-                    final isSelected = category == _selectedCategory;
-
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(category),
-                        selected: isSelected,
-                        checkmarkColor: theme.colorScheme.primary,
-                        selectedColor: theme.colorScheme.primary.withValues(alpha: 0.15),
-                        labelStyle: TextStyle(
-                          color: isSelected
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurface.withValues(alpha: 0.8),
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(category),
+                            selected: isSelected,
+                            checkmarkColor: theme.colorScheme.primary,
+                            selectedColor: theme.colorScheme.primary
+                                .withValues(alpha: 0.15),
+                            labelStyle: TextStyle(
+                              color: isSelected
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.8),
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                            onSelected: (_) => context
+                                .read<KnowledgeCubit>()
+                                .selectCategory(category),
+                            backgroundColor: theme.cardTheme.color,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(25),
+                              side: BorderSide(
+                                color: isSelected
+                                    ? theme.colorScheme.primary
+                                    : theme.dividerColor.withValues(alpha: 0.3),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _AnimatedCard(
+                  index: 2,
+                  theme: theme,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${filteredTopics.length} Articles Found',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.6),
+                          fontWeight: FontWeight.w500,
                         ),
-                        onSelected: (_) => setState(() => _selectedCategory = category),
-                        backgroundColor: theme.cardTheme.color,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                          side: BorderSide(
-                            color: isSelected
-                                ? theme.colorScheme.primary
-                                : theme.dividerColor.withValues(alpha: 0.3),
+                      ),
+                      if (state.selectedCategory != 'All')
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary
+                                .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            state.selectedCategory,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                    ],
+                  ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    itemCount: filteredTopics.length,
+                    itemBuilder: (context, index) {
+                      final topic = filteredTopics[index];
+
+                      return _AnimatedCard(
+                        index: index + 3,
+                        theme: theme,
+                        child: _KnowledgeCard(
+                          title: topic.title,
+                          subtitle: topic.subtitle,
+                          category: topic.category,
+                          readTime: topic.readTime,
+                          icon: _iconForKey(topic.iconKey),
+                          theme: theme,
+                          onTap: () {
+                            // NOTE: Navigate to article detail
+                          },
+                          onBookmark: () {
+                            // NOTE: Implement bookmark functionality
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-
-            const SizedBox(height: 16),
-
-            // 📚 Results Count
-            _AnimatedCard(
-              index: 2,
+          ),
+          floatingActionButton: Transform.translate(
+            offset: const Offset(0, -90),
+            child: _AnimatedCard(
+              index: 0,
               theme: theme,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${filteredTopics.length} Articles Found',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      fontWeight: FontWeight.w500,
+              child: Container(
+                height: 50,
+                width: 180,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(40),
+                  gradient: AppColors.primaryGradient,
+                  boxShadow: [AppColors.cardShadow],
+                ),
+                child: FloatingActionButton.extended(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  onPressed: () {
+                    // NOTE: Navigate to ask expert or suggest topic
+                  },
+                  icon:
+                      const Icon(Icons.lightbulb_outline, color: Colors.white),
+                  label: const Text(
+                    "Ask an Expert",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
                     ),
                   ),
-                  if (_selectedCategory != 'All')
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        _selectedCategory,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            // 📖 Knowledge Topics List
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.only(bottom: 16),
-                itemCount: filteredTopics.length,
-                itemBuilder: (context, index) {
-                  final topic = filteredTopics[index];
-
-                  return _AnimatedCard(
-                    index: index + 3,
-                    theme: theme,
-                    child: _KnowledgeCard(
-                      title: topic['title'],
-                      subtitle: topic['subtitle'],
-                      category: topic['category'],
-                      readTime: topic['readTime'],
-                      icon: topic['icon'],
-                      theme: theme,
-                      onTap: () {
-                        // TODO: Navigate to article detail
-                      },
-                      onBookmark: () {
-                        // TODO: Implement bookmark functionality
-                      },
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-
-      // 📚 Floating Action Button
-      floatingActionButton: Transform.translate(
-        offset: const Offset(0, -90),
-        child: _AnimatedCard(
-          index: 0,
-          theme: theme,
-          child: Container(
-            height: 50,
-            width: 180,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(40),
-              gradient: AppColors.primaryGradient,
-              boxShadow: [AppColors.cardShadow],
-            ),
-            child: FloatingActionButton.extended(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              onPressed: () {
-                // TODO: Navigate to ask expert or suggest topic
-              },
-              icon: const Icon(Icons.lightbulb_outline, color: Colors.white),
-              label: const Text(
-                "Ask an Expert",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
                 ),
               ),
             ),
           ),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+          floatingActionButtonLocation:
+              FloatingActionButtonLocation.centerFloat,
+        );
+      },
     );
+  }
+
+  IconData _iconForKey(String key) {
+    switch (key) {
+      case 'agriculture':
+        return Icons.agriculture;
+      case 'health':
+        return Icons.health_and_safety;
+      case 'pest':
+        return Icons.pest_control;
+      case 'spa':
+        return Icons.spa;
+      case 'medical':
+        return Icons.medical_services;
+      case 'terrain':
+        return Icons.terrain;
+      default:
+        return Icons.menu_book;
+    }
   }
 }
 
@@ -343,7 +336,8 @@ class _KnowledgeCard extends StatelessWidget {
                         IconButton(
                           icon: Icon(
                             Icons.bookmark_border,
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.5),
                             size: 20,
                           ),
                           onPressed: onBookmark,
@@ -359,7 +353,8 @@ class _KnowledgeCard extends StatelessWidget {
                     Text(
                       subtitle,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.7),
                         height: 1.4,
                       ),
                       maxLines: 2,
@@ -372,9 +367,11 @@ class _KnowledgeCard extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.secondary.withValues(alpha: 0.12),
+                            color: theme.colorScheme.secondary
+                                .withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -385,21 +382,19 @@ class _KnowledgeCard extends StatelessWidget {
                             ),
                           ),
                         ),
-
                         const SizedBox(width: 8),
-
                         Icon(
                           Icons.schedule,
                           size: 14,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.5),
                         ),
-
                         const SizedBox(width: 4),
-
                         Text(
                           readTime,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.5),
                           ),
                         ),
                       ],

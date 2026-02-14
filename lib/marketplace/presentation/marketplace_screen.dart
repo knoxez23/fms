@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pamoja_twalima/marketplace/presentation/bulk_order_screen.dart';
 import 'package:pamoja_twalima/marketplace/presentation/export_inquiry_screen.dart';
@@ -6,46 +7,34 @@ import 'package:pamoja_twalima/marketplace/presentation/import_inquiry_screen.da
 import 'package:pamoja_twalima/marketplace/presentation/product_detail_screen.dart';
 import 'package:pamoja_twalima/marketplace/presentation/sell_product_screen.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
-import 'package:pamoja_twalima/marketplace/application/application.dart';
-import 'package:pamoja_twalima/marketplace/infrastructure/factory.dart';
+import 'package:pamoja_twalima/core/di/injection.dart';
+import 'package:pamoja_twalima/marketplace/presentation/bloc/marketplace/marketplace_bloc.dart';
+import 'package:pamoja_twalima/marketplace/domain/entities/product_entity.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/reusable_widgets.dart';
 
-class MarketplaceScreen extends StatefulWidget {
+class MarketplaceScreen extends StatelessWidget {
   const MarketplaceScreen({super.key});
 
   @override
-  State<MarketplaceScreen> createState() => _MarketplaceScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) =>
+          getIt<MarketplaceBloc>()..add(const MarketplaceEvent.load()),
+      child: const MarketplaceView(),
+    );
+  }
 }
 
-class _MarketplaceScreenState extends State<MarketplaceScreen> {
-  List<Map<String, dynamic>> _products = [];
-
-  late final GetProducts _getProductsUseCase;
+class MarketplaceView extends StatefulWidget {
+  const MarketplaceView({super.key});
 
   @override
-  void initState() {
-    super.initState();
-    _getProductsUseCase = MarketplaceFactory.createGetProducts();
-    _loadProducts();
-  }
+  State<MarketplaceView> createState() => _MarketplaceViewState();
+}
 
-  Future<void> _loadProducts() async {
-    try {
-      final items = await _getProductsUseCase.execute();
-      final mapped = items.map((row) => {
-            'id': '${row['id']}',
-            'name': row['name'] ?? row['item'] ?? 'Unknown',
-            'price': row['price'] ?? 0,
-            'image': row['image'],
-            'category': row['category'] ?? 'Uncategorized',
-            'status': row['status'] ?? 'Available',
-          }).toList();
-      if (!mounted) return;
-      setState(() => _products = mapped);
-    } catch (e) {
-      // ignore errors for now
-    }
-  }
-
+class _MarketplaceViewState extends State<MarketplaceView> {
   String _selectedCategory = 'All';
   String _selectedSort = 'Popular';
   String _selectedView = 'Grid';
@@ -82,68 +71,93 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final filteredProducts = _getFilteredProducts();
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          'Agricultural Marketplace',
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
+    return BlocConsumer<MarketplaceBloc, MarketplaceState>(
+      listener: (context, state) {
+        state.whenOrNull(
+          error: (message) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(message),
+                backgroundColor: Colors.red,
+              ),
+            );
+          },
+        );
+      },
+      builder: (context, state) {
+        final products = state.maybeWhen(
+          loaded: (items) => items.map(_mapProductToView).toList(),
+          orElse: () => <Map<String, dynamic>>[],
+        );
+        final filteredProducts = _getFilteredProducts(products);
+
+        return AppScaffold(
+          backgroundColor: theme.colorScheme.surface,
+          appBar: ModernAppBar(
+            variant: AppBarVariant.home,
+            title: 'Marketplace',
+            actions: [
+              IconButton(
+                icon: const Icon(LucideIcons.bell),
+                onPressed: _showNotifications,
+              ),
+              IconButton(
+                icon: const Icon(LucideIcons.heart),
+                onPressed: _showWishlist,
+              ),
+            ],
           ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.bell),
-            onPressed: _showNotifications,
+          body: Column(
+            children: [
+              // 🔍 Search and Filter Bar
+              _buildSearchFilterBar(theme),
+
+              // 📊 Marketplace Stats
+              _buildMarketplaceStats(theme),
+
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: const SectionHeader(
+                  title: 'Browse Categories',
+                  icon: Icons.category,
+                ),
+              ),
+
+              // 🏷️ Category and View Controls
+              _buildCategoryViewControls(theme),
+
+              // 🎯 Advanced Filters (Expandable)
+              if (_showFilters) _buildAdvancedFilters(theme),
+
+              // 📦 Product Grid/List
+              Expanded(
+                child: _selectedView == 'Grid'
+                    ? ProductGridView(
+                        products: filteredProducts,
+                        theme: theme,
+                        onProductTap: _navigateToProductDetail,
+                        onAddToCart: _addToCart,
+                        onAddToWishlist: _addToWishlist,
+                      )
+                    : ProductListView(
+                        products: filteredProducts,
+                        theme: theme,
+                        onProductTap: _navigateToProductDetail,
+                        onAddToCart: _addToCart,
+                        onAddToWishlist: _addToWishlist,
+                      ),
+              ),
+              const SizedBox(height: 120),
+            ],
           ),
-          IconButton(
-            icon: const Icon(LucideIcons.heart),
-            onPressed: _showWishlist,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // 🔍 Search and Filter Bar
-          _buildSearchFilterBar(theme),
 
-          // 📊 Marketplace Stats
-          _buildMarketplaceStats(theme),
-
-          // 🏷️ Category and View Controls
-          _buildCategoryViewControls(theme),
-
-          // 🎯 Advanced Filters (Expandable)
-          if (_showFilters) _buildAdvancedFilters(theme),
-
-          // 📦 Product Grid/List
-          Expanded(
-            child: _selectedView == 'Grid'
-                ? ProductGridView(
-                    products: filteredProducts,
-                    theme: theme,
-                    onProductTap: _navigateToProductDetail,
-                    onAddToCart: _addToCart,
-                    onAddToWishlist: _addToWishlist,
-                  )
-                : ProductListView(
-                    products: filteredProducts,
-                    theme: theme,
-                    onProductTap: _navigateToProductDetail,
-                    onAddToCart: _addToCart,
-                    onAddToWishlist: _addToWishlist,
-                  ),
-          ),
-          const SizedBox(height: 120),
-        ],
-      ),
-
-      // 🛍️ Multi-action FAB
-      floatingActionButton: _buildMultiActionFAB(theme),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+          // 🛍️ Multi-action FAB
+          floatingActionButton: _buildMultiActionFAB(theme),
+          floatingActionButtonLocation:
+              FloatingActionButtonLocation.centerFloat,
+        );
+      },
     );
   }
 
@@ -245,7 +259,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                   label: Text(category),
                   selected: isSelected,
                   checkmarkColor: theme.colorScheme.primary,
-                  selectedColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                  selectedColor:
+                      theme.colorScheme.primary.withValues(alpha: 0.15),
                   labelStyle: TextStyle(
                     color: isSelected
                         ? theme.colorScheme.primary
@@ -292,8 +307,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                   decoration: BoxDecoration(
                     color: theme.cardTheme.color,
                     borderRadius: BorderRadius.circular(8),
-                    border:
-                        Border.all(color: theme.dividerColor.withValues(alpha: 0.3)),
+                    border: Border.all(
+                        color: theme.dividerColor.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
@@ -456,8 +471,31 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     );
   }
 
-  List<Map<String, dynamic>> _getFilteredProducts() {
-    List<Map<String, dynamic>> filtered = List.from(_products);
+  Map<String, dynamic> _mapProductToView(ProductEntity product) {
+    return {
+      'id': product.id ?? product.name.value,
+      'name': product.name.value,
+      'price': product.price.value,
+      'image': null,
+      'category': product.category,
+      'status': product.isAvailable ? 'Available' : 'Out of stock',
+      'quantity': product.quantity,
+      'unit': product.unit,
+      'desc': '',
+      'seller': {
+        'name': 'Local Seller',
+        'verified': true,
+        'rating': 4.5,
+      },
+      'exportReady': false,
+      'listedDate': DateTime.now().toIso8601String(),
+    };
+  }
+
+  List<Map<String, dynamic>> _getFilteredProducts(
+    List<Map<String, dynamic>> products,
+  ) {
+    List<Map<String, dynamic>> filtered = List.from(products);
 
     // Category filter
     if (_selectedCategory != 'All') {
@@ -542,7 +580,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   void _navigateToProductDetail(Map<String, dynamic> product) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ProductDetailScreen(product: product),
+        builder: (_) => BlocProvider.value(
+          value: context.read<MarketplaceBloc>(),
+          child: ProductDetailScreen(product: product),
+        ),
       ),
     );
   }
@@ -561,30 +602,51 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     );
   }
 
-  void _navigateToSellWizard() {
-    // Navigate to sell product wizard
-    Navigator.of(context).push(
+  Future<void> _navigateToSellWizard() async {
+    final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const SellProductScreen(),
       ),
     );
+
+    if (result is! ProductEntity) return;
+    if (!mounted) return;
+
+    context
+        .read<MarketplaceBloc>()
+        .add(MarketplaceEvent.addProduct(product: result));
   }
 
   void _navigateToImportInquiry() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ImportInquiryScreen()),
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: context.read<MarketplaceBloc>(),
+          child: const ImportInquiryScreen(),
+        ),
+      ),
     );
   }
 
   void _navigateToExportInquiry() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ExportInquiryScreen()),
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: context.read<MarketplaceBloc>(),
+          child: const ExportInquiryScreen(),
+        ),
+      ),
     );
   }
 
   void _navigateToBulkOrder() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const BulkOrderScreen()),
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: context.read<MarketplaceBloc>(),
+          child: const BulkOrderScreen(),
+        ),
+      ),
     );
   }
 
@@ -850,7 +912,8 @@ class ProductCard extends StatelessWidget {
                     Text(
                       product['desc'],
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -871,8 +934,8 @@ class ProductCard extends StatelessWidget {
                           Text(
                             'KSh ${product['originalPrice']}',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color:
-                                  theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.4),
                               decoration: TextDecoration.lineThrough,
                             ),
                           ),
@@ -892,7 +955,8 @@ class ProductCard extends StatelessWidget {
                         Text(
                           '(${product['seller']['reviews']})',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
                           ),
                         ),
                       ],
@@ -961,7 +1025,8 @@ class ProductCard extends StatelessWidget {
                     Text(
                       product['desc'],
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,

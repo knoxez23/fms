@@ -1,47 +1,77 @@
+import 'package:injectable/injectable.dart';
+import 'package:pamoja_twalima/data/models/crop.dart';
+import 'package:pamoja_twalima/data/repositories/sync_data.dart';
 import '../domain/repositories/crop_repository.dart';
-import '../domain/entities/entities.dart';
-import 'package:pamoja_twalima/data/services/crop_service.dart';
-import 'package:pamoja_twalima/data/repositories/local_data.dart';
+import '../domain/entities/crop_entity.dart';
+import '../domain/value_objects/value_objects.dart';
 
+@LazySingleton(as: CropRepository)
 class CropRepositoryImpl implements CropRepository {
-  final CropService _apiService;
+  final SyncData _syncData;
 
-  CropRepositoryImpl({CropService? apiService}) : _apiService = apiService ?? CropService();
+  CropRepositoryImpl(this._syncData);
 
   @override
-  Future<void> addCrop(Crop crop) async {
-    // prefer remote create, then persist locally
-    final created = await _apiService.createCrop(crop);
-    await LocalData.insertCrop(created);
+  Future<CropEntity> addCrop(CropEntity crop) async {
+    final model = _mapToModel(crop);
+    final id = await _syncData.insertCrop(model);
+    final created = Crop(
+      id: id,
+      name: model.name,
+      variety: model.variety,
+      plantedDate: model.plantedDate,
+      expectedHarvestDate: model.expectedHarvestDate,
+      area: model.area,
+      status: model.status,
+      notes: model.notes,
+    );
+    return _mapToEntity(created);
   }
 
   @override
-  Future<void> deleteCrop(int id) async {
-    await _apiService.deleteCrop(id);
-    await LocalData.deleteCrop(id);
+  Future<void> deleteCrop(String id) async {
+    final parsed = int.tryParse(id);
+    if (parsed == null) return;
+    await _syncData.deleteCrop(parsed);
   }
 
   @override
-  Future<List<Crop>> getCrops() async {
-    // try local cache first
-    final local = await LocalData.getCrops();
-    if (local.isNotEmpty) return local;
+  Future<List<CropEntity>> getCrops() async {
+    final crops = await _syncData.getCrops();
+    return crops.map(_mapToEntity).toList();
+  }
 
-    // fallback to API
-    final remote = await _apiService.fetchCrops();
-    // optionally cache remote results
-    for (var c in remote) {
-      await LocalData.insertCrop(c);
+  @override
+  Future<CropEntity> updateCrop(CropEntity crop) async {
+    final model = _mapToModel(crop);
+    if (model.id != null) {
+      await _syncData.updateCrop(model);
     }
-    return remote;
+    return crop;
   }
 
-  @override
-  Future<void> updateCrop(Crop crop) async {
-    if (crop.id != null) {
-      await _apiService.updateCrop(crop.id!, crop);
-      await LocalData.updateCrop(crop);
-    }
+  CropEntity _mapToEntity(Crop model) {
+    return CropEntity(
+      id: model.id?.toString(),
+      name: CropName(model.name),
+      variety: model.variety,
+      plantedAt: DateTime.tryParse(model.plantedDate),
+      expectedHarvest: model.expectedHarvestDate != null
+          ? DateTime.tryParse(model.expectedHarvestDate!)
+          : null,
+    );
+  }
+
+  Crop _mapToModel(CropEntity entity) {
+    return Crop(
+      id: entity.id != null ? int.tryParse(entity.id!) : null,
+      name: entity.name.value,
+      variety: entity.variety,
+      plantedDate: (entity.plantedAt ?? DateTime.now()).toIso8601String(),
+      expectedHarvestDate: entity.expectedHarvest?.toIso8601String(),
+      area: 0,
+      status: 'Growing',
+      notes: null,
+    );
   }
 }
-

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/entities/animal_entity.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/value_objects/value_objects.dart';
 
 class AddAnimalScreen extends StatefulWidget {
   const AddAnimalScreen({super.key});
@@ -16,7 +20,8 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
   final TextEditingController _ageController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
   final TextEditingController _purchaseDateController = TextEditingController();
-  final TextEditingController _purchasePriceController = TextEditingController();
+  final TextEditingController _purchasePriceController =
+      TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _shedController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
@@ -24,7 +29,6 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
   String _selectedType = 'Dairy Cow';
   String _selectedStatus = 'Healthy';
   String _selectedGroupType = 'Individual';
-  DateTime? _purchaseDate;
   int _quantity = 1;
 
   final List<String> _animalTypes = [
@@ -47,10 +51,7 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
     'In Milk'
   ];
 
-  final List<String> _groupTypes = [
-    'Individual',
-    'Group'
-  ];
+  final List<String> _groupTypes = ['Individual', 'Group'];
 
   final Map<String, List<String>> _breeds = {
     'Dairy Cow': ['Friesian', 'Jersey', 'Ayrshire', 'Guernsey', 'Local'],
@@ -86,26 +87,17 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
     final currentBreeds = _breeds[_selectedType] ?? ['Local'];
     final currentSheds = _sheds[_selectedType] ?? ['Default'];
 
-    return Scaffold(
+    return AppScaffold(
       backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          _selectedGroupType == 'Group' ? 'Add Animal Group' : 'Add Animal',
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+      includeDrawer: false,
+      appBar: ModernAppBar(
+        title:
+            _selectedGroupType == 'Group' ? 'Add Animal Group' : 'Add Animal',
+        variant: AppBarVariant.standard,
         actions: [
           TextButton(
             onPressed: _saveAnimal,
-            child: Text(
-              'Save',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -148,16 +140,19 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
                                   });
                                 },
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
                                   decoration: BoxDecoration(
                                     color: isSelected
-                                        ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                                        ? theme.colorScheme.primary
+                                            .withValues(alpha: 0.1)
                                         : theme.cardTheme.color,
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
                                       color: isSelected
                                           ? theme.colorScheme.primary
-                                          : theme.dividerColor.withValues(alpha: 0.3),
+                                          : theme.dividerColor
+                                              .withValues(alpha: 0.3),
                                     ),
                                   ),
                                   child: Column(
@@ -168,16 +163,21 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
                                             : Icons.group,
                                         color: isSelected
                                             ? theme.colorScheme.primary
-                                            : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                            : theme.colorScheme.onSurface
+                                                .withValues(alpha: 0.6),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         type,
-                                        style: theme.textTheme.bodyMedium?.copyWith(
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
                                           color: isSelected
                                               ? theme.colorScheme.primary
-                                              : theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                              : theme.colorScheme.onSurface
+                                                  .withValues(alpha: 0.6),
+                                          fontWeight: isSelected
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
                                         ),
                                       ),
                                     ],
@@ -457,7 +457,8 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
                           border: const OutlineInputBorder(),
                         ),
                         validator: (value) {
-                          if (_selectedGroupType == 'Individual' && (value == null || value.isEmpty)) {
+                          if (_selectedGroupType == 'Individual' &&
+                              (value == null || value.isEmpty)) {
                             return 'Please enter age';
                           }
                           return null;
@@ -521,7 +522,8 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
                         controller: _notesController,
                         decoration: const InputDecoration(
                           labelText: 'Notes & Instructions',
-                          hintText: 'Any special care requirements, health history, or additional information...',
+                          hintText:
+                              'Any special care requirements, health history, or additional information...',
                           border: OutlineInputBorder(),
                         ),
                         maxLines: 3,
@@ -580,15 +582,20 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
                       ),
                       if (_purchasePriceController.text.isNotEmpty)
                         _SummaryRow(
-                          label: _selectedGroupType == 'Group' ? 'Total Cost' : 'Purchase Price',
+                          label: _selectedGroupType == 'Group'
+                              ? 'Total Cost'
+                              : 'Purchase Price',
                           value: 'KSh ${_purchasePriceController.text}',
                           theme: theme,
                           isHighlighted: true,
                         ),
-                      if (_selectedGroupType == 'Group' && _quantity > 1 && _purchasePriceController.text.isNotEmpty)
+                      if (_selectedGroupType == 'Group' &&
+                          _quantity > 1 &&
+                          _purchasePriceController.text.isNotEmpty)
                         _SummaryRow(
                           label: 'Price per Animal',
-                          value: 'KSh ${(double.tryParse(_purchasePriceController.text)! / _quantity).toStringAsFixed(0)}',
+                          value:
+                              'KSh ${(double.tryParse(_purchasePriceController.text)! / _quantity).toStringAsFixed(0)}',
                           theme: theme,
                         ),
                     ],
@@ -611,36 +618,52 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
     );
     if (picked != null) {
       setState(() {
-        _purchaseDate = picked;
         _purchaseDateController.text =
-        "${picked.day}/${picked.month}/${picked.year}";
+            "${picked.day}/${picked.month}/${picked.year}";
       });
     }
   }
 
   void _saveAnimal() {
     if (_formKey.currentState!.validate()) {
-      // Save animal logic here
-      final newAnimal = {
-        'name': _nameController.text,
-        'type': _selectedType,
-        'breed': _breedController.text,
-        'age': _ageController.text,
-        'weight': _weightController.text.isNotEmpty ? '${_weightController.text} kg' : null,
-        'status': _selectedStatus,
-        'purchaseDate': _purchaseDate?.toIso8601String() ?? '',
-        'purchasePrice': _purchasePriceController.text.isNotEmpty ? double.parse(_purchasePriceController.text) : 0,
-        'quantity': _quantity,
-        'groupType': _selectedGroupType,
-        'shed': _shedController.text,
-        'notes': _notesController.text,
-        'healthScore': 95, // Default health score
-        'createdDate': DateTime.now().toIso8601String(),
-      };
+      final name = _nameController.text.trim();
+      final normalizedType = _normalizeAnimalType(_selectedType);
+      final weight = double.tryParse(_weightController.text.trim());
+      final ageYears = int.tryParse(_ageController.text.trim());
+      final birthDate =
+          ageYears == null ? null : DateTime(DateTime.now().year - ageYears);
+
+      final newAnimal = AnimalEntity(
+        name: AnimalName(name),
+        type: AnimalType(normalizedType),
+        breed: _breedController.text.trim().isEmpty
+            ? null
+            : _breedController.text.trim(),
+        birthDate: birthDate,
+        weight: weight,
+      );
 
       // Navigate back with result or save to database
       Navigator.pop(context, newAnimal);
     }
+  }
+
+  String _normalizeAnimalType(String input) {
+    final value = input.toLowerCase();
+    if (value.contains('cow') ||
+        value.contains('cattle') ||
+        value.contains('dairy')) {
+      return 'cattle';
+    }
+    if (value.contains('chicken') ||
+        value.contains('poultry') ||
+        value.contains('layer')) {
+      return 'poultry';
+    }
+    if (value.contains('goat')) return 'goat';
+    if (value.contains('sheep')) return 'sheep';
+    if (value.contains('pig') || value.contains('pork')) return 'pig';
+    return 'other';
   }
 
   @override
@@ -689,7 +712,9 @@ class _SummaryRow extends StatelessWidget {
             value,
             style: theme.textTheme.bodySmall?.copyWith(
               fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
-              color: isHighlighted ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+              color: isHighlighted
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface,
             ),
           ),
         ],

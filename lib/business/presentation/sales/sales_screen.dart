@@ -1,23 +1,35 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../../auth/providers/auth_provider.dart';
-import '../../../data/services/sale_service.dart';
-import '../../../data/repositories/local_data.dart';
-import 'dart:developer' as developer;
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/reusable_widgets.dart';
 import 'add_sale_screen.dart';
 import 'sale_detail_screen.dart';
+import 'package:pamoja_twalima/core/di/injection.dart';
+import 'package:pamoja_twalima/business/presentation/bloc/sales/sales_bloc.dart';
+import 'package:pamoja_twalima/business/domain/entities/sale_entity.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
 
-class SalesScreen extends StatefulWidget {
+class SalesScreen extends StatelessWidget {
   const SalesScreen({super.key});
 
   @override
-  State<SalesScreen> createState() => _SalesScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider<SalesBloc>(
+      create: (_) => getIt<SalesBloc>()..add(const SalesEvent.loadSales()),
+      child: const SalesView(),
+    );
+  }
 }
 
-class _SalesScreenState extends State<SalesScreen> {
-  final List<Map<String, dynamic>> sales = [ ];
+class SalesView extends StatefulWidget {
+  const SalesView({super.key});
 
+  @override
+  State<SalesView> createState() => _SalesViewState();
+}
+
+class _SalesViewState extends State<SalesView> {
   String _selectedFilter = 'All';
   String _selectedPeriod = 'This Month';
 
@@ -41,222 +53,200 @@ class _SalesScreenState extends State<SalesScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final filteredSales = _selectedFilter == 'All'
-        ? sales
-        : sales.where((sale) => sale['type'] == _selectedFilter).toList();
-
-    final totalRevenue =
-        sales.fold(0.00, (sum, sale) => sum + (sale['totalAmount'] ?? 0));
-    final pendingAmount = sales
-        .where((sale) => sale['paymentStatus'] == 'Pending')
-        .fold(0.00, (sum, sale) => sum + (sale['totalAmount'] ?? 0));
-
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-            "Sales",
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: theme.cardTheme.color,
-        elevation: 0,
-      ),
-      body: CustomScrollView(
-        slivers: [
-          // Header Section
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverToBoxAdapter(
-              child: Row(
-                children: [
-                  _RevenueCard(
-                    amount: totalRevenue,
-                    label: 'Total Revenue',
-                    color: Colors.green,
-                    theme: theme,
-                    icon: Icons.account_balance,
-                  ),
-                  const SizedBox(width: 12),
-                  _RevenueCard(
-                    amount: pendingAmount,
-                    label: 'Pending',
-                    color: Colors.orange,
-                    theme: theme,
-                    icon: Icons.pending_actions,
-                  ),
-                  const SizedBox(width: 12),
-                  _RevenueCard(
-                    amount: sales.length,
-                    label: 'Transactions',
-                    color: theme.colorScheme.primary,
-                    theme: theme,
-                    icon: Icons.receipt_long,
-                  ),
-                ],
+    return BlocConsumer<SalesBloc, SalesState>(
+      listener: (context, state) {
+        state.whenOrNull(
+          error: (message) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(message),
+                backgroundColor: Colors.red,
               ),
-            ),
-          ),
-
-          // Filter Row
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            sliver: SliverToBoxAdapter(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _SalesFilterDropdown(
-                      value: _selectedFilter,
-                      items: _filters,
-                      onChanged: (value) =>
-                          setState(() => _selectedFilter = value!),
-                      theme: theme,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _SalesFilterDropdown(
-                      value: _selectedPeriod,
-                      items: _periods,
-                      onChanged: (value) =>
-                          setState(() => _selectedPeriod = value!),
-                      theme: theme,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Quick Stats
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            sliver: SliverToBoxAdapter(
-              child: Row(
-                children: [
-                  _QuickStat(
-                    icon: Icons.local_drink,
-                    value: '18.5L',
-                    label: 'Milk Today',
-                    theme: theme,
-                  ),
-                  const SizedBox(width: 12),
-                  _QuickStat(
-                    icon: Icons.egg,
-                    value: '120',
-                    label: 'Eggs Today',
-                    theme: theme,
-                  ),
-                  const SizedBox(width: 12),
-                  _QuickStat(
-                    icon: Icons.trending_up,
-                    value: '+12%',
-                    label: 'Growth',
-                    theme: theme,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Sales List
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final sale = filteredSales[index];
-                  return _AnimatedCard(
-                    index: index,
-                    theme: theme,
-                    child: _SaleItem(
-                      sale: sale,
-                      theme: theme,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => SaleDetailScreen(sale: sale),
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                },
-                childCount: filteredSales.length,
-              ),
-            ),
-          ),
-
-          // Add bottom padding so content isn’t hidden by FAB or bottom bar
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
-        ],
-      ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 90),
-        child: FloatingActionButton(
-          heroTag: 'addSaleFAB',
-            onPressed: () async {
-            // Capture context-derived values before navigating/awaiting
-            final auth = Provider.of<AuthProvider>(context, listen: false);
-            final bool isAuth = auth.isAuthenticated;
-            final messenger = ScaffoldMessenger.of(context);
-
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AddSaleScreen()),
             );
-
-            if (result == null || result is! Map<String, dynamic>) return;
-
-            // optimistic add (UI uses app-level keys)
-            setState(() => sales.insert(0, result));
-
-            // Map app-level sale keys to backend API fields expected by Laravel
-            final apiPayload = {
-              'product_name': result['product'] ?? result['product_name'] ?? 'Unknown',
-              'quantity': result['quantity'] ?? result['qty'] ?? 0,
-              // backend expects `price` as unit price
-              'price': result['pricePerUnit'] ?? result['price'] ?? result['unit_price'] ?? 0,
-              'date': result['date'] ?? result['sale_date'] ?? DateTime.now().toIso8601String(),
-              // any additional optional fields the backend may accept
-              'unit': result['unit'] ?? '',
-              'total_amount': result['totalAmount'] ?? result['total_amount'] ?? 0,
-              'customer': result['customer'] ?? result['buyer_name'] ?? '',
-              'notes': result['notes'] ?? '',
-            };
-
-            if (isAuth) {
-              try {
-                await SaleService().create(apiPayload);
-                if (!mounted) return;
-                messenger.showSnackBar(const SnackBar(content: Text('Sale saved to server')));
-              } catch (e, st) {
-                // Log server failure and persist API payload to pending queue for retry
-                developer.log('Sale create failed (server). Queuing API payload for retry.', error: e, stackTrace: st);
-                try {
-                  await LocalData.insertPendingSale(apiPayload);
-                  if (!mounted) return;
-                  messenger.showSnackBar(const SnackBar(content: Text('Failed to save on server — sale queued for retry')));
-                } catch (e2, st2) {
-                  developer.log('Pending queue insert failed', error: e2, stackTrace: st2);
-                  if (!mounted) return;
-                  messenger.showSnackBar(SnackBar(content: Text('Failed to save sale: ${e.toString()}')));
-                }
-              }
-            } else {
-              // persist API payload to pending queue when offline / unauthenticated
-              await LocalData.insertPendingSale(apiPayload);
-              if (!mounted) return;
-              messenger.showSnackBar(const SnackBar(content: Text('Sale saved locally (queued)')));
-            }
           },
-          backgroundColor: theme.colorScheme.primary,
-          child: const Icon(Icons.add, color: Colors.white),
-        ),
-      ),
+        );
+      },
+      builder: (context, state) {
+        final sales = state.maybeWhen(
+          loaded: (items) => items,
+          orElse: () => <SaleEntity>[],
+        );
+
+        final filteredSales = _selectedFilter == 'All'
+            ? sales
+            : sales.where((sale) => sale.type == _selectedFilter).toList();
+
+        final totalRevenue =
+            sales.fold(0.00, (sum, sale) => sum + sale.totalAmount.value);
+        final pendingAmount = sales
+            .where((sale) => sale.isPending)
+            .fold(0.00, (sum, sale) => sum + sale.totalAmount.value);
+
+        return AppScaffold(
+          backgroundColor: theme.colorScheme.surface,
+          appBar: const ModernAppBar(
+            title: 'Sales',
+            variant: AppBarVariant.home,
+          ),
+          body: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: SectionHeader(
+                    title: 'Performance',
+                    icon: Icons.analytics,
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                sliver: SliverToBoxAdapter(
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _RevenueCard(
+                        amount: totalRevenue,
+                        label: 'Total Revenue',
+                        color: Colors.green,
+                        theme: theme,
+                        icon: Icons.account_balance,
+                      ),
+                      _RevenueCard(
+                        amount: pendingAmount,
+                        label: 'Pending',
+                        color: Colors.orange,
+                        theme: theme,
+                        icon: Icons.pending_actions,
+                      ),
+                      _RevenueCard(
+                        amount: sales.length,
+                        label: 'Transactions',
+                        color: theme.colorScheme.primary,
+                        theme: theme,
+                        icon: Icons.receipt_long,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Filter Row
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverToBoxAdapter(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _SalesFilterDropdown(
+                          value: _selectedFilter,
+                          items: _filters,
+                          onChanged: (value) =>
+                              setState(() => _selectedFilter = value!),
+                          theme: theme,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _SalesFilterDropdown(
+                          value: _selectedPeriod,
+                          items: _periods,
+                          onChanged: (value) =>
+                              setState(() => _selectedPeriod = value!),
+                          theme: theme,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Quick Stats
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                sliver: SliverToBoxAdapter(
+                  child: Row(
+                    children: [
+                      _QuickStat(
+                        icon: Icons.local_drink,
+                        value: '18.5L',
+                        label: 'Milk Today',
+                        theme: theme,
+                      ),
+                      const SizedBox(width: 12),
+                      _QuickStat(
+                        icon: Icons.egg,
+                        value: '120',
+                        label: 'Eggs Today',
+                        theme: theme,
+                      ),
+                      const SizedBox(width: 12),
+                      _QuickStat(
+                        icon: Icons.trending_up,
+                        value: '+12%',
+                        label: 'Growth',
+                        theme: theme,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Sales List
+              SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final sale = filteredSales[index];
+                      return _AnimatedCard(
+                        index: index,
+                        theme: theme,
+                        child: _SaleItem(
+                          sale: sale,
+                          theme: theme,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => SaleDetailScreen(sale: sale),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                    childCount: filteredSales.length,
+                  ),
+                ),
+              ),
+
+              // Add bottom padding so content isn’t hidden by FAB or bottom bar
+              const SliverToBoxAdapter(child: SizedBox(height: 120)),
+            ],
+          ),
+          floatingActionButton: Padding(
+            padding: const EdgeInsets.only(bottom: 90),
+            child: FloatingActionButton(
+              heroTag: 'addSaleFAB',
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AddSaleScreen()),
+                );
+
+                if (result == null || result is! SaleEntity) return;
+                if (!context.mounted) return;
+
+                context.read<SalesBloc>().add(SalesEvent.addSale(sale: result));
+              },
+              backgroundColor: theme.colorScheme.primary,
+              child: const Icon(Icons.add, color: Colors.white),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -278,7 +268,8 @@ class _RevenueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
+    return SizedBox(
+      width: 170,
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -291,7 +282,7 @@ class _RevenueCard extends StatelessWidget {
             CircleAvatar(
               radius: 20,
               backgroundColor: color.withValues(alpha: 0.2),
-              child: Icon(icon,color: color, size: 20,),
+              child: Icon(icon, color: color, size: 20),
             ),
             const SizedBox(height: 8),
             Text(
@@ -413,7 +404,7 @@ class _QuickStat extends StatelessWidget {
 }
 
 class _SaleItem extends StatelessWidget {
-  final Map<String, dynamic> sale;
+  final SaleEntity sale;
   final ThemeData theme;
   final VoidCallback onTap;
 
@@ -425,7 +416,7 @@ class _SaleItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPending = sale['paymentStatus'] == 'Pending';
+    final isPending = sale.isPending;
 
     return Card(
       elevation: 0,
@@ -435,17 +426,17 @@ class _SaleItem extends StatelessWidget {
           width: 50,
           height: 50,
           decoration: BoxDecoration(
-            color: _getProductColor(sale['type']).withValues(alpha: 0.1),
+            color: _getProductColor(sale.type).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
-            _getProductIcon(sale['product']),
-            color: _getProductColor(sale['type']),
+            _getProductIcon(sale.productName),
+            color: _getProductColor(sale.type),
             size: 24,
           ),
         ),
         title: Text(
-          sale['product'],
+          sale.productName,
           style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w600,
           ),
@@ -453,7 +444,7 @@ class _SaleItem extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${sale['quantity']} ${sale['unit']} • ${sale['customer']}'),
+            Text('${sale.quantity.value} ${sale.unit} • ${sale.customer}'),
             const SizedBox(height: 2),
             Row(
               children: [
@@ -461,13 +452,13 @@ class _SaleItem extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _getTypeColor(sale['type']).withValues(alpha: 0.1),
+                    color: _getTypeColor(sale.type).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    sale['type'],
+                    sale.type,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: _getTypeColor(sale['type']),
+                      color: _getTypeColor(sale.type),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -483,7 +474,7 @@ class _SaleItem extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    sale['paymentStatus'],
+                    sale.paymentStatus,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: isPending ? Colors.orange : Colors.green,
                       fontWeight: FontWeight.w600,
@@ -499,14 +490,14 @@ class _SaleItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
-              'KSh ${sale['totalAmount']}',
+              'KSh ${sale.totalAmount.value}',
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: theme.colorScheme.primary,
               ),
             ),
             Text(
-              _formatDate(sale['date']),
+              _formatDate(sale.date),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
@@ -564,12 +555,9 @@ class _SaleItem extends StatelessWidget {
     }
   }
 
-  String _formatDate(String date) {
-    final parts = date.split('-');
-    if (parts.length == 3) {
-      return '${parts[2]}/${parts[1]}';
-    }
-    return date;
+  String _formatDate(DateTime? date) {
+    if (date == null) return '-';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
   }
 }
 

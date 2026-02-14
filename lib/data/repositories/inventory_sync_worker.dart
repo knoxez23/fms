@@ -3,7 +3,6 @@ import 'dart:developer' as developer;
 import 'package:sqflite/sqflite.dart';
 import 'package:pamoja_twalima/data/database/database_helper.dart';
 import 'package:pamoja_twalima/data/network/api_service.dart';
-import 'package:pamoja_twalima/data/network/api_error.dart';
 
 class InventorySyncWorker {
   final DatabaseHelper _dbHelper = DatabaseHelper();
@@ -11,7 +10,7 @@ class InventorySyncWorker {
 
   Future<void> sync() async {
     developer.log('InventorySyncWorker: Starting inventory sync');
-    
+
     final Database db = await _dbHelper.database;
     final List<Map<String, dynamic>> queue = await db.query(
       'inventory_sync_queue',
@@ -39,13 +38,14 @@ class InventorySyncWorker {
           error: e,
           stackTrace: stackTrace,
         );
-        
+
         // Increment retry count
         final retryCount = (item['retry_count'] as int? ?? 0) + 1;
-        
+
         if (retryCount >= 3) {
           // After 3 retries, mark as failed and skip
-          developer.log('InventorySyncWorker: Max retries reached for item ${item['id']}, removing from queue');
+          developer.log(
+              'InventorySyncWorker: Max retries reached for item ${item['id']}, removing from queue');
           await db.delete(
             'inventory_sync_queue',
             where: 'id = ?',
@@ -60,12 +60,13 @@ class InventorySyncWorker {
             whereArgs: [item['id']],
           );
         }
-        
+
         // Don't break - continue trying other items
       }
     }
 
-    developer.log('InventorySyncWorker: Sync completed - Success: $successCount, Failed: $failCount');
+    developer.log(
+        'InventorySyncWorker: Sync completed - Success: $successCount, Failed: $failCount');
   }
 
   Future<void> _processItem(
@@ -75,8 +76,9 @@ class InventorySyncWorker {
     final String action = queueItem['action'];
     final String payloadStr = queueItem['payload'] as String;
     final int localId = queueItem['inventory_local_id'];
-    
-    developer.log('InventorySyncWorker: Processing $action for local_id=$localId');
+
+    developer
+        .log('InventorySyncWorker: Processing $action for local_id=$localId');
     developer.log('InventorySyncWorker: Payload: $payloadStr');
 
     Map<String, dynamic> payload;
@@ -87,9 +89,10 @@ class InventorySyncWorker {
       throw Exception('Invalid payload JSON');
     }
 
-    // Validate required fields before sending
-    if (!_validatePayload(payload)) {
-      developer.log('InventorySyncWorker: Invalid payload - missing required fields');
+    // Validate required fields before sending (skip for delete)
+    if (action != 'delete' && !_validatePayload(payload)) {
+      developer.log(
+          'InventorySyncWorker: Invalid payload - missing required fields');
       // Remove invalid entry from queue
       await db.delete(
         'inventory_sync_queue',
@@ -102,14 +105,15 @@ class InventorySyncWorker {
     try {
       if (action == 'create') {
         developer.log('InventorySyncWorker: POSTing to /inventories');
-        
+
         final response = await _api.post(
           '/inventories',
           data: payload,
         );
-        
-        developer.log('InventorySyncWorker: Create successful, response: ${response.data}');
-        
+
+        developer.log(
+            'InventorySyncWorker: Create successful, response: ${response.data}');
+
         final int newServerId = response.data['id'];
         await _markSynced(db, localId, newServerId);
       } else if (action == 'update') {
@@ -119,9 +123,10 @@ class InventorySyncWorker {
           where: 'id = ?',
           whereArgs: [localId],
         );
-        
+
         if (inventoryRecord.isEmpty) {
-          developer.log('InventorySyncWorker: Local record not found for id=$localId');
+          developer.log(
+              'InventorySyncWorker: Local record not found for id=$localId');
           await db.delete(
             'inventory_sync_queue',
             where: 'id = ?',
@@ -129,38 +134,65 @@ class InventorySyncWorker {
           );
           return;
         }
-        
+
         final serverId = inventoryRecord.first['server_id'] as int?;
-        
+
         if (serverId != null) {
-          developer.log('InventorySyncWorker: PUTing to /inventories/$serverId');
-          
+          developer
+              .log('InventorySyncWorker: PUTing to /inventories/$serverId');
+
           await _api.put(
             '/inventories/$serverId',
             data: payload,
           );
-          
+
           developer.log('InventorySyncWorker: Update successful');
           await _markSynced(db, localId, serverId);
         } else {
-          developer.log('InventorySyncWorker: No server_id found, cannot update');
+          developer
+              .log('InventorySyncWorker: No server_id found, cannot update');
+          throw Exception('Missing server_id for update');
         }
       } else if (action == 'delete') {
-        // Get server_id from inventory table
+        int? serverId;
+        String? clientUuid;
+        final rawServerId = payload['server_id'];
+        final rawClientUuid = payload['client_uuid'];
+        if (rawServerId is int) {
+          serverId = rawServerId;
+        } else if (rawServerId is String) {
+          serverId = int.tryParse(rawServerId);
+        }
+        if (rawClientUuid is String && rawClientUuid.isNotEmpty) {
+          clientUuid = rawClientUuid;
+        }
+
+        // Fallback: get server_id from inventory table
         final inventoryRecord = await db.query(
           'inventory',
+          columns: ['server_id', 'client_uuid'],
           where: 'id = ?',
           whereArgs: [localId],
         );
-        
-        if (inventoryRecord.isNotEmpty) {
-          final serverId = inventoryRecord.first['server_id'] as int?;
-          
-          if (serverId != null) {
-            developer.log('InventorySyncWorker: DELETEing /inventories/$serverId');
-            await _api.delete('/inventories/$serverId');
-            developer.log('InventorySyncWorker: Delete successful');
-          }
+
+        if (serverId == null && inventoryRecord.isNotEmpty) {
+          serverId = inventoryRecord.first['server_id'] as int?;
+          clientUuid ??= inventoryRecord.first['client_uuid'] as String?;
+        }
+
+        if (serverId != null) {
+          developer
+              .log('InventorySyncWorker: DELETEing /inventories/$serverId');
+          await _api.delete('/inventories/$serverId');
+          developer.log('InventorySyncWorker: Delete successful');
+        } else if (clientUuid != null) {
+          developer.log(
+              'InventorySyncWorker: DELETEing /inventories/by-client/$clientUuid');
+          await _api.delete('/inventories/by-client/$clientUuid');
+          developer
+              .log('InventorySyncWorker: Delete by client_uuid successful');
+        } else {
+          throw Exception('Missing server_id/client_uuid for delete');
         }
       }
 
@@ -170,12 +202,13 @@ class InventorySyncWorker {
         where: 'id = ?',
         whereArgs: [queueItem['id']],
       );
-      
-      developer.log('InventorySyncWorker: Removed item ${queueItem['id']} from queue');
-      
+
+      developer.log(
+          'InventorySyncWorker: Removed item ${queueItem['id']} from queue');
     } on ApiException catch (e) {
-      developer.log('InventorySyncWorker: API error - ${e.statusCode}: ${e.message}');
-      
+      developer.log(
+          'InventorySyncWorker: API error - ${e.statusCode}: ${e.message}');
+
       if (e.statusCode == 409) {
         // Conflict
         await db.update(
@@ -196,19 +229,20 @@ class InventorySyncWorker {
   bool _validatePayload(Map<String, dynamic> payload) {
     // Check required fields
     final requiredFields = ['item_name', 'category', 'quantity', 'unit'];
-    
+
     for (final field in requiredFields) {
       if (!payload.containsKey(field) || payload[field] == null) {
         developer.log('InventorySyncWorker: Missing required field: $field');
         return false;
       }
-      
-      if (payload[field] is String && (payload[field] as String).trim().isEmpty) {
+
+      if (payload[field] is String &&
+          (payload[field] as String).trim().isEmpty) {
         developer.log('InventorySyncWorker: Empty required field: $field');
         return false;
       }
     }
-    
+
     return true;
   }
 

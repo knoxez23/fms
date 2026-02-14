@@ -81,7 +81,6 @@ class _AnimatedCardState extends State<AnimatedCard>
   late AnimationController _controller;
   late Animation<double> _opacity;
   late Animation<Offset> _offset;
-  
 
   bool _isTapped = false;
 
@@ -120,8 +119,6 @@ class _AnimatedCardState extends State<AnimatedCard>
         curve: Curves.easeOut,
       ),
     );
-
-    
   }
 
   void _startAnimation() {
@@ -410,7 +407,7 @@ AnimatedCard(
   index: 0,
   boxShadow: [
     BoxShadow(
-      color: Colors.blue.withOpacity(0.3),
+      color: Colors.blue.withValues(alpha: 0.3),
       blurRadius: 20,
       offset: Offset(0, 10),
     ),

@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pamoja_twalima/core/di/injection.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/entities/animal_entity.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/entities/breeding_record_entity.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/bloc/animals/animals_bloc.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/bloc/breeding/breeding_cubit.dart';
 
 class BreedingScheduleScreen extends StatefulWidget {
   const BreedingScheduleScreen({super.key});
@@ -11,114 +19,161 @@ class BreedingScheduleScreen extends StatefulWidget {
 class _BreedingScheduleScreenState extends State<BreedingScheduleScreen> {
   int _selectedTab = 0;
 
-  final List<Map<String, dynamic>> _pregnantAnimals = [
-    {
-      'name': 'Bella',
-      'type': 'Dairy Cow',
-      'breedingDate': '2024-01-15',
-      'dueDate': '2024-10-25',
-      'daysToGo': 45,
-      'status': 'Third Trimester',
-    },
-    {
-      'name': 'Molly',
-      'type': 'Goat',
-      'breedingDate': '2024-02-20',
-      'dueDate': '2024-07-20',
-      'daysToGo': 120,
-      'status': 'Second Trimester',
-    },
-  ];
-
-  final List<Map<String, dynamic>> _breedingHistory = [
-    {
-      'name': 'Daisy',
-      'type': 'Dairy Cow',
-      'method': 'Artificial Insemination',
-      'date': '2024-03-01',
-      'success': true,
-      'vet': 'Dr. Kamau',
-    },
-    {
-      'name': 'Ruby',
-      'type': 'Dairy Cow',
-      'method': 'Natural Mating',
-      'date': '2024-02-15',
-      'success': false,
-      'notes': 'Heat detection needed',
-    },
-  ];
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          'Breeding Schedule',
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
-          // Tab Bar
-          Container(
-            margin: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: theme.cardTheme.color,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [AppColors.subtleShadow],
-            ),
-            child: Row(
-              children: [
-                _BreedingTab(
-                  label: 'Pregnancy',
-                  isSelected: _selectedTab == 0,
-                  onTap: () => setState(() => _selectedTab = 0),
-                  theme: theme,
-                ),
-                _BreedingTab(
-                  label: 'Breeding',
-                  isSelected: _selectedTab == 1,
-                  onTap: () => setState(() => _selectedTab = 1),
-                  theme: theme,
-                ),
-                _BreedingTab(
-                  label: 'Calendar',
-                  isSelected: _selectedTab == 2,
-                  onTap: () => setState(() => _selectedTab = 2),
-                  theme: theme,
-                ),
-              ],
-            ),
-          ),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+            create: (_) =>
+                getIt<AnimalsBloc>()..add(const AnimalsEvent.load())),
+        BlocProvider(create: (_) => getIt<BreedingCubit>()..load()),
+      ],
+      child: BlocBuilder<AnimalsBloc, AnimalsState>(
+        builder: (context, animalsState) {
+          return BlocConsumer<BreedingCubit, BreedingState>(
+            listener: (context, breedingState) {
+              final error = breedingState.error;
+              if (error == null || error.isEmpty) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(error)),
+              );
+            },
+            builder: (context, breedingState) {
+              final animals = animalsState.maybeWhen(
+                loaded: (items) => items,
+                orElse: () => <AnimalEntity>[],
+              );
+              final records = breedingState.records;
+              final nameById = {
+                for (final a in animals)
+                  if (a.id != null) a.id!: a.name.value,
+              };
+              final typeById = {
+                for (final a in animals)
+                  if (a.id != null) a.id!: a.type.value,
+              };
 
-          // Tab Content
-          Expanded(
-            child: IndexedStack(
-              index: _selectedTab,
-              children: [
-                _PregnancyTab(pregnantAnimals: _pregnantAnimals, theme: theme),
-                _BreedingTabContent(breedingHistory: _breedingHistory, theme: theme),
-                _BreedingCalendarTab(theme: theme),
-              ],
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'addBreedingRecordFAB',
-        onPressed: () {
-          // Add breeding record
+              final activePregnancies = records
+                  .where((r) => r.isActivePregnancy)
+                  .toList()
+                ..sort((a, b) =>
+                    a.expectedBirthDate.compareTo(b.expectedBirthDate));
+
+              return AppScaffold(
+                backgroundColor: theme.colorScheme.surface,
+                includeDrawer: false,
+                appBar: const ModernAppBar(
+                  title: 'Breeding Schedule',
+                  variant: AppBarVariant.standard,
+                ),
+                body: Column(
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: theme.cardTheme.color,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [AppColors.subtleShadow],
+                      ),
+                      child: Row(
+                        children: [
+                          _BreedingTab(
+                            label: 'Pregnancy',
+                            isSelected: _selectedTab == 0,
+                            onTap: () => setState(() => _selectedTab = 0),
+                            theme: theme,
+                          ),
+                          _BreedingTab(
+                            label: 'Breeding',
+                            isSelected: _selectedTab == 1,
+                            onTap: () => setState(() => _selectedTab = 1),
+                            theme: theme,
+                          ),
+                          _BreedingTab(
+                            label: 'Calendar',
+                            isSelected: _selectedTab == 2,
+                            onTap: () => setState(() => _selectedTab = 2),
+                            theme: theme,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: IndexedStack(
+                        index: _selectedTab,
+                        children: [
+                          _PregnancyTab(
+                            records: activePregnancies,
+                            nameById: nameById,
+                            typeById: typeById,
+                            theme: theme,
+                          ),
+                          _BreedingHistoryTab(
+                            records: records,
+                            nameById: nameById,
+                            typeById: typeById,
+                            theme: theme,
+                          ),
+                          _BreedingCalendarTab(
+                            records: activePregnancies,
+                            nameById: nameById,
+                            theme: theme,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                floatingActionButton: FloatingActionButton(
+                  heroTag: 'addBreedingRecordFAB',
+                  onPressed: () => _addRecord(context, animals),
+                  backgroundColor: theme.colorScheme.primary,
+                  child: const Icon(Icons.add, color: Colors.white),
+                ),
+              );
+            },
+          );
         },
-        backgroundColor: theme.colorScheme.primary,
-        child: const Icon(Icons.add, color: Colors.white),
       ),
+    );
+  }
+
+  void _addRecord(BuildContext context, List<AnimalEntity> animals) {
+    if (animals.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Add animals first to create breeding records')),
+      );
+      return;
+    }
+
+    final dam = animals.firstWhere(
+      (a) => a.id != null,
+      orElse: () => animals.first,
+    );
+    if (dam.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selected animal has no local id')),
+      );
+      return;
+    }
+
+    final matingDate = DateTime.now();
+    final expectedBirthDate = matingDate.add(const Duration(days: 280));
+    final record = BreedingRecordEntity(
+      damAnimalId: dam.id!,
+      matingDate: matingDate,
+      expectedBirthDate: expectedBirthDate,
+      status: 'scheduled',
+      method: 'Manual Entry',
+      success: null,
+    );
+
+    context.read<BreedingCubit>().add(record);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Breeding record added')),
     );
   }
 }
@@ -152,7 +207,9 @@ class _BreedingTab extends StatelessWidget {
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: isSelected ? Colors.white : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              color: isSelected
+                  ? Colors.white
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
         ),
@@ -162,357 +219,221 @@ class _BreedingTab extends StatelessWidget {
 }
 
 class _PregnancyTab extends StatelessWidget {
-  final List<Map<String, dynamic>> pregnantAnimals;
+  final List<BreedingRecordEntity> records;
+  final Map<String, String> nameById;
+  final Map<String, String> typeById;
   final ThemeData theme;
 
-  const _PregnancyTab({required this.pregnantAnimals, required this.theme});
+  const _PregnancyTab({
+    required this.records,
+    required this.nameById,
+    required this.typeById,
+    required this.theme,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _AnimatedCard(
-          index: 0,
-          theme: theme,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Pregnancy Overview',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '${pregnantAnimals.length} Animals',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ...pregnantAnimals.map((animal) => _PregnancyItem(animal: animal, theme: theme)),
-              ],
-            ),
-          ),
+        Text(
+          'Pregnancy Overview',
+          style: theme.textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.bold),
         ),
-
-        const SizedBox(height: 16),
-
-        _AnimatedCard(
-          index: 1,
-          theme: theme,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Pregnancy Timeline',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  height: 120,
-                  padding: const EdgeInsets.all(16),
-                  child: const Center(
-                    child: Text(
-                      'Pregnancy progress charts will be implemented here',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PregnancyItem extends StatelessWidget {
-  final Map<String, dynamic> animal;
-  final ThemeData theme;
-
-  const _PregnancyItem({required this.animal, required this.theme});
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = _calculateProgress(animal['daysToGo']);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.family_restroom,
-              color: theme.colorScheme.primary,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  animal['name'],
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  '${animal['type']} • Due: ${_formatDate(animal['dueDate'])}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(
-                  value: progress,
-                  backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.1),
-                  color: _getProgressColor(progress),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      animal['status'],
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                    Text(
-                      '${animal['daysToGo']} days to go',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: _getDaysColor(animal['daysToGo']),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  double _calculateProgress(int daysToGo) {
-    const totalDays = 280; // Average cow pregnancy
-    return (totalDays - daysToGo) / totalDays;
-  }
-
-  Color _getProgressColor(double progress) {
-    if (progress > 0.8) return Colors.green;
-    if (progress > 0.5) return Colors.blue;
-    return Colors.orange;
-  }
-
-  Color _getDaysColor(int daysToGo) {
-    if (daysToGo < 30) return Colors.red;
-    if (daysToGo < 60) return Colors.orange;
-    return Colors.green;
-  }
-
-  String _formatDate(String date) {
-    // Simple date formatting
-    return date.split('-').reversed.join('/');
-  }
-}
-
-class _BreedingTabContent extends StatelessWidget {
-  final List<Map<String, dynamic>> breedingHistory;
-  final ThemeData theme;
-
-  const _BreedingTabContent({required this.breedingHistory, required this.theme});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _AnimatedCard(
-          index: 0,
-          theme: theme,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Recent Breeding Records',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ...breedingHistory.map((record) => _BreedingRecord(record: record, theme: theme)),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        _AnimatedCard(
-          index: 1,
-          theme: theme,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Breeding Statistics',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _BreedingStat(
-                      value: '75%',
-                      label: 'Success Rate',
-                      theme: theme,
-                    ),
-                    _BreedingStat(
-                      value: '12',
-                      label: 'Total Attempts',
-                      theme: theme,
-                    ),
-                    _BreedingStat(
-                      value: '8',
-                      label: 'Pregnancies',
-                      theme: theme,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _BreedingRecord extends StatelessWidget {
-  final Map<String, dynamic> record;
-  final ThemeData theme;
-
-  const _BreedingRecord({required this.record, required this.theme});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: record['success']
-                  ? Colors.green.withValues(alpha: 0.1)
-                  : Colors.orange.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              record['success'] ? Icons.check_circle : Icons.schedule,
-              color: record['success'] ? Colors.green : Colors.orange,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  record['name'],
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  '${record['type']} • ${record['method']}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-                if (record['vet'] != null)
-                  Text(
-                    'by ${record['vet']}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                if (record['notes'] != null)
-                  Text(
-                    record['notes'],
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.orange,
-                    ),
-                  ),
-              ],
-            ),
-          ),
+        const SizedBox(height: 12),
+        if (records.isEmpty)
           Text(
-            _formatDate(record['date']),
-            style: theme.textTheme.bodySmall?.copyWith(
+            'No active pregnancies',
+            style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
-          ),
-        ],
-      ),
+          )
+        else
+          ...records.map((record) {
+            final name = nameById[record.damAnimalId] ?? 'Unknown Animal';
+            final type = typeById[record.damAnimalId] ?? 'Unknown';
+            final daysToGo =
+                record.expectedBirthDate.difference(DateTime.now()).inDays;
+
+            return Card(
+              elevation: 0,
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: Icon(Icons.family_restroom,
+                    color: theme.colorScheme.primary),
+                title: Text(name),
+                subtitle: Text(
+                  '$type • Due: ${_formatDate(record.expectedBirthDate)}',
+                ),
+                trailing: Text(
+                  '${daysToGo < 0 ? 0 : daysToGo} days',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: daysToGo < 30 ? Colors.red : Colors.green,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            );
+          }),
+      ],
     );
   }
 
-  String _formatDate(String date) {
-    return date.split('-').reversed.join('/');
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }
 
-class _BreedingStat extends StatelessWidget {
+class _BreedingHistoryTab extends StatelessWidget {
+  final List<BreedingRecordEntity> records;
+  final Map<String, String> nameById;
+  final Map<String, String> typeById;
+  final ThemeData theme;
+
+  const _BreedingHistoryTab({
+    required this.records,
+    required this.nameById,
+    required this.typeById,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final total = records.length;
+    final successful = records.where((r) => r.success == true).length;
+    final rate = total == 0 ? 0 : ((successful / total) * 100).round();
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(
+          'Recent Breeding Records',
+          style: theme.textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        if (records.isEmpty)
+          Text(
+            'No breeding records',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+          )
+        else
+          ...records.map((record) {
+            final name = nameById[record.damAnimalId] ?? 'Unknown Animal';
+            final type = typeById[record.damAnimalId] ?? 'Unknown';
+            return Card(
+              elevation: 0,
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: Icon(
+                  record.success == false ? Icons.close : Icons.check_circle,
+                  color: record.success == false ? Colors.orange : Colors.green,
+                ),
+                title: Text(name),
+                subtitle: Text(
+                  '$type • ${record.method ?? 'Unknown method'}',
+                ),
+                trailing: Text(
+                  _formatDate(record.matingDate),
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+            );
+          }),
+        const SizedBox(height: 16),
+        Card(
+          elevation: 0,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _Stat(value: '$rate%', label: 'Success Rate', theme: theme),
+                _Stat(value: '$total', label: 'Total Attempts', theme: theme),
+                _Stat(value: '$successful', label: 'Successful', theme: theme),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+}
+
+class _BreedingCalendarTab extends StatelessWidget {
+  final List<BreedingRecordEntity> records;
+  final Map<String, String> nameById;
+  final ThemeData theme;
+
+  const _BreedingCalendarTab({
+    required this.records,
+    required this.nameById,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(
+          'Upcoming Due Dates',
+          style: theme.textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        if (records.isEmpty)
+          Text(
+            'No upcoming due dates',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+          )
+        else
+          ...records.map((record) {
+            final name = nameById[record.damAnimalId] ?? 'Unknown Animal';
+            final daysToGo =
+                record.expectedBirthDate.difference(DateTime.now()).inDays;
+            return Card(
+              elevation: 0,
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading:
+                    Icon(Icons.child_care, color: theme.colorScheme.primary),
+                title: Text(name),
+                subtitle: Text('Due: ${_formatDate(record.expectedBirthDate)}'),
+                trailing: Text(
+                  '${daysToGo < 0 ? 0 : daysToGo} days',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: daysToGo < 30 ? Colors.red : Colors.green,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            );
+          }),
+      ],
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+}
+
+class _Stat extends StatelessWidget {
   final String value;
   final String label;
   final ThemeData theme;
 
-  const _BreedingStat({
-    required this.value,
-    required this.label,
-    required this.theme,
-  });
+  const _Stat({required this.value, required this.label, required this.theme});
 
   @override
   Widget build(BuildContext context) {
@@ -532,248 +453,6 @@ class _BreedingStat extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _BreedingCalendarTab extends StatelessWidget {
-  final ThemeData theme;
-
-  const _BreedingCalendarTab({required this.theme});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _AnimatedCard(
-          index: 0,
-          theme: theme,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Breeding Calendar',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  height: 300,
-                  padding: const EdgeInsets.all(16),
-                  child: const Center(
-                    child: Text(
-                      'Breeding calendar with heat detection and pregnancy due dates will be implemented here',
-                      style: TextStyle(color: Colors.grey),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        _AnimatedCard(
-          index: 1,
-          theme: theme,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Upcoming Due Dates',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _DueDateItem(
-                  animal: 'Bella',
-                  dueDate: '2024-10-25',
-                  daysToGo: 45,
-                  theme: theme,
-                ),
-                _DueDateItem(
-                  animal: 'Molly',
-                  dueDate: '2024-07-20',
-                  daysToGo: 120,
-                  theme: theme,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DueDateItem extends StatelessWidget {
-  final String animal;
-  final String dueDate;
-  final int daysToGo;
-  final ThemeData theme;
-
-  const _DueDateItem({
-    required this.animal,
-    required this.dueDate,
-    required this.daysToGo,
-    required this.theme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: _getDueDateColor(daysToGo).withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.child_care,
-              color: _getDueDateColor(daysToGo),
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  animal,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  'Due: ${_formatDate(dueDate)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: _getDueDateColor(daysToGo).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '$daysToGo days',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: _getDueDateColor(daysToGo),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _getDueDateColor(int daysToGo) {
-    if (daysToGo < 30) return Colors.red;
-    if (daysToGo < 60) return Colors.orange;
-    return Colors.green;
-  }
-
-  String _formatDate(String date) {
-    return date.split('-').reversed.join('/');
-  }
-}
-
-// Reuse the _AnimatedCard widget
-class _AnimatedCard extends StatefulWidget {
-  final Widget child;
-  final ThemeData theme;
-  final int index;
-
-  const _AnimatedCard({
-    required this.child,
-    required this.theme,
-    required this.index,
-  });
-
-  @override
-  State<_AnimatedCard> createState() => _AnimatedCardState();
-}
-
-class _AnimatedCardState extends State<_AnimatedCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _opacity;
-  late Animation<Offset> _offset;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-
-    final start = (0.1 * widget.index).clamp(0.0, 0.6);
-    final end = (0.3 + 0.1 * widget.index).clamp(0.4, 1.0);
-
-    _opacity = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Interval(start, end, curve: Curves.easeOut),
-      ),
-    );
-
-    _offset = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOut,
-      ),
-    );
-
-    Future.delayed(Duration(milliseconds: 100 * widget.index), () {
-      if (mounted) _controller.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _opacity,
-      child: SlideTransition(
-        position: _offset,
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(
-            color: widget.theme.cardTheme.color,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [AppColors.subtleShadow],
-          ),
-          child: widget.child,
-        ),
-      ),
     );
   }
 }

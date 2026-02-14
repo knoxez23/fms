@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
 
 class FeedFormulaGeneratorScreen extends StatefulWidget {
   const FeedFormulaGeneratorScreen({super.key});
 
   @override
-  State<FeedFormulaGeneratorScreen> createState() => _FeedFormulaGeneratorScreenState();
+  State<FeedFormulaGeneratorScreen> createState() =>
+      _FeedFormulaGeneratorScreenState();
 }
 
-class _FeedFormulaGeneratorScreenState extends State<FeedFormulaGeneratorScreen> {
+class _FeedFormulaGeneratorScreenState
+    extends State<FeedFormulaGeneratorScreen> {
   final _formKey = GlobalKey<FormState>();
 
   // Feed ingredients database with nutritional values
@@ -133,7 +137,6 @@ class _FeedFormulaGeneratorScreenState extends State<FeedFormulaGeneratorScreen>
   };
 
   String _selectedAnimal = 'Dairy Cow';
-  final double _totalWeight = 100.0;
   final Map<String, double> _selectedIngredients = {};
   final Map<String, TextEditingController> _ingredientControllers = {};
 
@@ -156,8 +159,8 @@ class _FeedFormulaGeneratorScreenState extends State<FeedFormulaGeneratorScreen>
 
     // Create controllers
     for (var ingredient in _selectedIngredients.keys) {
-      _ingredientControllers[ingredient] =
-          TextEditingController(text: _selectedIngredients[ingredient]!.toStringAsFixed(1));
+      _ingredientControllers[ingredient] = TextEditingController(
+          text: _selectedIngredients[ingredient]!.toStringAsFixed(1));
     }
 
     _calculateFormula();
@@ -248,8 +251,9 @@ class _FeedFormulaGeneratorScreenState extends State<FeedFormulaGeneratorScreen>
         .toList();
 
     final mediumProteinIngredients = _selectedIngredients.keys
-        .where((ing) => _feedIngredients[ing]!['protein']! >= 10.0 &&
-        _feedIngredients[ing]!['protein']! <= 20.0)
+        .where((ing) =>
+            _feedIngredients[ing]!['protein']! >= 10.0 &&
+            _feedIngredients[ing]!['protein']! <= 20.0)
         .toList();
 
     final lowProteinIngredients = _selectedIngredients.keys
@@ -286,10 +290,12 @@ class _FeedFormulaGeneratorScreenState extends State<FeedFormulaGeneratorScreen>
     final theme = Theme.of(context);
     final requirements = _animalRequirements[_selectedAnimal]!;
 
-    return Scaffold(
+    return AppScaffold(
       backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: const Text('Feed Formula Generator'),
+      includeDrawer: false,
+      appBar: ModernAppBar(
+        title: 'Feed Formula Generator',
+        variant: AppBarVariant.standard,
         actions: [
           IconButton(
             icon: const Icon(Icons.save),
@@ -378,7 +384,8 @@ class _FeedFormulaGeneratorScreenState extends State<FeedFormulaGeneratorScreen>
                         spacing: 8,
                         runSpacing: 8,
                         children: _feedIngredients.keys.map((ingredient) {
-                          final isSelected = _selectedIngredients.containsKey(ingredient);
+                          final isSelected =
+                              _selectedIngredients.containsKey(ingredient);
                           return FilterChip(
                             label: Text(ingredient),
                             selected: isSelected,
@@ -390,7 +397,8 @@ class _FeedFormulaGeneratorScreenState extends State<FeedFormulaGeneratorScreen>
                               }
                             },
                             backgroundColor: theme.cardTheme.color,
-                            selectedColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                            selectedColor: theme.colorScheme.primary
+                                .withValues(alpha: 0.15),
                             checkmarkColor: theme.colorScheme.primary,
                             labelStyle: TextStyle(
                               color: isSelected
@@ -432,7 +440,8 @@ class _FeedFormulaGeneratorScreenState extends State<FeedFormulaGeneratorScreen>
                           energy: nutrition['energy']!,
                           percentage: entry.value,
                           controller: _ingredientControllers[ingredient]!,
-                          onChanged: (value) => _updateIngredientPercentage(ingredient, value),
+                          onChanged: (value) =>
+                              _updateIngredientPercentage(ingredient, value),
                           onRemove: () => _removeIngredient(ingredient),
                           theme: theme,
                         );
@@ -442,7 +451,9 @@ class _FeedFormulaGeneratorScreenState extends State<FeedFormulaGeneratorScreen>
                         'Total: ${_selectedIngredients.values.fold(0.0, (sum, value) => sum + value).toStringAsFixed(1)}%',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: _selectedIngredients.values.fold(0.0, (sum, value) => sum + value) == 100.0
+                          color: _selectedIngredients.values
+                                      .fold(0.0, (sum, value) => sum + value) ==
+                                  100.0
                               ? Colors.green
                               : Colors.red,
                         ),
@@ -549,7 +560,8 @@ class _FeedFormulaGeneratorScreenState extends State<FeedFormulaGeneratorScreen>
   }
 
   void _saveFormula() {
-    if (_selectedIngredients.values.fold(0.0, (sum, value) => sum + value) != 100.0) {
+    if (_selectedIngredients.values.fold(0.0, (sum, value) => sum + value) !=
+        100.0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Total percentage must equal 100%')),
       );
@@ -575,7 +587,7 @@ class _FeedFormulaGeneratorScreenState extends State<FeedFormulaGeneratorScreen>
     );
 
     // Navigate back or show success
-    print('Saved formula: $formula');
+    debugPrint('Saved formula: $formula');
   }
 }
 
@@ -634,7 +646,8 @@ class _IngredientRow extends StatelessWidget {
               decoration: const InputDecoration(
                 labelText: '%',
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               ),
               onChanged: onChanged,
             ),
@@ -668,7 +681,8 @@ class _NutritionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final difference = current - required;
-    final isOptimal = difference.abs() <= (required * 0.1); // Within 10% of requirement
+    final isOptimal =
+        difference.abs() <= (required * 0.1); // Within 10% of requirement
     final isDeficient = current < required;
 
     return Padding(
@@ -686,7 +700,9 @@ class _NutritionRow extends StatelessWidget {
               '${current.toStringAsFixed(1)}$unit',
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: isOptimal ? Colors.green : (isDeficient ? Colors.orange : Colors.blue),
+                color: isOptimal
+                    ? Colors.green
+                    : (isDeficient ? Colors.orange : Colors.blue),
               ),
             ),
           ),
@@ -706,13 +722,17 @@ class _NutritionRow extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isOptimal
                     ? Colors.green.withValues(alpha: 0.1)
-                    : (isDeficient ? Colors.orange.withValues(alpha: 0.1) : Colors.blue.withValues(alpha: 0.1)),
+                    : (isDeficient
+                        ? Colors.orange.withValues(alpha: 0.1)
+                        : Colors.blue.withValues(alpha: 0.1)),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 isOptimal ? 'Good' : (isDeficient ? 'Low' : 'High'),
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: isOptimal ? Colors.green : (isDeficient ? Colors.orange : Colors.blue),
+                  color: isOptimal
+                      ? Colors.green
+                      : (isDeficient ? Colors.orange : Colors.blue),
                   fontWeight: FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,

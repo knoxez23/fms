@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
-import 'package:pamoja_twalima/marketplace/application/application.dart';
-import 'package:pamoja_twalima/marketplace/infrastructure/factory.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -18,16 +17,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _quantity = 1;
   bool _isInWishlist = false;
   late Map<String, dynamic> _product;
-  late final GetProducts _getProductsUseCase;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final product = _product;
-    final seller = (product['seller'] is Map<String, dynamic>) ? product['seller'] as Map<String, dynamic> : <String, dynamic>{};
+    final seller = (product['seller'] is Map<String, dynamic>)
+        ? product['seller'] as Map<String, dynamic>
+        : <String, dynamic>{};
 
-    return Scaffold(
+    return AppScaffold(
       backgroundColor: theme.colorScheme.surface,
+      includeDrawer: false,
       body: CustomScrollView(
         slivers: [
           // App Bar with Back Button and Actions
@@ -40,7 +41,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
             actions: [
               IconButton(
-                icon: Icon(_isInWishlist ? LucideIcons.heart : LucideIcons.heart),
+                icon:
+                    Icon(_isInWishlist ? LucideIcons.heart : LucideIcons.heart),
                 color: _isInWishlist ? Colors.red : Colors.white,
                 onPressed: _toggleWishlist,
               ),
@@ -92,26 +94,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void initState() {
     super.initState();
     _product = Map<String, dynamic>.from(widget.product);
-    _getProductsUseCase = MarketplaceFactory.createGetProducts();
-    _refreshProduct();
-  }
-
-  Future<void> _refreshProduct() async {
-    try {
-      final items = await _getProductsUseCase.execute();
-      final id = '${_product['id']}';
-      final latest = items.firstWhere((p) => '${p['id']}' == id, orElse: () => {});
-      if (latest.isNotEmpty) {
-        if (!mounted) return;
-        setState(() => _product = Map<String, dynamic>.from(latest));
-      }
-    } catch (e) {
-      // ignore refresh errors
-    }
   }
 
   Widget _buildImageGallery(ThemeData theme, Map<String, dynamic> product) {
-    final images = [product['image']]; // In real app, use product['images'] list
+    final images = [
+      product['image']
+    ]; // In real app, use product['images'] list
 
     return Stack(
       children: [
@@ -196,7 +184,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
             const Spacer(),
-            Icon(LucideIcons.eye, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+            Icon(LucideIcons.eye,
+                size: 16,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
             const SizedBox(width: 4),
             Text(
               '${product['views']}',
@@ -293,7 +283,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                     if (seller['verified'] == true) ...[
                       const SizedBox(width: 4),
-                      Icon(LucideIcons.badgeCheck, size: 16, color: Colors.blue),
+                      Icon(LucideIcons.badgeCheck,
+                          size: 16, color: Colors.blue),
                     ],
                   ],
                 ),
@@ -317,7 +308,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     Text(
                       '(${seller['reviews']} reviews)',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -414,7 +406,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  Widget _buildProductDetailsTabs(ThemeData theme, Map<String, dynamic> product) {
+  Widget _buildProductDetailsTabs(
+      ThemeData theme, Map<String, dynamic> product) {
     return DefaultTabController(
       length: 4,
       child: Column(
@@ -427,7 +420,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
             child: TabBar(
               labelColor: theme.colorScheme.primary,
-              unselectedLabelColor: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              unselectedLabelColor:
+                  theme.colorScheme.onSurface.withValues(alpha: 0.6),
               indicator: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 color: theme.colorScheme.primary.withValues(alpha: 0.1),
@@ -497,7 +491,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               children: (product['certifications'] as List).map((cert) {
                 return Chip(
                   label: Text(cert),
-                  backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                  backgroundColor:
+                      theme.colorScheme.primary.withValues(alpha: 0.1),
                   labelStyle: TextStyle(
                     color: theme.colorScheme.primary,
                     fontSize: 12,
@@ -537,7 +532,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
           _SpecItem(
             label: 'Bulk Orders',
-            value: product['isBulkAvailable'] == true ? 'Available' : 'Not Available',
+            value: product['isBulkAvailable'] == true
+                ? 'Available'
+                : 'Not Available',
             theme: theme,
           ),
           if (product['variety'] != null)
@@ -581,7 +578,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           const SizedBox(height: 8),
           Text(
             'Delivery time varies based on location and delivery option selected. '
-                'International shipping available for export-ready products.',
+            'International shipping available for export-ready products.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
@@ -597,7 +594,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       {
         'user': 'John M.',
         'rating': 5.0,
-        'comment': 'Excellent quality maize, exactly as described. Will order again!',
+        'comment':
+            'Excellent quality maize, exactly as described. Will order again!',
         'date': '2 weeks ago'
       },
       {
@@ -639,7 +637,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     Text(
                       '${seller['reviews']} reviews',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -756,7 +755,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(_isInWishlist ? 'Added to wishlist' : 'Removed from wishlist'),
+        content:
+            Text(_isInWishlist ? 'Added to wishlist' : 'Removed from wishlist'),
       ),
     );
   }
@@ -890,7 +890,8 @@ class _ShippingItem extends StatelessWidget {
             children: options.map((option) {
               return Chip(
                 label: Text(option.toString()),
-                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                backgroundColor:
+                    theme.colorScheme.primary.withValues(alpha: 0.1),
                 labelStyle: TextStyle(
                   color: theme.colorScheme.primary,
                   fontSize: 12,
@@ -974,7 +975,8 @@ class _ReviewCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 16,
-                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                backgroundColor:
+                    theme.colorScheme.primary.withValues(alpha: 0.1),
                 child: Text(
                   review['user'][0],
                   style: theme.textTheme.bodySmall?.copyWith(

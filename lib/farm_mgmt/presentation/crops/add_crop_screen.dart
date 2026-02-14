@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/entities/entities.dart';
-import 'package:pamoja_twalima/data/services/crop_service.dart';
-import 'package:pamoja_twalima/data/network/api_error.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/entities/crop_entity.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/value_objects/value_objects.dart';
 
 class AddCropScreen extends StatefulWidget {
   const AddCropScreen({super.key});
@@ -49,26 +50,16 @@ class _AddCropScreenState extends State<AddCropScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
+    return AppScaffold(
       backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: Text(
-          'Add New Crop',
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+      includeDrawer: false,
+      appBar: ModernAppBar(
+        title: 'Add New Crop',
+        variant: AppBarVariant.standard,
         actions: [
           TextButton(
             onPressed: _saveCrop,
-            child: Text(
-              'Save',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -307,36 +298,25 @@ class _AddCropScreenState extends State<AddCropScreen> {
   Future<void> _saveCrop() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final cropService = CropService();
+    final name = _nameController.text.trim();
+    final variety = _typeController.text.trim().isEmpty
+        ? null
+        : _typeController.text.trim();
 
-    final crop = Crop(
-      name: _nameController.text.trim(),
-      variety: _typeController.text.trim(),
-      area: double.parse(_areaController.text),
-      plantedDate: _selectedDate!.toIso8601String(),
-      status: _selectedStatus,
-      notes: _notesController.text.trim().isEmpty
-          ? null
-          : _notesController.text.trim(),
+    final crop = CropEntity(
+      name: CropName(name),
+      variety: variety,
+      plantedAt: _selectedDate ?? DateTime.now(),
+      expectedHarvest: null,
     );
 
-    try {
-      await cropService.createCrop(crop);
+    if (!mounted) return;
 
-      if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Crop added successfully')),
+    );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Crop added successfully')),
-      );
-
-      Navigator.pop(context, true);
-    } on ApiError catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
-    }
+    Navigator.pop(context, crop);
   }
 
   @override

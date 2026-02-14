@@ -2,6 +2,7 @@ import '../../inventory/domain/entities/inventory_item.dart';
 
 class InventoryDto {
   final int? localId;
+  final String? clientUuid;
   final String itemName;
   final String category;
   final double quantity;
@@ -15,6 +16,7 @@ class InventoryDto {
 
   InventoryDto({
     this.localId,
+    this.clientUuid,
     required this.itemName,
     required this.category,
     required this.quantity,
@@ -31,6 +33,7 @@ class InventoryDto {
   factory InventoryDto.fromEntity(InventoryItem item) {
     return InventoryDto(
       localId: item.id != null ? int.tryParse(item.id!) : null,
+      clientUuid: item.clientUuid,
       itemName: item.itemName,
       category: item.category,
       quantity: item.quantity,
@@ -54,6 +57,7 @@ class InventoryDto {
         '${lastRestock.second.toString().padLeft(2, '0')}';
 
     return {
+      'client_uuid': clientUuid,
       'item_name': itemName,
       'category': category,
       'quantity': quantity,
@@ -70,6 +74,7 @@ class InventoryDto {
   /// DTO → SQLite
   Map<String, dynamic> toDb() {
     return {
+      'client_uuid': clientUuid,
       'item_name': itemName,
       'category': category,
       'quantity': quantity,

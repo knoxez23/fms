@@ -19,7 +19,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'pamoja_twalima.db');
     return await openDatabase(
       path,
-      version: 5, // INCREMENTED VERSION
+      version: 10,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -83,6 +83,8 @@ class DatabaseHelper {
         status TEXT DEFAULT 'pending',
         category TEXT,
         assigned_to TEXT,
+        source_event_type TEXT,
+        source_event_id TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         user_id INTEGER,
         FOREIGN KEY (user_id) REFERENCES users (id)
@@ -93,6 +95,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE inventory (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_uuid TEXT,
         item_name TEXT NOT NULL,
         category TEXT,
         quantity REAL,
@@ -116,6 +119,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE sales (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        server_id INTEGER,
         product_name TEXT NOT NULL,
         quantity REAL,
         unit TEXT,
@@ -221,6 +225,37 @@ class DatabaseHelper {
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     ''');
+
+    // Marketplace inquiries table
+    await db.execute('''
+      CREATE TABLE marketplace_inquiries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        inquiry_type TEXT NOT NULL,
+        product_name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        quantity TEXT NOT NULL,
+        details TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+
+    // Breeding records table
+    await db.execute('''
+      CREATE TABLE breeding_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        dam_animal_id INTEGER NOT NULL,
+        sire_animal_id INTEGER,
+        mating_date TEXT NOT NULL,
+        expected_birth_date TEXT NOT NULL,
+        status TEXT DEFAULT 'scheduled',
+        method TEXT,
+        success INTEGER,
+        vet TEXT,
+        notes TEXT,
+        FOREIGN KEY (dam_animal_id) REFERENCES animals (id),
+        FOREIGN KEY (sire_animal_id) REFERENCES animals (id)
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -262,7 +297,81 @@ class DatabaseHelper {
       }
 
       try {
-        await db.execute('ALTER TABLE inventory ADD COLUMN conflict INTEGER DEFAULT 0');
+        await db.execute(
+            'ALTER TABLE inventory ADD COLUMN conflict INTEGER DEFAULT 0');
+      } catch (e) {
+        // Column may already exist
+      }
+    }
+
+    if (oldVersion < 6) {
+      // Add client_uuid column to inventory table
+      try {
+        await db.execute('ALTER TABLE inventory ADD COLUMN client_uuid TEXT');
+      } catch (e) {
+        // Column may already exist
+      }
+    }
+
+    if (oldVersion < 7) {
+      // Add marketplace inquiries table
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS marketplace_inquiries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            inquiry_type TEXT NOT NULL,
+            product_name TEXT NOT NULL,
+            category TEXT NOT NULL,
+            quantity TEXT NOT NULL,
+            details TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+          )
+        ''');
+      } catch (e) {
+        // Table may already exist
+      }
+    }
+
+    if (oldVersion < 8) {
+      // Add breeding records table
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS breeding_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            dam_animal_id INTEGER NOT NULL,
+            sire_animal_id INTEGER,
+            mating_date TEXT NOT NULL,
+            expected_birth_date TEXT NOT NULL,
+            status TEXT DEFAULT 'scheduled',
+            method TEXT,
+            success INTEGER,
+            vet TEXT,
+            notes TEXT,
+            FOREIGN KEY (dam_animal_id) REFERENCES animals (id),
+            FOREIGN KEY (sire_animal_id) REFERENCES animals (id)
+          )
+        ''');
+      } catch (e) {
+        // Table may already exist
+      }
+    }
+
+    if (oldVersion < 9) {
+      try {
+        await db.execute('ALTER TABLE tasks ADD COLUMN source_event_type TEXT');
+      } catch (e) {
+        // Column may already exist
+      }
+      try {
+        await db.execute('ALTER TABLE tasks ADD COLUMN source_event_id TEXT');
+      } catch (e) {
+        // Column may already exist
+      }
+    }
+
+    if (oldVersion < 10) {
+      try {
+        await db.execute('ALTER TABLE sales ADD COLUMN server_id INTEGER');
       } catch (e) {
         // Column may already exist
       }

@@ -5,4 +5,4 @@ export '../../data/database/database_helper.dart';
 export '../../data/services/connectivity_service.dart';
 export '../../data/repositories/local_data.dart';
 export '../../data/repositories/sync_data.dart';
-export '../../data/repositories/weather_service.dart';
+export '../../data/services/weather_service.dart';

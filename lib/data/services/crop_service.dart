@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
+import 'package:injectable/injectable.dart';
 import '../models/crop.dart';
 import '../network/api_service.dart';
 import '../network/api_error.dart';
 
+@LazySingleton()
 class CropService {
   final ApiService _api = ApiService();
 
@@ -25,9 +27,7 @@ class CropService {
     try {
       final response = await _api.get('/crops');
 
-      return (response.data as List)
-          .map((e) => Crop.fromMap(e))
-          .toList();
+      return (response.data as List).map((e) => Crop.fromMap(e)).toList();
     } on DioException catch (e) {
       throw ApiError.fromDio(e);
     }

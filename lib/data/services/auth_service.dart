@@ -1,80 +1,112 @@
-import 'package:dio/dio.dart';
+import 'package:injectable/injectable.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../network/api_service.dart';
-import '../network/api_error.dart';
+import '../models/user.dart';
+import '../../core/network/token_manager.dart';
+import 'package:logger/logger.dart';
 
+@LazySingleton()
 class AuthService {
-  final ApiService _api = ApiService();
-  final _storage = const FlutterSecureStorage();
+  final ApiService _api;
+  final TokenManager _tokenManager;
+  final Logger _logger = Logger();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  Future<Map<String, dynamic>> login(String email, String password) async {
-    try {
-      final response = await _api.post('/login', data: {
-        'email': email,
-        'password': password,
-      });
+  AuthService(this._api, this._tokenManager);
 
-      if (response.data['token'] != null) {
-        // Save token and user info securely
-        await _storage.write(key: 'auth_token', value: response.data['token']);
-        await _storage.write(key: 'user_id', value: response.data['user']['id'].toString());
-        await _storage.write(key: 'user_name', value: response.data['user']['name']);
-        await _storage.write(key: 'user_email', value: response.data['user']['email']);
-      }
-
-      return response.data;
-    } on DioException catch (e) {
-      throw ApiError.fromDio(e);
-    } catch (e) {
-      throw ApiError(message: 'Unexpected error: ${e.toString()}');
-    }
-  }
-
-  Future<Map<String, dynamic>> register({
+  Future<User> register({
     required String name,
     required String email,
     required String password,
+    required String passwordConfirmation,
     String? phone,
     String? farmName,
     String? location,
   }) async {
-    try {
-      final response = await _api.post('/register', data: {
-        'name': name,
-        'email': email,
-        'password': password,
-        if (phone != null && phone.isNotEmpty) 'phone': phone,
-        if (farmName != null && farmName.isNotEmpty) 'farm_name': farmName,
-        if (location != null && location.isNotEmpty) 'location': location,
-      });
+    final response = await _api.post('/register', data: {
+      'name': name,
+      'email': email,
+      'password': password,
+      'password_confirmation': passwordConfirmation,
+      'phone': phone,
+      'farm_name': farmName,
+      'location': location,
+    });
 
-      if (response.data['token'] != null) {
-        await _storage.write(key: 'auth_token', value: response.data['token']);
-        await _storage.write(key: 'user_id', value: response.data['user']['id'].toString());
-        await _storage.write(key: 'user_name', value: response.data['user']['name']);
-        await _storage.write(key: 'user_email', value: response.data['user']['email']);
-      }
+    await _tokenManager.saveTokens(
+      accessToken: response.data['access_token'],
+      refreshToken: response.data['refresh_token'],
+      expiresAt: response.data['expires_at'],
+    );
 
-      return response.data;
-    } on DioException catch (e) {
-      throw ApiError.fromDio(e);
-    } catch (e) {
-      throw ApiError(message: 'Unexpected error: ${e.toString()}');
-    }
+    await _storage.write(
+        key: 'user_id', value: response.data['user']['id'].toString());
+    await _storage.write(
+        key: 'user_name', value: response.data['user']['name']);
+    await _storage.write(
+        key: 'user_email', value: response.data['user']['email']);
+
+    return User.fromMap(response.data['user']);
+  }
+
+  Future<User> login({required String email, required String password}) async {
+    final response = await _api.post('/login', data: {
+      'email': email,
+      'password': password,
+    });
+
+    await _tokenManager.saveTokens(
+      accessToken: response.data['access_token'],
+      refreshToken: response.data['refresh_token'],
+      expiresAt: response.data['expires_at'],
+    );
+
+    await _storage.write(
+        key: 'user_id', value: response.data['user']['id'].toString());
+    await _storage.write(
+        key: 'user_name', value: response.data['user']['name']);
+    await _storage.write(
+        key: 'user_email', value: response.data['user']['email']);
+
+    _logger.i('User logged in successfully');
+
+    return User.fromMap(response.data['user']);
   }
 
   Future<void> logout() async {
     try {
       await _api.post('/logout');
     } catch (e) {
-      // Log error but don't throw - still clear local data
-      print('Logout error: $e');
+      _logger.w('Logout API call failed', error: e);
     } finally {
-      await _storage.deleteAll();
+      await _tokenManager.clearTokens();
+      await _storage.delete(key: 'user_id');
+      await _storage.delete(key: 'user_name');
+      await _storage.delete(key: 'user_email');
+      _logger.i('User logged out');
     }
   }
 
-  Future<String?> getToken() async {
-    return await _storage.read(key: 'auth_token');
+  Future<User> getCurrentUser() async {
+    final response = await _api.get('/user');
+    return User.fromMap(response.data);
+  }
+
+  Future<void> forgotPassword(String email) async {
+    await _api.post('/forgot-password', data: {'email': email});
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String token,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    await _api.post('/reset-password', data: {
+      'email': email,
+      'token': token,
+      'password': password,
+      'password_confirmation': passwordConfirmation,
+    });
   }
 }

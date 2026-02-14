@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/entities/animal_entity.dart';
 
 class AnimalFeedCalculatorScreen extends StatefulWidget {
-  final List<Map<String, dynamic>> animals;
+  final List<AnimalEntity> animals;
   final Map<String, Map<String, double>> feedRequirements;
 
   const AnimalFeedCalculatorScreen({
@@ -12,10 +15,12 @@ class AnimalFeedCalculatorScreen extends StatefulWidget {
   });
 
   @override
-  State<AnimalFeedCalculatorScreen> createState() => _AnimalFeedCalculatorScreenState();
+  State<AnimalFeedCalculatorScreen> createState() =>
+      _AnimalFeedCalculatorScreenState();
 }
 
-class _AnimalFeedCalculatorScreenState extends State<AnimalFeedCalculatorScreen> {
+class _AnimalFeedCalculatorScreenState
+    extends State<AnimalFeedCalculatorScreen> {
   final _formKey = GlobalKey<FormState>();
 
   String _selectedAnimalType = 'Dairy Cow';
@@ -43,10 +48,10 @@ class _AnimalFeedCalculatorScreenState extends State<AnimalFeedCalculatorScreen>
   // Animal requirements with proper double values
   final Map<String, Map<String, double>> _animalRequirements = {
     'Dairy Cow': {
-      'maintenance': 2.5,  // % of body weight for maintenance
-      'production': 0.3,   // additional % per liter of milk
-      'pregnancy': 0.2,    // additional % in last trimester
-      'growth': 0.15,      // additional % for growing animals
+      'maintenance': 2.5, // % of body weight for maintenance
+      'production': 0.3, // additional % per liter of milk
+      'pregnancy': 0.2, // additional % in last trimester
+      'growth': 0.15, // additional % for growing animals
     },
     'Beef Cattle': {
       'maintenance': 2.2,
@@ -103,7 +108,9 @@ class _AnimalFeedCalculatorScreenState extends State<AnimalFeedCalculatorScreen>
     if (_selectedAnimalType == 'Layers' || _selectedAnimalType == 'Broilers') {
       // For poultry: fixed amount per bird
       baseRequirement = requirements['maintenance']!;
-      if (_productionStage == 'Growing' || _productionStage == 'Starter' || _productionStage == 'Grower') {
+      if (_productionStage == 'Growing' ||
+          _productionStage == 'Starter' ||
+          _productionStage == 'Grower') {
         baseRequirement += requirements['growth']!;
       }
       _dailyFeedRequired = baseRequirement * _numberOfAnimals;
@@ -112,7 +119,8 @@ class _AnimalFeedCalculatorScreenState extends State<AnimalFeedCalculatorScreen>
       baseRequirement = (_animalWeight * requirements['maintenance']! / 100);
 
       // Add production requirements
-      if (_productionStage == 'Lactating' && _selectedAnimalType == 'Dairy Cow') {
+      if (_productionStage == 'Lactating' &&
+          _selectedAnimalType == 'Dairy Cow') {
         baseRequirement += (_milkProduction * requirements['production']!);
       }
 
@@ -138,13 +146,15 @@ class _AnimalFeedCalculatorScreenState extends State<AnimalFeedCalculatorScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final requirements = _animalRequirements[_selectedAnimalType]!;
-    final availableStages = _productionStages[_selectedAnimalType] ?? ['General'];
+    final availableStages =
+        _productionStages[_selectedAnimalType] ?? ['General'];
 
-    return Scaffold(
+    return AppScaffold(
       backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: const Text('Feed Calculator'),
+      includeDrawer: false,
+      appBar: ModernAppBar(
+        title: 'Feed Calculator',
+        variant: AppBarVariant.standard,
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
@@ -227,7 +237,8 @@ class _AnimalFeedCalculatorScreenState extends State<AnimalFeedCalculatorScreen>
                       const SizedBox(height: 16),
 
                       // Animal Weight (for livestock)
-                      if (_selectedAnimalType != 'Layers' && _selectedAnimalType != 'Broilers')
+                      if (_selectedAnimalType != 'Layers' &&
+                          _selectedAnimalType != 'Broilers')
                         TextFormField(
                           initialValue: _animalWeight.toStringAsFixed(0),
                           decoration: const InputDecoration(
@@ -267,7 +278,8 @@ class _AnimalFeedCalculatorScreenState extends State<AnimalFeedCalculatorScreen>
                       const SizedBox(height: 16),
 
                       // Milk Production (for dairy cows)
-                      if (_selectedAnimalType == 'Dairy Cow' && _productionStage == 'Lactating')
+                      if (_selectedAnimalType == 'Dairy Cow' &&
+                          _productionStage == 'Lactating')
                         TextFormField(
                           initialValue: _milkProduction.toStringAsFixed(1),
                           decoration: const InputDecoration(
@@ -380,7 +392,8 @@ class _AnimalFeedCalculatorScreenState extends State<AnimalFeedCalculatorScreen>
                         children: _getRecommendedFeeds().map((feed) {
                           return Chip(
                             label: Text(feed),
-                            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                            backgroundColor: theme.colorScheme.primary
+                                .withValues(alpha: 0.1),
                             labelStyle: TextStyle(
                               color: theme.colorScheme.primary,
                               fontSize: 12,
@@ -505,7 +518,7 @@ class _AnimalFeedCalculatorScreenState extends State<AnimalFeedCalculatorScreen>
       SnackBar(content: Text('Calculation saved for $_selectedAnimalType')),
     );
 
-    print('Saved calculation: $calculation');
+    debugPrint('Saved calculation: $calculation');
   }
 
   void _shareResults() {
@@ -545,7 +558,9 @@ class _ResultRow extends StatelessWidget {
             value,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
-              color: isHighlighted ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+              color: isHighlighted
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface,
               fontSize: isHighlighted ? 16 : 14,
             ),
           ),

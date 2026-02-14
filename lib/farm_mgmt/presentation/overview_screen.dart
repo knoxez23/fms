@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/reusable_widgets.dart';
-import 'package:pamoja_twalima/farm_mgmt/infrastructure/factory.dart';
-
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pamoja_twalima/core/di/injection.dart';
+import 'package:pamoja_twalima/farm_mgmt/domain/entities/overview_summary_entity.dart';
+import 'package:pamoja_twalima/farm_mgmt/presentation/bloc/overview/overview_bloc.dart';
 
 class OverviewScreen extends StatefulWidget {
   const OverviewScreen({super.key});
@@ -16,18 +18,18 @@ class _OverviewScreenState extends State<OverviewScreen>
   @override
   bool get wantKeepAlive => true;
 
-  Map<String, dynamic>? farmSummary;
-
-  final List<Map<String, dynamic>> recentTasks = [
-    {"title": "Irrigate maize field", "due": "Today", "done": false},
-    {"title": "Vaccinate chickens", "due": "Tomorrow", "done": false},
-    {"title": "Harvest tomatoes", "due": "In 2 days", "done": false},
+  final List<_OverviewTaskItem> recentTasks = const [
+    _OverviewTaskItem(title: "Irrigate maize field", due: "Today", done: false),
+    _OverviewTaskItem(
+        title: "Vaccinate chickens", due: "Tomorrow", done: false),
+    _OverviewTaskItem(title: "Harvest tomatoes", due: "In 2 days", done: false),
   ];
 
-  final List<Map<String, dynamic>> recentExpenses = [
-    {"item": "Fertilizer purchase", "amount": 1500, "date": "2 days ago"},
-    {"item": "Animal feed", "amount": 800, "date": "1 week ago"},
-    {"item": "Seeds", "amount": 1200, "date": "2 weeks ago"},
+  final List<_OverviewExpenseItem> recentExpenses = const [
+    _OverviewExpenseItem(
+        item: "Fertilizer purchase", amount: 1500, date: "2 days ago"),
+    _OverviewExpenseItem(item: "Animal feed", amount: 800, date: "1 week ago"),
+    _OverviewExpenseItem(item: "Seeds", amount: 1200, date: "2 weeks ago"),
   ];
 
   @override
@@ -35,23 +37,48 @@ class _OverviewScreenState extends State<OverviewScreen>
     super.build(context);
     final theme = Theme.of(context);
 
-    return FutureBuilder<Map<String, dynamic>>(
-      future: FarmMgmtFactory.createGetOverview().execute(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        farmSummary = snapshot.data ?? {};
-
-        return _buildContent(context, theme);
-      },
+    return BlocProvider(
+      create: (_) => getIt<OverviewBloc>()..add(const OverviewEvent.load()),
+      child: BlocBuilder<OverviewBloc, OverviewState>(
+        builder: (context, state) {
+          return state.when(
+            initial: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            loaded: (summary) {
+              return _buildContent(context, theme, summary);
+            },
+            error: (message) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline,
+                        size: 64, color: Colors.red.shade300),
+                    const SizedBox(height: 16),
+                    Text(message),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () => context
+                          .read<OverviewBloc>()
+                          .add(const OverviewEvent.load()),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildContent(BuildContext context, ThemeData theme) {
-    final fs = farmSummary ?? {};
-
+  Widget _buildContent(
+    BuildContext context,
+    ThemeData theme,
+    OverviewSummaryEntity summary,
+  ) {
     return CustomScrollView(
       slivers: [
         // Summary Cards
@@ -63,7 +90,7 @@ class _OverviewScreenState extends State<OverviewScreen>
                 Expanded(
                   child: _SummaryCard(
                     title: "Crops",
-                    value: "${fs['totalCrops']}",
+                    value: "${summary.totalCrops}",
                     icon: Icons.agriculture,
                     color: Colors.green,
                   ),
@@ -72,7 +99,7 @@ class _OverviewScreenState extends State<OverviewScreen>
                 Expanded(
                   child: _SummaryCard(
                     title: "Animals",
-                    value: "${fs['totalAnimals']}",
+                    value: "${summary.totalAnimals}",
                     icon: Icons.pets,
                     color: Colors.orange,
                   ),
@@ -81,7 +108,7 @@ class _OverviewScreenState extends State<OverviewScreen>
                 Expanded(
                   child: _SummaryCard(
                     title: "Sales",
-                    value: "KSh ${fs['balance']}",
+                    value: "KSh ${summary.balance}",
                     icon: Icons.attach_money,
                     color: Colors.blue,
                   ),
@@ -99,7 +126,7 @@ class _OverviewScreenState extends State<OverviewScreen>
               children: [
                 Expanded(
                   child: StatCard(
-                    count: fs['pendingTasks'],
+                    count: summary.pendingTasks,
                     label: "Pending Tasks",
                     color: Colors.orange,
                     icon: Icons.task_alt,
@@ -108,7 +135,7 @@ class _OverviewScreenState extends State<OverviewScreen>
                 const SizedBox(width: 12),
                 Expanded(
                   child: StatCard(
-                    count: fs['lowStockItems'],
+                    count: summary.lowStockItems,
                     label: "Low Stock",
                     color: Colors.red,
                     icon: Icons.warning_amber,
@@ -190,17 +217,17 @@ class _OverviewScreenState extends State<OverviewScreen>
                   child: ListItemCard(
                     icon: Icons.task_alt,
                     iconColor: AppColors.primary,
-                    title: task['title'],
-                    subtitle: "Due: ${task['due']}",
+                    title: task.title,
+                    subtitle: "Due: ${task.due}",
                     badges: [
-                      if (!task['done'])
+                      if (!task.done)
                         StatusBadge(
                           label: 'Pending',
                           color: Colors.orange,
                         ),
                     ],
                     trailing: Checkbox(
-                      value: task['done'],
+                      value: task.done,
                       onChanged: (value) {},
                       activeColor: AppColors.primary,
                     ),
@@ -234,14 +261,14 @@ class _OverviewScreenState extends State<OverviewScreen>
                   child: ListItemCard(
                     icon: Icons.money_off,
                     iconColor: Colors.red,
-                    title: expense['item'],
-                    subtitle: expense['date'],
+                    title: expense.item,
+                    subtitle: expense.date,
                     trailing: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          "KSh ${expense['amount']}",
+                          "KSh ${expense.amount}",
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: Colors.red,
@@ -262,6 +289,30 @@ class _OverviewScreenState extends State<OverviewScreen>
       ],
     );
   }
+}
+
+class _OverviewTaskItem {
+  final String title;
+  final String due;
+  final bool done;
+
+  const _OverviewTaskItem({
+    required this.title,
+    required this.due,
+    required this.done,
+  });
+}
+
+class _OverviewExpenseItem {
+  final String item;
+  final int amount;
+  final String date;
+
+  const _OverviewExpenseItem({
+    required this.item,
+    required this.amount,
+    required this.date,
+  });
 }
 
 // Custom Summary Card (different from StatCard - shows value at bottom)
