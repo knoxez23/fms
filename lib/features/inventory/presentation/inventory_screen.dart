@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 
 import 'add_inventory_screen.dart';
 import 'inventory_conflict_center_screen.dart';
@@ -76,10 +77,10 @@ class _InventoryViewState extends State<InventoryView>
     setState(() => _isSyncing = true);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Row(
           children: [
-            SizedBox(
+            const SizedBox(
               width: 16,
               height: 16,
               child: CircularProgressIndicator(
@@ -87,11 +88,11 @@ class _InventoryViewState extends State<InventoryView>
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
               ),
             ),
-            SizedBox(width: 12),
-            Text('Syncing from server...'),
+            const SizedBox(width: 12),
+            Text(context.tr('syncing_from_server')),
           ],
         ),
-        duration: Duration(seconds: 2),
+        duration: const Duration(seconds: 2),
       ),
     );
 
@@ -107,7 +108,9 @@ class _InventoryViewState extends State<InventoryView>
             children: [
               const Icon(Icons.error_outline, color: Colors.white),
               const SizedBox(width: 12),
-              Expanded(child: Text('Sync failed: ${e.toString()}')),
+              Expanded(
+                child: Text('${context.tr('sync_failed')}: ${e.toString()}'),
+              ),
             ],
           ),
           backgroundColor: Colors.red,
@@ -164,8 +167,8 @@ class _InventoryViewState extends State<InventoryView>
           InventoryEvent.resolveConflictKeepLocal(id: int.parse(item.id!)),
         );
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Local version kept. Sync queued.'),
+      SnackBar(
+        content: Text(context.tr('local_version_kept')),
         backgroundColor: Colors.orange,
       ),
     );
@@ -177,8 +180,8 @@ class _InventoryViewState extends State<InventoryView>
           InventoryEvent.resolveConflictUseServer(id: int.parse(item.id!)),
         );
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Server version applied.'),
+      SnackBar(
+        content: Text(context.tr('server_version_applied')),
         backgroundColor: Colors.blue,
       ),
     );
@@ -231,7 +234,7 @@ class _InventoryViewState extends State<InventoryView>
                     children: [
                       const Icon(Icons.check_circle, color: Colors.white),
                       const SizedBox(width: 12),
-                      Text('Synced ${items.length} items from server'),
+                      Text('${context.tr('synced_items_from_server')}: ${items.length}'),
                     ],
                   ),
                   backgroundColor: Colors.green,
@@ -288,7 +291,7 @@ class _InventoryViewState extends State<InventoryView>
           backgroundColor: theme.colorScheme.surface,
           appBar: ModernAppBar(
             variant: AppBarVariant.home,
-            title: 'Inventory',
+            title: context.tr('inventory'),
             showSyncButton: true,
             isSyncing: _isSyncing,
             onSyncTap: _syncFromServer,

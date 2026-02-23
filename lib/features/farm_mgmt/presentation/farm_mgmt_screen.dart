@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pamoja_twalima/core/di/injection.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/overview_screen.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/crops/crops_screen.dart';
@@ -31,13 +32,6 @@ class _FarmMgmtView extends StatelessWidget {
     TasksScreen(),
   ];
 
-  static const List<String> _categories = [
-    "Overview",
-    "Crops",
-    "Animals",
-    "Tasks",
-  ];
-
   static const List<IconData> _icons = [
     Icons.dashboard,
     Icons.agriculture,
@@ -48,13 +42,19 @@ class _FarmMgmtView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final categories = <String>[
+      context.tr('farm_overview'),
+      context.tr('farm_crops'),
+      context.tr('farm_animals'),
+      context.tr('farm_tasks'),
+    ];
 
     return BlocBuilder<FarmNavCubit, FarmNavState>(
       builder: (context, state) {
         return AppScaffold(
           backgroundColor: theme.colorScheme.surface,
-          appBar: const ModernAppBar(
-            title: 'Farm Management',
+          appBar: ModernAppBar(
+            title: context.tr('farm_management'),
             variant: AppBarVariant.home,
           ),
           body: Column(
@@ -65,7 +65,7 @@ class _FarmMgmtView extends StatelessWidget {
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: List.generate(_categories.length, (index) {
+                    children: List.generate(categories.length, (index) {
                       final isSelected = index == state.index;
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
@@ -82,7 +82,7 @@ class _FarmMgmtView extends StatelessWidget {
                                         .withValues(alpha: 0.6),
                               ),
                               const SizedBox(width: 6),
-                              Text(_categories[index]),
+                              Text(categories[index]),
                             ],
                           ),
                           selected: isSelected,

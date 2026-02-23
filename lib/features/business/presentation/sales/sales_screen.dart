@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/reusable_widgets.dart';
 import 'package:pamoja_twalima/features/business/presentation/contacts/contacts_screen.dart';
@@ -98,8 +99,8 @@ class _SalesViewState extends State<SalesView> {
 
         return AppScaffold(
           backgroundColor: theme.colorScheme.surface,
-          appBar: const ModernAppBar(
-            title: 'Sales',
+          appBar: ModernAppBar(
+            title: context.tr('sales'),
             variant: AppBarVariant.home,
             actions: [
               _OpenContactsButton(),
@@ -111,7 +112,7 @@ class _SalesViewState extends State<SalesView> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                   child: SectionHeader(
-                    title: 'Performance',
+                    title: context.tr('performance'),
                     icon: Icons.analytics,
                   ),
                 ),
@@ -125,21 +126,21 @@ class _SalesViewState extends State<SalesView> {
                     children: [
                       _RevenueCard(
                         amount: totalRevenue,
-                        label: 'Total Revenue',
+                        label: context.tr('total_revenue'),
                         color: Colors.green,
                         theme: theme,
                         icon: Icons.account_balance,
                       ),
                       _RevenueCard(
                         amount: pendingAmount,
-                        label: 'Pending',
+                        label: context.tr('pending'),
                         color: Colors.orange,
                         theme: theme,
                         icon: Icons.pending_actions,
                       ),
                       _RevenueCard(
                         amount: sales.length,
-                        label: 'Transactions',
+                        label: context.tr('transactions'),
                         color: theme.colorScheme.primary,
                         theme: theme,
                         icon: Icons.receipt_long,
@@ -188,21 +189,21 @@ class _SalesViewState extends State<SalesView> {
                       _QuickStat(
                         icon: Icons.receipt,
                         value: periodSales.length.toString(),
-                        label: 'Sales',
+                        label: context.tr('sales'),
                         theme: theme,
                       ),
                       const SizedBox(width: 12),
                       _QuickStat(
                         icon: Icons.check_circle_outline,
                         value: paidSales.toString(),
-                        label: 'Paid',
+                        label: context.tr('paid'),
                         theme: theme,
                       ),
                       const SizedBox(width: 12),
                       _QuickStat(
                         icon: Icons.hourglass_empty,
                         value: pendingSales.toString(),
-                        label: 'Pending',
+                        label: context.tr('pending'),
                         theme: theme,
                       ),
                     ],
@@ -228,7 +229,7 @@ class _SalesViewState extends State<SalesView> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Average order value',
+                            context.tr('average_order_value'),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurface
                                   .withValues(alpha: 0.7),
