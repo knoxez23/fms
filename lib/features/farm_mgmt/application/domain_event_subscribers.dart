@@ -66,6 +66,19 @@ class DomainEventSubscribers {
     );
 
     _subscriptions.add(
+      _eventBus.on<AnimalHealthAlert>().listen((event) {
+        _ensureTaskExists(
+          title: 'Health check: ${event.animalName}',
+          description:
+              'Animal status marked as ${event.status}. Schedule vet review and monitor feed/water intake.',
+          dueDate: DateTime.now().add(const Duration(hours: 12)),
+          sourceEventType: 'AnimalHealthAlert',
+          sourceEventId: '${event.animalId}:${event.status}',
+        );
+      }),
+    );
+
+    _subscriptions.add(
       _eventBus.on<TaskCompleted>().listen((event) {
         _logger.i('Task completed event received: ${event.title}');
       }),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:pamoja_twalima/core/di/injection.dart';
+import 'package:pamoja_twalima/core/domain/events/domain_event_bus.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/animations/animated_card.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
@@ -9,6 +10,7 @@ import 'package:pamoja_twalima/data/database/database_helper.dart';
 import 'package:pamoja_twalima/data/models/animal.dart';
 import 'package:pamoja_twalima/data/models/animal_health_record.dart';
 import 'package:pamoja_twalima/data/repositories/sync_data.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/events/farm_domain_events.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/bloc/animals/animals_bloc.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/animal_entity.dart';
 import 'add_animal_screen.dart';
@@ -795,6 +797,16 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
         userId: current.userId,
       );
       await SyncData().updateAnimal(updated);
+
+      if (status == 'At Risk' || status == 'Critical') {
+        getIt<DomainEventBus>().publish(
+          AnimalHealthAlert(
+            animalId: animal.id ?? animalId.toString(),
+            animalName: animal.name.value,
+            status: status,
+          ),
+        );
+      }
 
       if (!mounted) return;
       setState(() {});

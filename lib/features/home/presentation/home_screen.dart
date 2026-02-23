@@ -263,7 +263,11 @@ class _HomeViewState extends State<HomeView>
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _FinancialOverview(summary: summary, theme: theme),
+                      child: _FinancialOverview(
+                        summary: summary,
+                        theme: theme,
+                        onOpenBusiness: () => widget.onNavigateTab?.call(3),
+                      ),
                     ),
                   ),
 
@@ -279,7 +283,12 @@ class _HomeViewState extends State<HomeView>
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _CriticalAlerts(theme: theme, summary: summary),
+                      child: _CriticalAlerts(
+                        theme: theme,
+                        summary: summary,
+                        onOpenInventory: () => widget.onNavigateTab?.call(2),
+                        onOpenTasks: () => widget.onNavigateTab?.call(1),
+                      ),
                     ),
                   ),
 
@@ -732,8 +741,13 @@ class _QuickStatCard extends StatelessWidget {
 class _FinancialOverview extends StatelessWidget {
   final Map<String, dynamic> summary;
   final ThemeData theme;
+  final VoidCallback onOpenBusiness;
 
-  const _FinancialOverview({required this.summary, required this.theme});
+  const _FinancialOverview({
+    required this.summary,
+    required this.theme,
+    required this.onOpenBusiness,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -759,9 +773,7 @@ class _FinancialOverview extends StatelessWidget {
                 ),
               ),
               TextButton.icon(
-                onPressed: () {
-                  // Navigate to full financial report
-                },
+                onPressed: onOpenBusiness,
                 icon: const Icon(Icons.bar_chart, size: 18),
                 label: const Text('View All'),
                 style: TextButton.styleFrom(
@@ -777,7 +789,8 @@ class _FinancialOverview extends StatelessWidget {
               Expanded(
                 child: _FinancialMetric(
                   label: "Today's Sales",
-                  value: 'KSh ${summary['salesToday'] ?? 0}',
+                  value:
+                      'KSh ${((summary['salesToday'] as num?) ?? 0).toStringAsFixed(0)}',
                   icon: Icons.trending_up,
                   color: Colors.green,
                   theme: theme,
@@ -787,7 +800,8 @@ class _FinancialOverview extends StatelessWidget {
               Expanded(
                 child: _FinancialMetric(
                   label: 'This Month',
-                  value: 'KSh ${summary['monthlySales'] ?? 0}',
+                  value:
+                      'KSh ${((summary['monthlySales'] as num?) ?? 0).toStringAsFixed(0)}',
                   icon: Icons.calendar_today,
                   color: Colors.blue,
                   theme: theme,
@@ -799,7 +813,7 @@ class _FinancialOverview extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.purple.withValues(alpha: 0.1),
+              color: Colors.deepPurple.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -807,10 +821,10 @@ class _FinancialOverview extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.show_chart, color: Colors.purple, size: 20),
+                    const Icon(Icons.analytics, color: Colors.deepPurple, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'Profit Margin',
+                      "Today's Production Value",
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.7),
@@ -819,13 +833,22 @@ class _FinancialOverview extends StatelessWidget {
                   ],
                 ),
                 Text(
-                  '32%',
+                  'KSh ${((summary['productionValueToday'] as num?) ?? 0).toStringAsFixed(0)}',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.purple,
+                    color: Colors.deepPurple,
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Production: '
+            '${((summary['milkToday'] as num?) ?? 0).toStringAsFixed(1)}L milk • '
+            '${((summary['eggsToday'] as num?) ?? 0).toStringAsFixed(0)} eggs',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
         ],
@@ -885,27 +908,42 @@ class _FinancialMetric extends StatelessWidget {
 class _CriticalAlerts extends StatelessWidget {
   final ThemeData theme;
   final Map<String, dynamic> summary;
+  final VoidCallback onOpenInventory;
+  final VoidCallback onOpenTasks;
 
-  const _CriticalAlerts({required this.theme, required this.summary});
+  const _CriticalAlerts({
+    required this.theme,
+    required this.summary,
+    required this.onOpenInventory,
+    required this.onOpenTasks,
+  });
 
   @override
   Widget build(BuildContext context) {
     final lowStock = (summary['lowStockItems'] as num?)?.toInt() ?? 0;
     final pendingTasks = (summary['pendingTasks'] as num?)?.toInt() ?? 0;
-    final alerts = <({IconData icon, String title, String subtitle, Color color})>[
+    final alerts = <({
+      IconData icon,
+      String title,
+      String subtitle,
+      Color color,
+      VoidCallback onTap,
+    })>[
       if (lowStock > 0)
         (
           icon: Icons.inventory_2_outlined,
           title: 'Low Stock Alert',
           subtitle: '$lowStock inventory item(s) below minimum stock',
-          color: Colors.orange
+          color: Colors.orange,
+          onTap: onOpenInventory,
         ),
       if (pendingTasks > 0)
         (
           icon: Icons.schedule_rounded,
           title: 'Pending Tasks',
           subtitle: '$pendingTasks farm task(s) still pending',
-          color: Colors.deepOrange
+          color: Colors.deepOrange,
+          onTap: onOpenTasks,
         ),
     ];
 
@@ -954,6 +992,7 @@ class _CriticalAlerts extends StatelessWidget {
               subtitle: 'Everything looks good right now',
               color: Colors.green,
               theme: theme,
+              onTap: onOpenTasks,
             )
           else
             ...alerts.map(
@@ -965,6 +1004,7 @@ class _CriticalAlerts extends StatelessWidget {
                     subtitle: alert.subtitle,
                     color: alert.color,
                     theme: theme,
+                    onTap: alert.onTap,
                   ),
                   const Divider(height: 20),
                 ],
@@ -982,6 +1022,7 @@ class _AlertItem extends StatelessWidget {
   final String subtitle;
   final Color color;
   final ThemeData theme;
+  final VoidCallback onTap;
 
   const _AlertItem({
     required this.icon,
@@ -989,46 +1030,54 @@ class _AlertItem extends StatelessWidget {
     required this.subtitle,
     required this.color,
     required this.theme,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
               ),
-              Text(
-                subtitle,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 14,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+            ),
+          ],
         ),
-        Icon(
-          Icons.arrow_forward_ios,
-          size: 14,
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-        ),
-      ],
+      ),
     );
   }
 }

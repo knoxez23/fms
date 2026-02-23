@@ -58,6 +58,22 @@ class LocalData {
     );
     final lowStockItems = Sqflite.firstIntValue(lowStockResult) ?? 0;
 
+    final productionTodayRows = await db.rawQuery(
+      '''
+      SELECT
+        SUM(CASE WHEN LOWER(COALESCE(production_type, '')) = 'milk' THEN COALESCE(quantity, 0) ELSE 0 END) AS milk_total,
+        SUM(CASE WHEN LOWER(COALESCE(production_type, '')) = 'eggs' THEN COALESCE(quantity, 0) ELSE 0 END) AS eggs_total
+      FROM production_logs
+      WHERE DATE(date_produced) = ?
+      ''',
+      [today],
+    );
+    final milkToday =
+        (productionTodayRows.first['milk_total'] as num?)?.toDouble() ?? 0.0;
+    final eggsToday =
+        (productionTodayRows.first['eggs_total'] as num?)?.toDouble() ?? 0.0;
+    final productionValueToday = (milkToday * 55.0) + (eggsToday * 15.0);
+
     return {
       "crops": cropCount,
       "livestock": animalCount,
@@ -66,6 +82,9 @@ class LocalData {
       "salesToday": salesToday,
       "monthlySales": monthlySales,
       "lowStockItems": lowStockItems,
+      "milkToday": milkToday,
+      "eggsToday": eggsToday,
+      "productionValueToday": productionValueToday,
     };
   }
 

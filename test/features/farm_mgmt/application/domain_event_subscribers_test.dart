@@ -102,4 +102,29 @@ void main() {
         repo.items.where((t) => t.title.value == 'Harvest Tomatoes').toList();
     expect(matches, hasLength(1));
   });
+
+  test('creates health follow-up task for animal health alerts', () async {
+    final bus = DomainEventBus();
+    final repo = _InMemoryTaskRepository();
+    DomainEventSubscribers(bus, repo).start();
+
+    bus.publish(
+      AnimalHealthAlert(
+        animalId: 'animal-7',
+        animalName: 'Bella',
+        status: 'Critical',
+      ),
+    );
+
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    expect(
+      repo.items.any((t) => t.title.value == 'Health check: Bella'),
+      isTrue,
+    );
+    expect(
+      repo.items.any((t) => t.sourceEventType == 'AnimalHealthAlert'),
+      isTrue,
+    );
+  });
 }

@@ -33,3 +33,15 @@ class TaskCompleted extends DomainEvent {
     required this.title,
   });
 }
+
+class AnimalHealthAlert extends DomainEvent {
+  final String animalId;
+  final String animalName;
+  final String status;
+
+  AnimalHealthAlert({
+    required this.animalId,
+    required this.animalName,
+    required this.status,
+  });
+}
