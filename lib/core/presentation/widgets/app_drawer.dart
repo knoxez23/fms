@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/core/presentation/settings/app_settings_controller.dart';
 import '../../../features/auth/presentation/bloc/auth/auth_bloc.dart';
 
@@ -211,7 +212,7 @@ class _AppDrawerState extends State<AppDrawer> {
                   children: [
                     _DrawerItem(
                       icon: Icons.person_outline,
-                      title: 'Profile',
+                      title: context.tr('drawer_profile'),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.pushNamed(context, '/profile');
@@ -219,7 +220,7 @@ class _AppDrawerState extends State<AppDrawer> {
                     ),
                     _DrawerItem(
                       icon: Icons.settings_outlined,
-                      title: 'Settings',
+                      title: context.tr('drawer_settings'),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.pushNamed(context, '/profile');
@@ -227,7 +228,7 @@ class _AppDrawerState extends State<AppDrawer> {
                     ),
                     _DrawerItem(
                       icon: Icons.help_outline,
-                      title: 'Help & Support',
+                      title: context.tr('drawer_help'),
                       onTap: () {
                         Navigator.pop(context);
                         _showHelpDialog();
@@ -235,7 +236,7 @@ class _AppDrawerState extends State<AppDrawer> {
                     ),
                     _DrawerItem(
                       icon: Icons.info_outline,
-                      title: 'About',
+                      title: context.tr('drawer_about'),
                       onTap: () {
                         Navigator.pop(context);
                         _showAboutDialog();
@@ -244,7 +245,7 @@ class _AppDrawerState extends State<AppDrawer> {
                     const Divider(height: 32),
                     _DrawerItem(
                       icon: Icons.dark_mode_outlined,
-                      title: 'Dark Mode',
+                      title: context.tr('drawer_dark_mode'),
                       onTap: () async {
                         await settings.setThemeMode(
                           effectiveDarkMode ? ThemeMode.light : ThemeMode.dark,
@@ -275,8 +276,8 @@ class _AppDrawerState extends State<AppDrawer> {
                           Icons.logout,
                           color: Colors.red,
                         ),
-                        title: const Text(
-                          'Logout',
+                        title: Text(
+                          context.tr('drawer_logout'),
                           style: TextStyle(
                             color: Colors.red,
                             fontWeight: FontWeight.w600,
@@ -309,7 +310,7 @@ class _AppDrawerState extends State<AppDrawer> {
   void _showAboutDialog() {
     showAboutDialog(
       context: context,
-      applicationName: 'Pamoja Twalima',
+      applicationName: context.tr('app_name'),
       applicationVersion: '1.0.0',
       applicationIcon: Icon(
         Icons.agriculture,
@@ -352,9 +353,9 @@ class _AppDrawerState extends State<AppDrawer> {
 
   void _showThemeHint(ThemeMode mode) {
     final label = switch (mode) {
-      ThemeMode.dark => 'Dark mode enabled.',
-      ThemeMode.light => 'Light mode enabled.',
-      ThemeMode.system => 'Theme follows device setting.',
+      ThemeMode.dark => context.tr('theme_dark_enabled'),
+      ThemeMode.light => context.tr('theme_light_enabled'),
+      ThemeMode.system => context.tr('theme_system_enabled'),
     };
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

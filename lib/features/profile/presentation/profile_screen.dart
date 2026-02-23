@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pamoja_twalima/core/di/injection.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/core/presentation/settings/app_settings_controller.dart';
 import 'package:pamoja_twalima/data/services/auth_service.dart';
 import 'package:pamoja_twalima/data/repositories/sync_worker.dart';
@@ -40,8 +41,8 @@ class ProfileScreen extends StatelessWidget {
           );
         },
         child: AppScaffold(
-          appBar: const ModernAppBar(
-            title: 'Profile & Settings',
+          appBar: ModernAppBar(
+            title: context.tr('profile_title'),
             variant: AppBarVariant.home,
           ),
           body: BlocBuilder<ProfileBloc, ProfileState>(
@@ -131,7 +132,10 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  const SectionHeader(title: 'Preferences', icon: Icons.tune),
+                  SectionHeader(
+                    title: context.tr('preferences'),
+                    icon: Icons.tune,
+                  ),
                   const SizedBox(height: 8),
                   Card(
                     elevation: 0,
@@ -162,15 +166,15 @@ class ProfileScreen extends StatelessWidget {
                           },
                           title: Text(
                             isSwahili
-                                ? 'Language: Kiswahili'
-                                : 'Language: English',
+                                ? context.tr('language_swahili')
+                                : context.tr('language_english'),
                           ),
                         ),
                         const Divider(height: 1),
                         ListTile(
                           leading: const Icon(Icons.color_lens),
-                          title: const Text('Theme'),
-                          subtitle: Text(_themeLabel(currentTheme)),
+                          title: Text(context.tr('theme')),
+                          subtitle: Text(_themeLabel(context, currentTheme)),
                           onTap: () => _showThemeSelector(
                             context,
                             currentTheme: currentTheme,
@@ -180,7 +184,10 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const SectionHeader(title: 'Data & Sync', icon: Icons.sync),
+                  SectionHeader(
+                    title: context.tr('data_sync'),
+                    icon: Icons.sync,
+                  ),
                   const SizedBox(height: 8),
                   Card(
                     elevation: 0,
@@ -194,7 +201,7 @@ class ProfileScreen extends StatelessWidget {
                       children: [
                         ListTile(
                           leading: const Icon(Icons.sync),
-                          title: const Text('Sync Now'),
+                          title: Text(context.tr('sync_now')),
                           onTap: () async {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -223,7 +230,7 @@ class ProfileScreen extends StatelessWidget {
                         const Divider(height: 1),
                         ListTile(
                           leading: const Icon(Icons.storage),
-                          title: const Text('Manage Offline Content'),
+                          title: Text(context.tr('manage_offline')),
                           onTap: () {
                             showDialog<void>(
                               context: context,
@@ -246,7 +253,7 @@ class ProfileScreen extends StatelessWidget {
                         const Divider(height: 1),
                         ListTile(
                           leading: const Icon(Icons.history),
-                          title: const Text('Audit Trail'),
+                          title: Text(context.tr('audit_trail')),
                           onTap: () {
                             Navigator.push(
                               context,
@@ -260,7 +267,10 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const SectionHeader(title: 'About', icon: Icons.info),
+                  SectionHeader(
+                    title: context.tr('about_section'),
+                    icon: Icons.info,
+                  ),
                   const SizedBox(height: 8),
                   Card(
                     elevation: 0,
@@ -274,7 +284,7 @@ class ProfileScreen extends StatelessWidget {
                       children: [
                         ListTile(
                           leading: const Icon(Icons.info),
-                          title: const Text('About Pamoja Twalima'),
+                          title: Text(context.tr('about_app')),
                           onTap: () {
                             showAboutDialog(
                               context: context,
@@ -291,7 +301,7 @@ class ProfileScreen extends StatelessWidget {
                         const Divider(height: 1),
                         ListTile(
                           leading: const Icon(Icons.privacy_tip),
-                          title: const Text('Privacy & Terms'),
+                          title: Text(context.tr('privacy_terms')),
                           onTap: () {
                             showDialog<void>(
                               context: context,
@@ -419,7 +429,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  String _themeLabel(ThemeMode mode) {
+  String _themeLabel(BuildContext context, ThemeMode mode) {
     switch (mode) {
       case ThemeMode.light:
         return 'Light';
@@ -482,7 +492,7 @@ class ProfileScreen extends StatelessWidget {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              'Theme updated to ${_themeLabel(selected)}.',
+                              'Theme updated to ${_themeLabel(context, selected)}.',
                             ),
                           ),
                         );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
@@ -87,11 +88,11 @@ class _HomeViewState extends State<HomeView>
           if (_isLoading) {
             return AppScaffold(
               backgroundColor: theme.colorScheme.surface,
-              appBar: HomeAppBar(
-                title: 'Pamoja Twalima',
-                notificationCount: 0,
-                onNotificationTap: () => _openNotifications(const {}),
-              ),
+            appBar: HomeAppBar(
+              title: context.tr('app_name'),
+              notificationCount: 0,
+              onNotificationTap: () => _openNotifications(const {}),
+            ),
               body: const Center(child: CircularProgressIndicator()),
             );
           }
@@ -99,11 +100,11 @@ class _HomeViewState extends State<HomeView>
           if (_hasError) {
             return AppScaffold(
               backgroundColor: theme.colorScheme.surface,
-              appBar: HomeAppBar(
-                title: 'Pamoja Twalima',
-                notificationCount: 1,
-                onNotificationTap: () => _openNotifications(const {'error': true}),
-              ),
+            appBar: HomeAppBar(
+              title: context.tr('app_name'),
+              notificationCount: 1,
+              onNotificationTap: () => _openNotifications(const {'error': true}),
+            ),
               body: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -131,7 +132,7 @@ class _HomeViewState extends State<HomeView>
           return AppScaffold(
             backgroundColor: theme.colorScheme.surface,
             appBar: HomeAppBar(
-              title: 'Pamoja Twalima',
+              title: context.tr('app_name'),
               notificationCount: notificationCount,
               onNotificationTap: () => _openNotifications(summary),
             ),
@@ -168,8 +169,8 @@ class _HomeViewState extends State<HomeView>
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: const SectionHeader(
-                        title: 'Today',
+                      child: SectionHeader(
+                        title: context.tr('home_today'),
                         icon: Icons.calendar_today,
                       ),
                     ),
@@ -190,9 +191,9 @@ class _HomeViewState extends State<HomeView>
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
                   // Quick Stats Grid
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: SectionHeader(
-                      title: 'Farm Snapshot',
+                      title: context.tr('home_farm_snapshot'),
                       icon: Icons.dashboard,
                     ),
                   ),
@@ -254,9 +255,9 @@ class _HomeViewState extends State<HomeView>
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
                   // Financial Overview
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: SectionHeader(
-                      title: 'Financial Overview',
+                      title: context.tr('home_financial'),
                       icon: Icons.payments,
                     ),
                   ),
@@ -274,9 +275,9 @@ class _HomeViewState extends State<HomeView>
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
                   // Critical Alerts
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: SectionHeader(
-                      title: 'Critical Alerts',
+                      title: context.tr('home_alerts'),
                       icon: Icons.warning_amber,
                     ),
                   ),
@@ -295,9 +296,9 @@ class _HomeViewState extends State<HomeView>
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
                   // Quick Actions
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: SectionHeader(
-                      title: 'Quick Actions',
+                      title: context.tr('home_quick_actions'),
                       icon: Icons.bolt,
                     ),
                   ),
@@ -386,13 +387,13 @@ class _HomeViewState extends State<HomeView>
       if (lowStock > 0)
         (
           icon: Icons.inventory_2_outlined,
-          title: 'Low Stock Alert',
+          title: context.tr('low_stock_alert'),
           subtitle: '$lowStock inventory item(s) are below minimum stock.',
         ),
       if (pendingTasks > 0)
         (
           icon: Icons.schedule_outlined,
-          title: 'Pending Tasks',
+          title: context.tr('pending_tasks_alert'),
           subtitle: '$pendingTasks task(s) are still pending completion.',
         ),
       if (weatherMissing)
@@ -418,7 +419,7 @@ class _HomeViewState extends State<HomeView>
                 Row(
                   children: [
                     Text(
-                      'Notifications',
+                      context.tr('notifications'),
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -426,17 +427,17 @@ class _HomeViewState extends State<HomeView>
                     const Spacer(),
                     TextButton(
                       onPressed: () => Navigator.pop(sheetContext),
-                      child: const Text('Close'),
+                      child: Text(context.tr('close')),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 if (items.isEmpty)
-                  const ListTile(
+                  ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.check_circle_outline),
-                    title: Text('No new notifications'),
-                    subtitle: Text('All farm modules are in a healthy state.'),
+                    leading: const Icon(Icons.check_circle_outline),
+                    title: Text(context.tr('no_new_notifications')),
+                    subtitle: Text(context.tr('all_modules_healthy')),
                   )
                 else
                   ...items.map(
@@ -767,7 +768,7 @@ class _FinancialOverview extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Financial Summary',
+                context.tr('financial_summary'),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -775,7 +776,7 @@ class _FinancialOverview extends StatelessWidget {
               TextButton.icon(
                 onPressed: onOpenBusiness,
                 icon: const Icon(Icons.bar_chart, size: 18),
-                label: const Text('View All'),
+                label: Text(context.tr('view_all')),
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -788,7 +789,7 @@ class _FinancialOverview extends StatelessWidget {
             children: [
               Expanded(
                 child: _FinancialMetric(
-                  label: "Today's Sales",
+                  label: context.tr('todays_sales'),
                   value:
                       'KSh ${((summary['salesToday'] as num?) ?? 0).toStringAsFixed(0)}',
                   icon: Icons.trending_up,
@@ -799,7 +800,7 @@ class _FinancialOverview extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: _FinancialMetric(
-                  label: 'This Month',
+                  label: context.tr('this_month'),
                   value:
                       'KSh ${((summary['monthlySales'] as num?) ?? 0).toStringAsFixed(0)}',
                   icon: Icons.calendar_today,
@@ -824,7 +825,7 @@ class _FinancialOverview extends StatelessWidget {
                     const Icon(Icons.analytics, color: Colors.deepPurple, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      "Today's Production Value",
+                      context.tr('production_value_today'),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.7),
@@ -963,7 +964,7 @@ class _CriticalAlerts extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Critical Alerts',
+                context.tr('critical_alerts'),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -988,8 +989,8 @@ class _CriticalAlerts extends StatelessWidget {
           if (alerts.isEmpty)
             _AlertItem(
               icon: Icons.check_circle_outline,
-              title: 'No Critical Alerts',
-              subtitle: 'Everything looks good right now',
+              title: context.tr('no_critical_alerts'),
+              subtitle: context.tr('everything_good'),
               color: Colors.green,
               theme: theme,
               onTap: onOpenTasks,
@@ -1100,7 +1101,7 @@ class _QuickActions extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Quick Actions',
+          context.tr('home_quick_actions'),
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -1115,22 +1116,22 @@ class _QuickActions extends StatelessWidget {
           children: [
             _ActionButton(
               icon: Icons.add_circle_outline,
-              label: 'Add Record',
+              label: context.tr('quick_add_record'),
               onTap: () => onNavigateTab(1),
             ),
             _ActionButton(
               icon: Icons.storefront,
-              label: 'Sell',
+              label: context.tr('quick_sell'),
               onTap: () => onNavigateTab(3),
             ),
             _ActionButton(
               icon: Icons.shopping_cart,
-              label: 'Purchase',
+              label: context.tr('quick_purchase'),
               onTap: () => onNavigateTab(2),
             ),
             _ActionButton(
               icon: Icons.task_alt,
-              label: 'Tasks',
+              label: context.tr('quick_tasks'),
               onTap: onAddTask,
             ),
           ],

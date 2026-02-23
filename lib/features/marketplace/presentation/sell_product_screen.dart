@@ -38,6 +38,7 @@ class _SellProductScreenState extends State<SellProductScreen> {
   bool _isExportReady = false;
   bool _isBulkAvailable = true;
   String _qualityGrade = 'A';
+  String _shelfLife = '';
 
   // Images
   final List<String> _productImages = [];
@@ -636,7 +637,9 @@ class _SellProductScreenState extends State<SellProductScreen> {
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
-                    onChanged: (_) {},
+                    onChanged: (value) {
+                      setState(() => _shelfLife = value.trim());
+                    },
                     decoration: const InputDecoration(
                       labelText: 'Shelf Life',
                       border: OutlineInputBorder(),
@@ -702,6 +705,12 @@ class _SellProductScreenState extends State<SellProductScreen> {
                     value: _selectedCertifications.join(', '),
                     theme: theme,
                   ),
+                  if (_shelfLife.isNotEmpty)
+                    _ReviewItem(
+                      label: 'Shelf Life',
+                      value: _shelfLife,
+                      theme: theme,
+                    ),
                 ],
               ),
             ),

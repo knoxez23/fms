@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/di/injection.dart';
+import 'core/presentation/settings/app_localizations.dart';
 import 'core/services/local_notification_service.dart';
 import 'core/presentation/settings/app_settings_controller.dart';
 import 'features/auth/application/auth_usecases.dart';
@@ -70,6 +71,7 @@ class PamojaApp extends StatelessWidget {
             Locale('sw'),
           ],
           localizationsDelegates: const [
+            AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
