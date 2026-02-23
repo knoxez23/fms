@@ -357,6 +357,7 @@ class _NotificationButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return IconButton(
       icon: Stack(
         clipBehavior: Clip.none,
@@ -380,27 +381,27 @@ class _NotificationButton extends StatelessWidget {
                 ),
           if (count > 0)
             Positioned(
-              right: isTransparent ? 8 : 0,
-              top: isTransparent ? 8 : 0,
+              right: -2,
+              top: -2,
               child: Container(
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.red,
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: Colors.white,
+                    color: theme.scaffoldBackgroundColor,
                     width: 1.5,
                   ),
                 ),
                 constraints: const BoxConstraints(
-                  minWidth: 18,
-                  minHeight: 18,
+                  minWidth: 16,
+                  minHeight: 16,
                 ),
                 child: Text(
                   count > 99 ? '99+' : count.toString(),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 10,
+                    fontSize: 9,
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.center,
@@ -409,12 +410,64 @@ class _NotificationButton extends StatelessWidget {
             ),
         ],
       ),
-      onPressed: onTap ??
-          () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Notifications coming soon!')),
-            );
-          },
+      onPressed: onTap ?? () => _openNotificationsCenter(context, count),
+    );
+  }
+
+  void _openNotificationsCenter(BuildContext context, int count) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        final items = List.generate(
+          count.clamp(0, 8),
+          (index) => 'Farm update #${index + 1}',
+        );
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Notifications',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => Navigator.pop(sheetContext),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (items.isEmpty)
+                  const ListTile(
+                    leading: Icon(Icons.notifications_none),
+                    title: Text('No new notifications'),
+                    subtitle: Text('You are all caught up.'),
+                  )
+                else
+                  ...items.map(
+                    (item) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.notifications_active_outlined),
+                      title: Text(item),
+                      subtitle: const Text('Tap Home/Overview to view details'),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

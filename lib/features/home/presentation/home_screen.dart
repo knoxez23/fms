@@ -89,8 +89,8 @@ class _HomeViewState extends State<HomeView>
               backgroundColor: theme.colorScheme.surface,
               appBar: HomeAppBar(
                 title: 'Pamoja Twalima',
-                notificationCount: 3,
-                onNotificationTap: () {},
+                notificationCount: 0,
+                onNotificationTap: () => _openNotifications(const {}),
               ),
               body: const Center(child: CircularProgressIndicator()),
             );
@@ -101,8 +101,8 @@ class _HomeViewState extends State<HomeView>
               backgroundColor: theme.colorScheme.surface,
               appBar: HomeAppBar(
                 title: 'Pamoja Twalima',
-                notificationCount: 3,
-                onNotificationTap: () {},
+                notificationCount: 1,
+                onNotificationTap: () => _openNotifications(const {'error': true}),
               ),
               body: Center(
                 child: Column(
@@ -126,15 +126,14 @@ class _HomeViewState extends State<HomeView>
 
           final summary = _cachedSummary ?? {};
           final greeting = _getGreeting();
+          final notificationCount = _notificationCount(summary);
 
           return AppScaffold(
             backgroundColor: theme.colorScheme.surface,
             appBar: HomeAppBar(
               title: 'Pamoja Twalima',
-              notificationCount: 3,
-              onNotificationTap: () {
-                // Navigate to notifications
-              },
+              notificationCount: notificationCount,
+              onNotificationTap: () => _openNotifications(summary),
             ),
             body: RefreshIndicator(
               onRefresh: _refresh,
@@ -353,6 +352,98 @@ class _HomeViewState extends State<HomeView>
       'Dec'
     ];
     return '${days[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  int _notificationCount(Map<String, dynamic> summary) {
+    final lowStock = (summary['lowStockItems'] as num?)?.toInt() ?? 0;
+    final pendingTasks = (summary['pendingTasks'] as num?)?.toInt() ?? 0;
+    return (lowStock > 0 ? 1 : 0) +
+        (pendingTasks > 0 ? 1 : 0) +
+        (_weatherSnapshot?.current == null ? 1 : 0);
+  }
+
+  void _openNotifications(Map<String, dynamic> summary) {
+    final lowStock = (summary['lowStockItems'] as num?)?.toInt() ?? 0;
+    final pendingTasks = (summary['pendingTasks'] as num?)?.toInt() ?? 0;
+    final weatherMissing = _weatherSnapshot?.current == null;
+    final hasError = summary['error'] == true;
+    final items = <({IconData icon, String title, String subtitle})>[
+      if (hasError)
+        (
+          icon: Icons.error_outline,
+          title: 'Dashboard Error',
+          subtitle: 'Could not load dashboard data. Pull to refresh.',
+        ),
+      if (lowStock > 0)
+        (
+          icon: Icons.inventory_2_outlined,
+          title: 'Low Stock Alert',
+          subtitle: '$lowStock inventory item(s) are below minimum stock.',
+        ),
+      if (pendingTasks > 0)
+        (
+          icon: Icons.schedule_outlined,
+          title: 'Pending Tasks',
+          subtitle: '$pendingTasks task(s) are still pending completion.',
+        ),
+      if (weatherMissing)
+        (
+          icon: Icons.cloud_off_outlined,
+          title: 'Weather Unavailable',
+          subtitle: 'Could not fetch latest weather snapshot.',
+        ),
+    ];
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Notifications',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => Navigator.pop(sheetContext),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (items.isEmpty)
+                  const ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.check_circle_outline),
+                    title: Text('No new notifications'),
+                    subtitle: Text('All farm modules are in a healthy state.'),
+                  )
+                else
+                  ...items.map(
+                    (item) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(item.icon),
+                      title: Text(item.title),
+                      subtitle: Text(item.subtitle),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 
