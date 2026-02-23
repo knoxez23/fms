@@ -12,8 +12,6 @@ class AddInventoryScreen extends StatefulWidget {
 }
 
 class _AddInventoryScreenState extends State<AddInventoryScreen> {
-  final ContactDirectoryService _contactService =
-      ContactDirectoryService(ApiService());
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
@@ -57,7 +55,8 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
 
   Future<void> _loadSuppliers() async {
     try {
-      final rows = await _contactService.list(ContactType.supplier);
+      final rows =
+          await ContactDirectoryService(ApiService()).list(ContactType.supplier);
       if (!mounted) return;
       setState(() {
         final entries = rows

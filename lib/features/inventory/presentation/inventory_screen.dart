@@ -138,12 +138,14 @@ class _InventoryViewState extends State<InventoryView>
   }
 
   void _showItemDetails(BuildContext context, InventoryItem item) async {
+    final inventoryBloc = context.read<InventoryBloc>();
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _ItemDetailsSheet(
         item: item,
+        inventoryBloc: inventoryBloc,
         onResolveKeepLocal: () => _resolveConflictKeepLocal(item),
         onResolveUseServer: () => _resolveConflictUseServer(item),
       ),
@@ -697,11 +699,13 @@ class _InventoryViewState extends State<InventoryView>
 
 class _ItemDetailsSheet extends StatelessWidget {
   final InventoryItem item;
+  final InventoryBloc inventoryBloc;
   final VoidCallback onResolveKeepLocal;
   final VoidCallback onResolveUseServer;
 
   const _ItemDetailsSheet({
     required this.item,
+    required this.inventoryBloc,
     required this.onResolveKeepLocal,
     required this.onResolveUseServer,
   });
@@ -927,7 +931,6 @@ class _ItemDetailsSheet extends StatelessWidget {
   }
 
   void _showEditDialog(BuildContext context, InventoryItem item) {
-    final inventoryBloc = context.read<InventoryBloc>();
     showDialog(
       context: context,
       builder: (context) => _EditInventoryDialog(
@@ -938,7 +941,6 @@ class _ItemDetailsSheet extends StatelessWidget {
   }
 
   void _showDeleteConfirmation(BuildContext context, InventoryItem item) {
-    final inventoryBloc = context.read<InventoryBloc>();
     showDialog(
       context: context,
       builder: (context) => _DeleteConfirmationDialog(

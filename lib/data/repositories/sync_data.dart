@@ -176,8 +176,23 @@ class SyncData {
           }
           await LocalData.upsertTask(task);
         }
+        final localTasks = await LocalData.getTasks();
+        final serverIds = filtered
+            .where((task) => task.id != null)
+            .map((task) => task.id!)
+            .toSet();
+        final merged = <Task>[...filtered];
 
-        return filtered;
+        // Keep local-only unsynced edits/creates visible in UI while online.
+        for (final local in localTasks) {
+          final isLocalOnly = local.id != null && !serverIds.contains(local.id!);
+          if (local.isSynced == false || isLocalOnly) {
+            final exists = merged.any((task) => task.id == local.id);
+            if (!exists) merged.add(local);
+          }
+        }
+
+        return merged;
       } catch (e, st) {
         developer.log('getTasks API failed: $e', error: e, stackTrace: st);
         return await LocalData.getTasks();
@@ -498,7 +513,17 @@ class SyncData {
 
   // Farm summary
   Future<Map<String, dynamic>> getFarmSummary() async {
-    return await LocalData.getFarmSummary();
+    final summary = await LocalData.getFarmSummary();
+    try {
+      final tasks = await getTasks();
+      summary['pendingTasks'] = tasks.where((task) {
+        final status = (task.status ?? '').toLowerCase();
+        return status != 'completed';
+      }).length;
+    } catch (_) {
+      // Keep local summary fallback when task fetch fails.
+    }
+    return summary;
   }
 
   // Sales operations
