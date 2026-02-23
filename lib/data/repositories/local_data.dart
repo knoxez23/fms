@@ -715,9 +715,45 @@ class LocalData {
     );
   }
 
+  static Future<int> updateSaleByIdOrServerId(
+      int id, Map<String, dynamic> sale) async {
+    final db = await _dbHelper.database;
+
+    final row = <String, dynamic>{
+      'server_id': sale['server_id'] ?? sale['id'],
+      'product_name': sale['product_name'],
+      'quantity': sale['quantity'],
+      'unit': sale['unit'],
+      'price': sale['price'],
+      'total_amount': sale['total_amount'],
+      'customer_name': sale['customer_name'] ?? sale['customer'],
+      'customer_id': sale['customer_id'],
+      'sale_date': sale['sale_date'] ?? sale['date'],
+      'payment_status': sale['payment_status'] ?? 'Pending',
+      'notes': sale['notes'] ?? '',
+      'user_id': sale['user_id'],
+    };
+
+    return await db.update(
+      'sales',
+      row,
+      where: 'id = ? OR server_id = ?',
+      whereArgs: [id, id],
+    );
+  }
+
   static Future<int> deleteSale(int id) async {
     final db = await _dbHelper.database;
     return await db.delete('sales', where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<int> deleteSaleByIdOrServerId(int id) async {
+    final db = await _dbHelper.database;
+    return await db.delete(
+      'sales',
+      where: 'id = ? OR server_id = ?',
+      whereArgs: [id, id],
+    );
   }
 
   static Future<int?> findSaleIdByPayload(Map<String, dynamic> sale) async {

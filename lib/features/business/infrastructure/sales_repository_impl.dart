@@ -15,6 +15,11 @@ class SalesRepositoryImpl implements SalesRepository {
   Future<List<SaleEntity>> getSales() async {
     try {
       final remote = await _service.list();
+      for (final row in remote) {
+        await LocalData.upsertSaleFromServer(
+          Map<String, dynamic>.from(row as Map),
+        );
+      }
       return remote
           .map((row) => _mapToEntity(Map<String, dynamic>.from(row as Map)))
           .toList();
@@ -59,12 +64,14 @@ class SalesRepositoryImpl implements SalesRepository {
   Future<SaleEntity> updateSale(SaleEntity sale) async {
     if (sale.id == null) return sale;
     final payload = _entityToPayload(sale);
+    final parsedId = int.tryParse(sale.id!);
+    if (parsedId == null) return sale;
     try {
-      final updated = await _service.update(int.parse(sale.id!), payload);
-      await LocalData.updateSale(int.parse(sale.id!), updated);
+      final updated = await _service.update(parsedId, payload);
+      await LocalData.updateSaleByIdOrServerId(parsedId, updated);
       return _mapToEntity(updated);
     } catch (_) {
-      await LocalData.updateSale(int.parse(sale.id!), payload);
+      await LocalData.updateSaleByIdOrServerId(parsedId, payload);
       return sale;
     }
   }
@@ -76,7 +83,7 @@ class SalesRepositoryImpl implements SalesRepository {
     try {
       await _service.delete(parsed);
     } finally {
-      await LocalData.deleteSale(parsed);
+      await LocalData.deleteSaleByIdOrServerId(parsed);
     }
   }
 
@@ -87,7 +94,7 @@ class SalesRepositoryImpl implements SalesRepository {
     final dateString = map['sale_date'] ?? map['date'];
 
     return SaleEntity(
-      id: map['id']?.toString(),
+      id: (map['server_id'] ?? map['id'])?.toString(),
       productName: map['product_name'] ?? map['product'] ?? '',
       quantity: BusinessQuantity(qty),
       unit: map['unit'] ?? '',

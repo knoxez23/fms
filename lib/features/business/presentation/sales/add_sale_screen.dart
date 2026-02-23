@@ -16,8 +16,6 @@ class AddSaleScreen extends StatefulWidget {
 }
 
 class _AddSaleScreenState extends State<AddSaleScreen> {
-  final ContactDirectoryService _contactService =
-      ContactDirectoryService(ApiService());
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _productController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
@@ -74,7 +72,8 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
 
   Future<void> _loadCustomers() async {
     try {
-      final rows = await _contactService.list(ContactType.customer);
+      final rows =
+          await ContactDirectoryService(ApiService()).list(ContactType.customer);
       if (!mounted) return;
       setState(() {
         final entries = rows
@@ -312,14 +311,57 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _customerController,
-                        decoration: InputDecoration(
-                          labelText: 'Customer Name *',
-                          hintText: 'e.g., Local Dairy, Market Vendor',
-                          border: const OutlineInputBorder(),
-                          suffixIcon: IconButton(
-                            tooltip: 'Manage customers',
+                      Autocomplete<String>(
+                        optionsBuilder: (textEditingValue) {
+                          final query = textEditingValue.text.trim().toLowerCase();
+                          final options = <String>[
+                            ..._customerNames,
+                            'Walk-in Customer',
+                          ];
+                          if (query.isEmpty) return options.take(10);
+                          return options.where(
+                            (item) => item.toLowerCase().contains(query),
+                          );
+                        },
+                        fieldViewBuilder: (context, controller, focusNode, onSubmit) {
+                          if (controller.text != _customerController.text) {
+                            controller.text = _customerController.text;
+                          }
+                          return TextFormField(
+                            controller: controller,
+                            focusNode: focusNode,
+                            decoration: const InputDecoration(
+                              labelText: 'Customer *',
+                              hintText: 'Search existing or type new customer',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.person_outline),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter customer';
+                              }
+                              return null;
+                            },
+                            onChanged: (value) => _customerController.text = value,
+                            onFieldSubmitted: (_) => onSubmit(),
+                          );
+                        },
+                        onSelected: (selection) {
+                          setState(() => _customerController.text = selection);
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              setState(() => _customerController.text = 'Walk-in Customer');
+                            },
+                            icon: const Icon(Icons.storefront_outlined),
+                            label: const Text('Walk-in'),
+                          ),
+                          const SizedBox(width: 10),
+                          TextButton.icon(
                             onPressed: () async {
                               await Navigator.push(
                                 context,
@@ -329,42 +371,11 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
                               );
                               await _loadCustomers();
                             },
-                            icon: const Icon(Icons.contacts_outlined),
+                            icon: const Icon(Icons.person_add_alt_1_outlined),
+                            label: const Text('Add Customer'),
                           ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter customer name';
-                          }
-                          return null;
-                        },
+                        ],
                       ),
-                      if (_customerNames.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          initialValue: _customerNames.contains(_customerController.text)
-                              ? _customerController.text
-                              : null,
-                          decoration: const InputDecoration(
-                            labelText: 'Pick Existing Customer',
-                            border: OutlineInputBorder(),
-                          ),
-                          items: _customerNames
-                              .map(
-                                (name) => DropdownMenuItem<String>(
-                                  value: name,
-                                  child: Text(name),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (value) {
-                            if (value == null) return;
-                            setState(() {
-                              _customerController.text = value;
-                            });
-                          },
-                        ),
-                      ],
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _dateController,

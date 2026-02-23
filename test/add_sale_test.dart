@@ -32,7 +32,7 @@ void main() {
     await tester.enterText(
         find.widgetWithText(TextFormField, 'Price per Unit (KSh) *'), '50');
     await tester.enterText(
-        find.widgetWithText(TextFormField, 'Customer Name *'), 'Customer A');
+        find.widgetWithText(TextFormField, 'Customer *'), 'Customer A');
 
     // Invoke Save button callback directly to avoid hit-test issues in test environment
     final saveButton =

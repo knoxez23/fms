@@ -123,4 +123,61 @@ void main() {
     expect(rows.first['quantity'], 25);
     expect(rows.first['payment_status'], 'Paid');
   });
+
+  test('deleteSaleByIdOrServerId deletes by server identifier', () async {
+    await LocalData.upsertSaleFromServer({
+      'id': 9123,
+      'product_name': 'Milk',
+      'quantity': 10,
+      'unit': 'liters',
+      'price': 70,
+      'total_amount': 700,
+      'customer_name': 'Retail Shop',
+      'sale_date': '2026-02-14T13:00:00.000',
+      'payment_status': 'Paid',
+      'notes': '',
+    });
+
+    final rows = await LocalData.getSales();
+    expect(rows, hasLength(1));
+
+    await LocalData.deleteSaleByIdOrServerId(9123);
+
+    final empty = await LocalData.getSales();
+    expect(empty, isEmpty);
+  });
+
+  test('updateSaleByIdOrServerId updates row using server id', () async {
+    await LocalData.upsertSaleFromServer({
+      'id': 3210,
+      'product_name': 'Yogurt',
+      'quantity': 8,
+      'unit': 'liters',
+      'price': 120,
+      'total_amount': 960,
+      'customer_name': 'Cafe',
+      'sale_date': '2026-02-15T09:00:00.000',
+      'payment_status': 'Pending',
+      'notes': '',
+    });
+
+    await LocalData.updateSaleByIdOrServerId(3210, {
+      'id': 3210,
+      'product_name': 'Yogurt',
+      'quantity': 9,
+      'unit': 'liters',
+      'price': 120,
+      'total_amount': 1080,
+      'customer_name': 'Cafe',
+      'sale_date': '2026-02-15T09:00:00.000',
+      'payment_status': 'Paid',
+      'notes': 'Settled',
+    });
+
+    final rows = await LocalData.getSales();
+    expect(rows, hasLength(1));
+    expect(rows.first['server_id'], 3210);
+    expect(rows.first['quantity'], 9);
+    expect(rows.first['payment_status'], 'Paid');
+  });
 }

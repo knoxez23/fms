@@ -76,12 +76,25 @@ class _SalesViewState extends State<SalesView> {
         final filteredSales = _selectedFilter == 'All'
             ? sales
             : sales.where((sale) => sale.type == _selectedFilter).toList();
+        final periodSales = filteredSales
+            .where((sale) => _isInSelectedPeriod(sale.date, _selectedPeriod))
+            .toList();
 
-        final totalRevenue =
-            sales.fold(0.00, (sum, sale) => sum + sale.totalAmount.value);
-        final pendingAmount = sales
+        final totalRevenue = periodSales.fold(
+          0.00,
+          (sum, sale) => sum + sale.totalAmount.value,
+        );
+        final pendingAmount = periodSales
             .where((sale) => sale.isPending)
             .fold(0.00, (sum, sale) => sum + sale.totalAmount.value);
+        final paidSales = periodSales
+            .where((sale) => sale.paymentStatus.toLowerCase() == 'paid')
+            .length;
+        final pendingSales =
+            periodSales.where((sale) => sale.isPending).length;
+        final avgOrder = periodSales.isEmpty
+            ? 0.0
+            : totalRevenue / periodSales.length.toDouble();
 
         return AppScaffold(
           backgroundColor: theme.colorScheme.surface,
@@ -173,26 +186,64 @@ class _SalesViewState extends State<SalesView> {
                   child: Row(
                     children: [
                       _QuickStat(
-                        icon: Icons.local_drink,
-                        value: '18.5L',
-                        label: 'Milk Today',
+                        icon: Icons.receipt,
+                        value: periodSales.length.toString(),
+                        label: 'Sales',
                         theme: theme,
                       ),
                       const SizedBox(width: 12),
                       _QuickStat(
-                        icon: Icons.egg,
-                        value: '120',
-                        label: 'Eggs Today',
+                        icon: Icons.check_circle_outline,
+                        value: paidSales.toString(),
+                        label: 'Paid',
                         theme: theme,
                       ),
                       const SizedBox(width: 12),
                       _QuickStat(
-                        icon: Icons.trending_up,
-                        value: '+12%',
-                        label: 'Growth',
+                        icon: Icons.hourglass_empty,
+                        value: pendingSales.toString(),
+                        label: 'Pending',
                         theme: theme,
                       ),
                     ],
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                sliver: SliverToBoxAdapter(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.cardTheme.color,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [AppColors.subtleShadow],
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.stacked_line_chart,
+                          color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Average order value',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ),
+                        Text(
+                          'KSh ${avgOrder.toStringAsFixed(0)}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -200,30 +251,35 @@ class _SalesViewState extends State<SalesView> {
               // Sales List
               SliverPadding(
                 padding: const EdgeInsets.all(16),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final sale = filteredSales[index];
-                      return _AnimatedCard(
-                        index: index,
-                        theme: theme,
-                        child: _SaleItem(
-                          sale: sale,
-                          theme: theme,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => SaleDetailScreen(sale: sale),
+                sliver: periodSales.isEmpty
+                    ? SliverToBoxAdapter(
+                        child: _SalesEmptyState(theme: theme),
+                      )
+                    : SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final sale = periodSales[index];
+                            return _AnimatedCard(
+                              index: index,
+                              theme: theme,
+                              child: _SaleItem(
+                                sale: sale,
+                                theme: theme,
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          SaleDetailScreen(sale: sale),
+                                    ),
+                                  );
+                                },
                               ),
                             );
                           },
+                          childCount: periodSales.length,
                         ),
-                      );
-                    },
-                    childCount: filteredSales.length,
-                  ),
-                ),
+                      ),
               ),
 
               // Add bottom padding so content isn’t hidden by FAB or bottom bar
@@ -252,6 +308,30 @@ class _SalesViewState extends State<SalesView> {
         );
       },
     );
+  }
+
+  bool _isInSelectedPeriod(DateTime? date, String period) {
+    if (period == 'All Time') return true;
+    if (date == null) return false;
+
+    final now = DateTime.now();
+    final d = DateTime(date.year, date.month, date.day);
+    final n = DateTime(now.year, now.month, now.day);
+
+    switch (period) {
+      case 'Today':
+        return d == n;
+      case 'This Week':
+        final startOfWeek = n.subtract(Duration(days: n.weekday - 1));
+        final endOfWeek = startOfWeek.add(const Duration(days: 6));
+        return !d.isBefore(startOfWeek) && !d.isAfter(endOfWeek);
+      case 'This Month':
+        return d.year == n.year && d.month == n.month;
+      case 'This Year':
+        return d.year == n.year;
+      default:
+        return true;
+    }
   }
 }
 
@@ -421,6 +501,47 @@ class _OpenContactsButton extends StatelessWidget {
           MaterialPageRoute(builder: (_) => const ContactsScreen()),
         );
       },
+    );
+  }
+}
+
+class _SalesEmptyState extends StatelessWidget {
+  final ThemeData theme;
+
+  const _SalesEmptyState({required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.cardTheme.color,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.receipt_long_outlined,
+            size: 36,
+            color: theme.colorScheme.primary.withValues(alpha: 0.7),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'No sales in this filter',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Create a new sale or adjust your period/category filters.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
