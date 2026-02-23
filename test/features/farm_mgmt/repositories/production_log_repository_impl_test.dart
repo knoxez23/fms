@@ -5,9 +5,9 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:pamoja_twalima/data/database/database_helper.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/entities/production_log_entity.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/value_objects/value_objects.dart';
-import 'package:pamoja_twalima/farm_mgmt/infrastructure/production_log_repository_impl.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/production_log_entity.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/value_objects/value_objects.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/infrastructure/production_log_repository_impl.dart';
 
 void main() {
   setUpAll(() async {
@@ -54,5 +54,40 @@ void main() {
     await repo.deleteLog(created.id!);
     final remaining = await repo.getLogs();
     expect(remaining, isEmpty);
+  });
+
+  test('updateLog persists edited production values', () async {
+    final repo = ProductionLogRepositoryImpl();
+
+    final created = await repo.addLog(
+      ProductionLogEntity(
+        animalId: '2',
+        productType: 'Eggs',
+        quantity: Quantity(12),
+        unit: MeasurementUnit('pieces'),
+        recordedAt: DateTime(2026, 2, 14, 9, 0),
+        quality: 'Good',
+        notes: 'Initial',
+      ),
+    );
+
+    await repo.updateLog(
+      ProductionLogEntity(
+        id: created.id,
+        animalId: '2',
+        productType: 'Eggs',
+        quantity: Quantity(18),
+        unit: MeasurementUnit('pieces'),
+        recordedAt: DateTime(2026, 2, 14, 9, 0),
+        quality: 'Excellent',
+        notes: 'Updated record',
+      ),
+    );
+
+    final logs = await repo.getLogs();
+    expect(logs, hasLength(1));
+    expect(logs.first.quantity.value, equals(18));
+    expect(logs.first.quality, equals('Excellent'));
+    expect(logs.first.notes, equals('Updated record'));
   });
 }

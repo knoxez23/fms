@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pamoja_twalima/farm_mgmt/application/production_usecases.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/entities/production_log_entity.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/repositories/production_log_repository.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/value_objects/value_objects.dart';
-import 'package:pamoja_twalima/farm_mgmt/presentation/bloc/production/production_log_cubit.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/application/production_usecases.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/production_log_entity.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/repositories/production_log_repository.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/value_objects/value_objects.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/presentation/bloc/production/production_log_cubit.dart';
 
 class InMemoryProductionLogRepository implements ProductionLogRepository {
   final List<ProductionLogEntity> _items = [];
@@ -32,6 +32,13 @@ class InMemoryProductionLogRepository implements ProductionLogRepository {
 
   @override
   Future<List<ProductionLogEntity>> getLogs() async => List.of(_items);
+
+  @override
+  Future<void> updateLog(ProductionLogEntity log) async {
+    final index = _items.indexWhere((item) => item.id == log.id);
+    if (index == -1) return;
+    _items[index] = log;
+  }
 }
 
 void main() {
