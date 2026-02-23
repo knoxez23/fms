@@ -3,6 +3,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:pamoja_twalima/core/services/local_notification_service.dart';
 import 'package:pamoja_twalima/main.dart' as app;
 
 Future<void> _pumpUntilFound(
@@ -24,10 +25,17 @@ Future<void> _pumpUntilFound(
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   const secureStorage = FlutterSecureStorage();
+  LocalNotificationService.suppressPermissionRequestsForTests = true;
 
-  Future<void> resetAppState({required bool seenOnboarding}) async {
+  Future<void> resetAppState({
+    required bool seenOnboarding,
+    bool authenticated = false,
+  }) async {
     // Ensure auth bootstrap cannot reuse previous emulator/device credentials.
     await secureStorage.deleteAll();
+    if (authenticated) {
+      await secureStorage.write(key: 'auth_token', value: 'integration-token');
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
     await prefs.setBool('seenOnboarding', seenOnboarding);
@@ -35,7 +43,7 @@ void main() {
 
   group('app integration flows', () {
     testWidgets('onboarding skip navigates to login', (tester) async {
-      await resetAppState(seenOnboarding: false);
+      await resetAppState(seenOnboarding: false, authenticated: false);
 
       app.main();
       await tester.pumpAndSettle();
@@ -51,7 +59,7 @@ void main() {
 
     testWidgets('login screen can navigate to register and back',
         (tester) async {
-      await resetAppState(seenOnboarding: true);
+      await resetAppState(seenOnboarding: true, authenticated: false);
 
       app.main();
       await tester.pumpAndSettle();
@@ -67,6 +75,16 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Welcome Back'), findsOneWidget);
+    });
+
+    testWidgets('authenticated bootstrap lands on home shell', (tester) async {
+      await resetAppState(seenOnboarding: true, authenticated: true);
+
+      app.main();
+      await tester.pumpAndSettle();
+
+      await _pumpUntilFound(tester, find.byType(app.MainShell));
+      expect(find.byType(app.MainShell), findsOneWidget);
     });
   });
 }

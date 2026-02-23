@@ -28,6 +28,7 @@ import 'core/presentation/themes/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  const isFlutterTest = bool.fromEnvironment('FLUTTER_TEST');
 
   // Load environment variables
   if (!dotenv.isInitialized) {
@@ -37,7 +38,9 @@ void main() async {
   // Initialize dependency injection
   await configureDependencies();
   getIt<DomainEventSubscribers>().start();
-  await LocalNotificationService.instance.init();
+  if (!isFlutterTest) {
+    await LocalNotificationService.instance.init();
+  }
 
   runApp(const PamojaApp());
 }
@@ -78,9 +81,15 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  bool _didNavigate = false;
+
   @override
   void initState() {
     super.initState();
+    Future<void>.delayed(const Duration(seconds: 4), () {
+      if (!mounted || _didNavigate) return;
+      _navigateTo('/login');
+    });
     _checkAuthStatus();
   }
 
@@ -89,7 +98,7 @@ class _SplashScreenState extends State<SplashScreen> {
       final results = await Future.wait([
         SharedPreferences.getInstance(),
         getIt<CheckAuthStatusUseCase>().execute(),
-      ]);
+      ]).timeout(const Duration(seconds: 8));
 
       if (!mounted) return;
 
@@ -106,11 +115,17 @@ class _SplashScreenState extends State<SplashScreen> {
         route = '/login';
       }
 
-      Navigator.of(context).pushReplacementNamed(route);
+      _navigateTo(route);
     } catch (e) {
       if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed('/login');
+      _navigateTo('/login');
     }
+  }
+
+  void _navigateTo(String route) {
+    if (!mounted || _didNavigate) return;
+    _didNavigate = true;
+    Navigator.of(context).pushReplacementNamed(route);
   }
 
   @override
