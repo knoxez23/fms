@@ -548,16 +548,126 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
   }
 
   void _viewAnalytics() {
-    // Navigate to analytics screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Opening production analytics...')),
+    final logs = context.read<ProductionLogCubit>().state.logs;
+    final byType = <String, double>{};
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    var recordsLast7Days = 0;
+
+    for (final log in logs) {
+      byType.update(log.productType, (v) => v + log.quantity.value,
+          ifAbsent: () => log.quantity.value);
+      if (log.recordedAt.isAfter(cutoff)) {
+        recordsLast7Days++;
+      }
+    }
+
+    final sorted = byType.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Production Analytics'),
+        content: SizedBox(
+          width: 340,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Total Records: ${logs.length}'),
+              Text('Last 7 Days: $recordsLast7Days'),
+              const SizedBox(height: 12),
+              const Text(
+                'Totals by Product',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              if (sorted.isEmpty) const Text('No production logs yet'),
+              ...sorted.take(8).map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Text(
+                        '${entry.key}: ${entry.value.toStringAsFixed(1)}',
+                      ),
+                    ),
+                  ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
     );
   }
 
   void _viewAllRecords() {
-    // Navigate to all records screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Viewing all production records...')),
+    final animalsState = context.read<AnimalsBloc>().state;
+    final animals = animalsState.maybeWhen(
+      loaded: (items) => items,
+      orElse: () => <AnimalEntity>[],
+    );
+    final rows = _mapLogsToView(context.read<ProductionLogCubit>().state.logs, animals)
+      ..sort((a, b) {
+        final ad = DateTime.tryParse('${a.date} ${a.time}') ?? DateTime(1970);
+        final bd = DateTime.tryParse('${b.date} ${b.time}') ?? DateTime(1970);
+        return bd.compareTo(ad);
+      });
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.75,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Column(
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 42,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade400,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'All Production Records',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const Divider(),
+            Expanded(
+              child: rows.isEmpty
+                  ? const Center(child: Text('No records found'))
+                  : ListView.builder(
+                      controller: scrollController,
+                      itemCount: rows.length,
+                      itemBuilder: (context, index) {
+                        final record = rows[index];
+                        return ListTile(
+                          title: Text(
+                            '${record.productType} • ${record.quantity.toStringAsFixed(1)} ${record.unit}',
+                          ),
+                          subtitle: Text(
+                            '${record.animalName} • ${record.date} ${record.time}',
+                          ),
+                          trailing: Text(record.quality),
+                          onTap: () {
+                            Navigator.pop(sheetContext);
+                            _editRecord(record);
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
