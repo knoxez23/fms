@@ -108,6 +108,17 @@ class ApiService {
     }
   }
 
+  Future<Response> patch(String path, {dynamic data}) async {
+    try {
+      return await _dio.patch(path, data: data);
+    } on DioException catch (e) {
+      developer.log(
+          'PATCH $path failed: ${e.response?.statusCode} ${e.response?.data} -- payload: $data');
+      throw ApiException('PATCH request failed',
+          statusCode: e.response?.statusCode, body: e.response?.data);
+    }
+  }
+
   Future<Response> delete(String path) async {
     try {
       return await _dio.delete(path);

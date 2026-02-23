@@ -32,9 +32,8 @@ Route::prefix('v1')->group(function () {
     });
 
     Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
-        Route::get('/user', function (Request $request) {
-            return $request->user();
-        });
+        Route::get('/user', [AuthController::class, 'me']);
+        Route::patch('/user', [AuthController::class, 'updateProfile']);
 
         Route::post('/logout', [AuthController::class, 'logout']);
 

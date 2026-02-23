@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_settings_controller.dart';
 import '../../../features/auth/presentation/bloc/auth/auth_bloc.dart';
 
 class AppDrawer extends StatefulWidget {
@@ -93,6 +94,10 @@ class _AppDrawerState extends State<AppDrawer> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final settings = AppSettingsController.instance;
+    final effectiveDarkMode = settings.themeMode == ThemeMode.dark ||
+        (settings.themeMode == ThemeMode.system &&
+            theme.brightness == Brightness.dark);
 
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
@@ -217,10 +222,7 @@ class _AppDrawerState extends State<AppDrawer> {
                       title: 'Settings',
                       onTap: () {
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Settings coming soon!')),
-                        );
+                        Navigator.pushNamed(context, '/profile');
                       },
                     ),
                     _DrawerItem(
@@ -228,9 +230,7 @@ class _AppDrawerState extends State<AppDrawer> {
                       title: 'Help & Support',
                       onTap: () {
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Help coming soon!')),
-                        );
+                        _showHelpDialog();
                       },
                     ),
                     _DrawerItem(
@@ -245,21 +245,21 @@ class _AppDrawerState extends State<AppDrawer> {
                     _DrawerItem(
                       icon: Icons.dark_mode_outlined,
                       title: 'Dark Mode',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Theme switching coming soon!'),
-                          ),
+                      onTap: () async {
+                        await settings.setThemeMode(
+                          effectiveDarkMode ? ThemeMode.light : ThemeMode.dark,
                         );
+                        if (!mounted) return;
+                        _showThemeHint(settings.themeMode);
                       },
                       trailing: Switch(
-                        value: theme.brightness == Brightness.dark,
-                        onChanged: (value) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Theme switching coming soon!'),
-                            ),
+                        value: effectiveDarkMode,
+                        onChanged: (value) async {
+                          await settings.setThemeMode(
+                            value ? ThemeMode.dark : ThemeMode.light,
                           );
+                          if (!mounted) return;
+                          _showThemeHint(settings.themeMode);
                         },
                       ),
                     ),
@@ -321,6 +321,45 @@ class _AppDrawerState extends State<AppDrawer> {
           'A comprehensive farm management application to help you manage your farm operations efficiently.',
         ),
       ],
+    );
+  }
+
+  void _showHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Help & Support'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Email: support@pamoja-twalima.app'),
+            SizedBox(height: 8),
+            Text('Phone: +254 700 000 000'),
+            SizedBox(height: 8),
+            Text('Response time: within 24 hours'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: Navigator.of(context).pop,
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showThemeHint(ThemeMode mode) {
+    final label = switch (mode) {
+      ThemeMode.dark => 'Dark mode enabled.',
+      ThemeMode.light => 'Light mode enabled.',
+      ThemeMode.system => 'Theme follows device setting.',
+    };
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(label),
+      ),
     );
   }
 }

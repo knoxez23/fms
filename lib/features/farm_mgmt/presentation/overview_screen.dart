@@ -10,6 +10,7 @@ import 'package:pamoja_twalima/features/farm_mgmt/presentation/bloc/navigation/f
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/bloc/overview/overview_bloc.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/bloc/tasks/tasks_bloc.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/tasks/widgets/task_list_item_card.dart';
+import 'package:pamoja_twalima/features/business/presentation/sales/sales_screen.dart';
 
 class OverviewScreen extends StatefulWidget {
   const OverviewScreen({super.key});
@@ -80,6 +81,7 @@ class _OverviewScreenState extends State<OverviewScreen>
     OverviewSummaryEntity summary,
     List<TaskEntity> tasks,
   ) {
+    final pendingTaskCount = tasks.where((task) => !task.isCompleted).length;
     final upcomingTasks = List<TaskEntity>.from(
       tasks.where((task) => !task.isCompleted),
     )..sort((a, b) {
@@ -137,7 +139,7 @@ class _OverviewScreenState extends State<OverviewScreen>
                   children: [
                     Expanded(
                       child: StatCard(
-                        count: summary.pendingTasks,
+                        count: pendingTaskCount,
                         label: 'Pending Tasks',
                         color: Colors.orange,
                         icon: Icons.task_alt,
@@ -166,7 +168,9 @@ class _OverviewScreenState extends State<OverviewScreen>
                       title: 'Production Overview',
                       icon: Icons.bar_chart,
                       actionLabel: '7 Days',
-                      onActionTap: () {},
+                      onActionTap: () {
+                        context.read<FarmNavCubit>().select(2);
+                      },
                     ),
                     const SizedBox(height: 8),
                     _ProductionTrendCard(values: feed.productionTrend, theme: theme),
@@ -220,7 +224,9 @@ class _OverviewScreenState extends State<OverviewScreen>
                         context.read<TasksBloc>().add(TasksEvent.update(task: updated));
                         context.read<OverviewBloc>().add(const OverviewEvent.load());
                       },
-                      onTap: () {},
+                      onTap: () {
+                        context.read<FarmNavCubit>().select(3);
+                      },
                     );
                   },
                   childCount: upcomingTasks.isEmpty ? 1 : upcomingTasks.take(4).length,
@@ -232,7 +238,12 @@ class _OverviewScreenState extends State<OverviewScreen>
                 title: 'Recent Sales',
                 icon: Icons.receipt_long,
                 actionLabel: 'Business',
-                onActionTap: () {},
+                onActionTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SalesScreen()),
+                  );
+                },
               ),
             ),
             SliverPadding(

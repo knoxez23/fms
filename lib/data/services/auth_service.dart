@@ -92,6 +92,28 @@ class AuthService {
     return User.fromMap(response.data);
   }
 
+  Future<User> updateCurrentUser({
+    required String name,
+    String? phone,
+    String? location,
+    String? farmName,
+  }) async {
+    final response = await _api.patch('/user', data: {
+      'name': name,
+      'phone': phone,
+      'location': location,
+      'farm_name': farmName,
+    });
+
+    final user = User.fromMap(response.data);
+    await _storage.write(key: 'user_name', value: user.name);
+    await _storage.write(key: 'user_email', value: user.email);
+    if (user.id != null) {
+      await _storage.write(key: 'user_id', value: user.id.toString());
+    }
+    return user;
+  }
+
   Future<void> forgotPassword(String email) async {
     await _api.post('/forgot-password', data: {'email': email});
   }

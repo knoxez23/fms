@@ -2,8 +2,10 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/di/injection.dart';
 import 'core/services/local_notification_service.dart';
+import 'core/presentation/settings/app_settings_controller.dart';
 import 'features/auth/application/auth_usecases.dart';
 import 'features/farm_mgmt/application/domain_event_subscribers.dart';
 import 'package:pamoja_twalima/features/business/presentation/sales/sales_screen.dart';
@@ -41,6 +43,7 @@ void main() async {
   if (!isFlutterTest) {
     await LocalNotificationService.instance.init();
   }
+  await AppSettingsController.instance.load();
 
   runApp(const PamojaApp());
 }
@@ -50,24 +53,38 @@ class PamojaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appSettings = AppSettingsController.instance;
     return BlocProvider(
       create: (_) => getIt<AuthBloc>(),
-      child: MaterialApp(
-        title: 'Pamoja Twalima',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system,
-        home: const SplashScreen(),
-        routes: {
-          '/onboarding': (_) => const OnboardingScreen(),
-          '/login': (_) => const LoginScreen(),
-          '/register': (_) => const RegisterScreen(),
-          '/animals': (_) => const AnimalsScreen(),
-          '/home': (_) => const MainShell(),
-          '/profile': (_) => const ProfileScreen(),
-          '/sell-item': (_) => const SellProductScreen(),
-        },
+      child: AnimatedBuilder(
+        animation: appSettings,
+        builder: (context, _) => MaterialApp(
+          title: 'Pamoja Twalima',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: appSettings.themeMode,
+          locale: appSettings.locale,
+          supportedLocales: const [
+            Locale('en'),
+            Locale('sw'),
+          ],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: const SplashScreen(),
+          routes: {
+            '/onboarding': (_) => const OnboardingScreen(),
+            '/login': (_) => const LoginScreen(),
+            '/register': (_) => const RegisterScreen(),
+            '/animals': (_) => const AnimalsScreen(),
+            '/home': (_) => const MainShell(),
+            '/profile': (_) => const ProfileScreen(),
+            '/sell-item': (_) => const SellProductScreen(),
+          },
+        ),
       ),
     );
   }

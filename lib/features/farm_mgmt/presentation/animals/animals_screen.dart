@@ -6,6 +6,7 @@ import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/animations/animated_card.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 import 'package:pamoja_twalima/data/database/database_helper.dart';
+import 'package:pamoja_twalima/data/models/animal.dart';
 import 'package:pamoja_twalima/data/models/animal_health_record.dart';
 import 'package:pamoja_twalima/data/repositories/sync_data.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/bloc/animals/animals_bloc.dart';
@@ -148,19 +149,20 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
     List<AnimalEntity> animals,
     List<AnimalEntity> filteredAnimals,
   ) {
-    final statsFuture = _loadAnimalStats(animals);
+    final healthDataFuture = _loadAnimalHealthData(animals);
     return CustomScrollView(
       slivers: [
         // Header section with animal stats
         SliverToBoxAdapter(
-          child: FutureBuilder<_AnimalTopStats>(
-            future: statsFuture,
+          child: FutureBuilder<_AnimalHealthData>(
+            future: healthDataFuture,
             builder: (context, snapshot) {
-              final stats = snapshot.data ??
-                  _AnimalTopStats(
+              final data = snapshot.data ??
+                  _AnimalHealthData(
                     totalAnimals: animals.length,
                     avgHealthPercent: animals.isEmpty ? 0 : 100,
                     pregnantCount: 0,
+                    insightsByAnimalId: const <String, _AnimalHealthInsight>{},
                   );
 
               return Padding(
@@ -168,19 +170,19 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
                 child: Row(
                   children: [
                     _AnimalStat(
-                      value: '${stats.totalAnimals}',
+                      value: '${data.totalAnimals}',
                       label: 'Total Animals',
                       theme: theme,
                     ),
                     const SizedBox(width: 12),
                     _AnimalStat(
-                      value: '${stats.avgHealthPercent}%',
+                      value: '${data.avgHealthPercent}%',
                       label: 'Avg Health',
                       theme: theme,
                     ),
                     const SizedBox(width: 12),
                     _AnimalStat(
-                      value: '${stats.pregnantCount}',
+                      value: '${data.pregnantCount}',
                       label: 'Pregnant',
                       theme: theme,
                     ),
@@ -240,29 +242,49 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
         // Animal cards list
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final animal = filteredAnimals[index];
-                return AnimatedCard(
-                  index: index,
-                  child: _AnimalCard(
-                    animal: animal,
-                    theme: theme,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              AnimalDetailScreen.fromEntity(entity: animal),
+          sliver: FutureBuilder<_AnimalHealthData>(
+            future: healthDataFuture,
+            builder: (context, snapshot) {
+              final insights = snapshot.data?.insightsByAnimalId ??
+                  const <String, _AnimalHealthInsight>{};
+              return SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final animal = filteredAnimals[index];
+                    final insight = insights[animal.id ?? ''] ??
+                        const _AnimalHealthInsight(
+                          status: 'Healthy',
+                          score: 95,
+                        );
+                    return AnimatedCard(
+                      index: index,
+                      child: _AnimalCard(
+                        animal: animal,
+                        health: insight,
+                        theme: theme,
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  AnimalDetailScreen.fromEntity(entity: animal),
+                            ),
+                          );
+                          if (!mounted) return;
+                          setState(() {});
+                        },
+                        onHealthStatusSelected: (status) =>
+                            _updateAnimalHealthStatus(
+                          animal: animal,
+                          status: status,
                         ),
-                      );
-                    },
-                  ),
-                );
-              },
-              childCount: filteredAnimals.length,
-            ),
+                      ),
+                    );
+                  },
+                  childCount: filteredAnimals.length,
+                ),
+              );
+            },
           ),
         ),
 
@@ -747,25 +769,80 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
     }
   }
 
-  Future<_AnimalTopStats> _loadAnimalStats(List<AnimalEntity> animals) async {
+  Future<void> _updateAnimalHealthStatus({
+    required AnimalEntity animal,
+    required String status,
+  }) async {
+    final animalId = int.tryParse((animal.id ?? '').trim());
+    if (animalId == null) return;
+
+    try {
+      final existingAnimals = await SyncData().getAnimals();
+      final existing = existingAnimals.where((item) => item.id == animalId);
+      if (existing.isEmpty) return;
+
+      final current = existing.first;
+      final updated = Animal(
+        id: current.id,
+        name: current.name,
+        type: current.type,
+        breed: current.breed,
+        age: current.age,
+        weight: current.weight,
+        healthStatus: status,
+        dateAcquired: current.dateAcquired,
+        notes: current.notes,
+        userId: current.userId,
+      );
+      await SyncData().updateAnimal(updated);
+
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Updated ${animal.name.value} health to $status')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to update health status')),
+      );
+    }
+  }
+
+  Future<_AnimalHealthData> _loadAnimalHealthData(List<AnimalEntity> animals) async {
     final total = animals.length;
     if (total == 0) {
-      return const _AnimalTopStats(
+      return const _AnimalHealthData(
         totalAnimals: 0,
         avgHealthPercent: 0,
         pregnantCount: 0,
+        insightsByAnimalId: <String, _AnimalHealthInsight>{},
       );
     }
 
     try {
       final records = await SyncData().getAnimalHealthRecords();
       final latestByAnimal = _latestHealthByAnimal(records);
+      final currentAnimals = await SyncData().getAnimals();
+      final statusByAnimalId = <int, String>{
+        for (final animal in currentAnimals)
+          if (animal.id != null && (animal.healthStatus ?? '').trim().isNotEmpty)
+            animal.id!: animal.healthStatus!.trim(),
+      };
 
       var scoreSum = 0;
+      final insightsByAnimalId = <String, _AnimalHealthInsight>{};
       for (final animal in animals) {
         final animalId = int.tryParse((animal.id ?? '').trim());
         final latest = animalId == null ? null : latestByAnimal[animalId];
-        scoreSum += _healthScore(latest);
+        final insight = _resolveHealthInsight(
+          overrideStatus: animalId == null ? null : statusByAnimalId[animalId],
+          latestRecord: latest,
+        );
+        scoreSum += insight.score;
+        if (animal.id != null) {
+          insightsByAnimalId[animal.id!] = insight;
+        }
       }
 
       final db = await _dbHelper.database;
@@ -778,16 +855,25 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
       );
       final pregnantCount = Sqflite.firstIntValue(pregnantRows) ?? 0;
 
-      return _AnimalTopStats(
+      return _AnimalHealthData(
         totalAnimals: total,
         avgHealthPercent: (scoreSum / total).round(),
         pregnantCount: pregnantCount,
+        insightsByAnimalId: insightsByAnimalId,
       );
     } catch (_) {
-      return _AnimalTopStats(
+      return _AnimalHealthData(
         totalAnimals: total,
         avgHealthPercent: 100,
         pregnantCount: 0,
+        insightsByAnimalId: <String, _AnimalHealthInsight>{
+          for (final animal in animals)
+            if (animal.id != null)
+              animal.id!: const _AnimalHealthInsight(
+                status: 'Healthy',
+                score: 95,
+              ),
+        },
       );
     }
   }
@@ -810,26 +896,65 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
     return map;
   }
 
-  int _healthScore(AnimalHealthRecord? record) {
-    if (record == null) return 100;
-    final text = '${record.type} ${record.name} ${record.notes ?? ''}'.toLowerCase();
+  _AnimalHealthInsight _resolveHealthInsight({
+    required String? overrideStatus,
+    required AnimalHealthRecord? latestRecord,
+  }) {
+    final normalized = _normalizeStatus(overrideStatus);
+    if (normalized != null) {
+      return _insightForStatus(normalized);
+    }
+
+    if (latestRecord == null) {
+      return const _AnimalHealthInsight(status: 'Healthy', score: 95);
+    }
+
+    final text =
+        '${latestRecord.type} ${latestRecord.name} ${latestRecord.notes ?? ''}'
+            .toLowerCase();
     if (text.contains('critical') ||
         text.contains('severe') ||
         text.contains('emergency')) {
-      return 30;
+      return const _AnimalHealthInsight(status: 'Critical', score: 30);
     }
     if (text.contains('sick') ||
         text.contains('ill') ||
         text.contains('disease') ||
         text.contains('injur')) {
-      return 55;
+      return const _AnimalHealthInsight(status: 'At Risk', score: 55);
     }
     if (text.contains('recover') ||
         text.contains('monitor') ||
         text.contains('treatment')) {
-      return 75;
+      return const _AnimalHealthInsight(status: 'Monitoring', score: 75);
     }
-    return 95;
+    return const _AnimalHealthInsight(status: 'Healthy', score: 95);
+  }
+
+  String? _normalizeStatus(String? raw) {
+    final text = raw?.trim().toLowerCase();
+    if (text == null || text.isEmpty) return null;
+    if (text.contains('critical')) return 'Critical';
+    if (text.contains('risk') || text.contains('sick') || text.contains('ill')) {
+      return 'At Risk';
+    }
+    if (text.contains('monitor') || text.contains('recover')) {
+      return 'Monitoring';
+    }
+    return 'Healthy';
+  }
+
+  _AnimalHealthInsight _insightForStatus(String status) {
+    switch (status) {
+      case 'Critical':
+        return const _AnimalHealthInsight(status: 'Critical', score: 30);
+      case 'At Risk':
+        return const _AnimalHealthInsight(status: 'At Risk', score: 55);
+      case 'Monitoring':
+        return const _AnimalHealthInsight(status: 'Monitoring', score: 75);
+      default:
+        return const _AnimalHealthInsight(status: 'Healthy', score: 95);
+    }
   }
 
   Future<_ProductionMetrics> _loadProductionMetrics() async {
@@ -907,6 +1032,27 @@ class _AnimalTopStats {
     required this.totalAnimals,
     required this.avgHealthPercent,
     required this.pregnantCount,
+  });
+}
+
+class _AnimalHealthData extends _AnimalTopStats {
+  final Map<String, _AnimalHealthInsight> insightsByAnimalId;
+
+  const _AnimalHealthData({
+    required super.totalAnimals,
+    required super.avgHealthPercent,
+    required super.pregnantCount,
+    required this.insightsByAnimalId,
+  });
+}
+
+class _AnimalHealthInsight {
+  final String status;
+  final int score;
+
+  const _AnimalHealthInsight({
+    required this.status,
+    required this.score,
   });
 }
 
@@ -1188,21 +1334,25 @@ class _AnimalStat extends StatelessWidget {
 
 class _AnimalCard extends StatelessWidget {
   final AnimalEntity animal;
+  final _AnimalHealthInsight health;
   final ThemeData theme;
   final VoidCallback onTap;
+  final ValueChanged<String>? onHealthStatusSelected;
 
   const _AnimalCard({
     required this.animal,
+    required this.health,
     required this.theme,
     required this.onTap,
+    this.onHealthStatusSelected,
   });
 
   @override
   Widget build(BuildContext context) {
     final type = _displayType(animal.type.value);
     final breed = animal.breed ?? 'Unknown';
-    const status = 'Healthy';
-    const healthScore = 90;
+    final status = health.status;
+    final healthScore = health.score;
 
     return Card(
       elevation: 0,
@@ -1258,6 +1408,21 @@ class _AnimalCard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            PopupMenuButton<String>(
+              tooltip: 'Set health status',
+              onSelected: onHealthStatusSelected,
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'Healthy', child: Text('Healthy')),
+                PopupMenuItem(value: 'Monitoring', child: Text('Monitoring')),
+                PopupMenuItem(value: 'At Risk', child: Text('At Risk')),
+                PopupMenuItem(value: 'Critical', child: Text('Critical')),
+              ],
+              icon: Icon(
+                Icons.tune,
+                size: 18,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
             Text(
               'Health: $healthScore%',
               style: theme.textTheme.bodySmall?.copyWith(

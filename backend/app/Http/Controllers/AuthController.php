@@ -14,6 +14,29 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    public function me(Request $request)
+    {
+        return response()->json($request->user());
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'phone' => 'nullable|string|max:20',
+            'farm_name' => 'nullable|string|max:255',
+            'location' => 'nullable|string|max:255',
+        ]);
+
+        $user = $request->user();
+        $user->fill($validated);
+        $user->save();
+
+        Log::info('User profile updated', ['user_id' => $user->id]);
+
+        return response()->json($user);
+    }
+
     public function register(Request $request)
     {
         $validated = $request->validate([
