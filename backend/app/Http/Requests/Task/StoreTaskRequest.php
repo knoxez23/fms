@@ -21,9 +21,9 @@ class StoreTaskRequest extends FormRequest
             'status' => 'nullable|string|max:50',
             'category' => 'nullable|string|max:100',
             'assigned_to' => 'nullable|string|max:255',
+            'staff_member_id' => 'nullable|integer|exists:staff_members,id',
             'source_event_type' => 'nullable|string|max:100',
             'source_event_id' => 'nullable|string|max:255',
         ];
     }
 }
-

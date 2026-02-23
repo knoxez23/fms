@@ -23,6 +23,7 @@ class InventoryResource extends JsonResource
             'unit' => $this->unit,
             'min_stock' => $this->min_stock,
             'supplier' => $this->supplier,
+            'supplier_id' => $this->supplier_id,
             'unit_price' => $this->unit_price,
             'total_value' => $this->total_value,
             'notes' => $this->notes,
@@ -33,4 +34,3 @@ class InventoryResource extends JsonResource
         ];
     }
 }
-

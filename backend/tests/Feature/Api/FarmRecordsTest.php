@@ -198,3 +198,42 @@ test('animal record endpoints enforce ownership and persist', function () {
     ]);
 });
 
+test('animal health records support update and delete for owner', function () {
+    $animal = Animal::create([
+        'name' => 'Health Cow',
+        'type' => 'cattle',
+        'user_id' => $this->user->id,
+    ]);
+
+    $headers = ['Authorization' => "Bearer {$this->token}"];
+
+    $created = $this->postJson('/api/v1/animal-health-records', [
+        'animal_id' => $animal->id,
+        'type' => 'checkup',
+        'name' => 'Routine exam',
+        'notes' => 'Initial notes',
+        'treated_at' => now()->toDateString(),
+    ], $headers);
+
+    $created->assertStatus(201);
+    $id = (string) $created->json('id');
+
+    $this->putJson("/api/v1/animal-health-records/{$id}", [
+        'type' => 'treatment',
+        'name' => 'Deworming',
+        'notes' => 'Updated notes',
+    ], $headers)
+        ->assertStatus(200)
+        ->assertJsonFragment([
+            'type' => 'treatment',
+            'name' => 'Deworming',
+        ]);
+
+    $this->deleteJson("/api/v1/animal-health-records/{$id}", [], $headers)
+        ->assertStatus(204);
+
+    $this->assertDatabaseMissing('animal_health_records', [
+        'id' => $id,
+        'user_id' => $this->user->id,
+    ]);
+});

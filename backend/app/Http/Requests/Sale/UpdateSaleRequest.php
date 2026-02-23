@@ -16,7 +16,14 @@ class UpdateSaleRequest extends FormRequest
         return [
             'product_name' => 'sometimes|required|string|max:255',
             'quantity' => 'sometimes|required|numeric|min:0',
+            'unit' => 'nullable|string|max:50',
             'price' => 'sometimes|required|numeric|min:0',
+            'total_amount' => 'nullable|numeric|min:0',
+            'customer_name' => 'nullable|string|max:255',
+            'customer_id' => 'nullable|integer|exists:customers,id',
+            'payment_status' => 'nullable|string|max:50',
+            'notes' => 'nullable|string',
+            'sale_date' => 'nullable|date',
             'date' => 'sometimes|required|date',
         ];
     }

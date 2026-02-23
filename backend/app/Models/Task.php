@@ -17,6 +17,7 @@ class Task extends Model
         'status',
         'category',
         'assigned_to',
+        'staff_member_id',
         'source_event_type',
         'source_event_id',
         'user_id',
@@ -29,5 +30,10 @@ class Task extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function staffMember()
+    {
+        return $this->belongsTo(StaffMember::class, 'staff_member_id');
     }
 }

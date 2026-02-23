@@ -17,6 +17,7 @@ class Inventory extends Model
         'unit',
         'min_stock',
         'supplier',
+        'supplier_id',
         'unit_price',
         'total_value',
         'notes',
@@ -37,5 +38,10 @@ class Inventory extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function supplierContact()
+    {
+        return $this->belongsTo(Supplier::class, 'supplier_id');
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Services\Inventory;
 
 use App\Models\Inventory;
+use App\Models\Supplier;
 use App\Services\Audit\AuditEventService;
 use Illuminate\Support\Collection;
 
@@ -27,6 +28,7 @@ class InventoryService
      */
     public function createOrUpsertByClientUuid(int $userId, array $validated): array
     {
+        $validated = $this->attachOwnedSupplierName($userId, $validated);
         $clientUuid = $validated['client_uuid'] ?? null;
 
         if ($clientUuid) {
@@ -73,6 +75,7 @@ class InventoryService
 
     public function updateForUser(int $userId, string $inventoryId, array $validated): Inventory
     {
+        $validated = $this->attachOwnedSupplierName($userId, $validated);
         $inventory = Inventory::where('id', $inventoryId)
             ->where('user_id', $userId)
             ->firstOrFail();
@@ -144,5 +147,22 @@ class InventoryService
                 'client_uuid' => $clientUuid,
             ]
         );
+    }
+
+    private function attachOwnedSupplierName(int $userId, array $validated): array
+    {
+        if (! isset($validated['supplier_id'])) {
+            return $validated;
+        }
+
+        $supplier = Supplier::where('user_id', $userId)
+            ->where('id', $validated['supplier_id'])
+            ->firstOrFail();
+
+        if (! isset($validated['supplier']) || empty(trim((string) $validated['supplier']))) {
+            $validated['supplier'] = $supplier->name;
+        }
+
+        return $validated;
     }
 }

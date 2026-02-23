@@ -23,6 +23,7 @@ class TaskResource extends JsonResource
             'status' => $this->status,
             'category' => $this->category,
             'assigned_to' => $this->assigned_to,
+            'staff_member_id' => $this->staff_member_id,
             'source_event_type' => $this->source_event_type,
             'source_event_id' => $this->source_event_id,
             'created_at' => optional($this->created_at)?->toISOString(),
@@ -30,4 +31,3 @@ class TaskResource extends JsonResource
         ];
     }
 }
-

@@ -2,6 +2,7 @@
 
 namespace App\Services\Task;
 
+use App\Models\StaffMember;
 use App\Models\Task;
 use App\Services\Audit\AuditEventService;
 use Illuminate\Support\Collection;
@@ -22,6 +23,7 @@ class TaskService
 
     public function createForUser(int $userId, array $validated): Task
     {
+        $validated = $this->attachOwnedStaffName($userId, $validated);
         $task = Task::create(array_merge($validated, ['user_id' => $userId]));
 
         $this->auditService->record(
@@ -41,6 +43,7 @@ class TaskService
 
     public function updateForUser(int $userId, string $taskId, array $validated): Task
     {
+        $validated = $this->attachOwnedStaffName($userId, $validated);
         $task = Task::where('id', $taskId)->where('user_id', $userId)->firstOrFail();
         $task->update($validated);
 
@@ -76,5 +79,22 @@ class TaskService
             entityType: 'task',
             entityId: $taskRef,
         );
+    }
+
+    private function attachOwnedStaffName(int $userId, array $validated): array
+    {
+        if (! isset($validated['staff_member_id'])) {
+            return $validated;
+        }
+
+        $staff = StaffMember::where('user_id', $userId)
+            ->where('id', $validated['staff_member_id'])
+            ->firstOrFail();
+
+        if (! isset($validated['assigned_to']) || empty(trim((string) $validated['assigned_to']))) {
+            $validated['assigned_to'] = $staff->name;
+        }
+
+        return $validated;
     }
 }

@@ -21,6 +21,7 @@ class StoreInventoryRequest extends FormRequest
             'unit' => 'required|string|max:50',
             'min_stock' => 'nullable|integer|min:0',
             'supplier' => 'nullable|string|max:255',
+            'supplier_id' => 'nullable|integer|exists:suppliers,id',
             'unit_price' => 'nullable|numeric|min:0',
             'total_value' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
@@ -28,4 +29,3 @@ class StoreInventoryRequest extends FormRequest
         ];
     }
 }
-

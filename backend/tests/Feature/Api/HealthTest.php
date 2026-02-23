@@ -7,6 +7,7 @@ test('public health endpoint exposes service status', function () {
         ->assertHeader('X-Content-Type-Options', 'nosniff')
         ->assertHeader('X-Frame-Options', 'DENY')
         ->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+        ->assertHeader('X-Request-Id')
         ->assertJsonStructure([
             'status',
             'timestamp',
