@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pamoja_twalima/inventory/domain/entities/inventory_aggregate.dart';
-import 'package:pamoja_twalima/inventory/domain/entities/inventory_item.dart';
+import 'package:pamoja_twalima/features/inventory/domain/entities/inventory_aggregate.dart';
+import 'package:pamoja_twalima/features/inventory/domain/entities/inventory_item.dart';
 
 void main() {
   test('requires reorder when quantity is below minimum', () {

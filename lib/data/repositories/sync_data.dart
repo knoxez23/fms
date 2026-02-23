@@ -11,6 +11,7 @@ import '../models/crop.dart';
 import '../models/task.dart';
 import '../models/feeding_schedule.dart';
 import '../models/feeding_log.dart';
+import '../models/animal_health_record.dart';
 
 @lazySingleton
 class SyncData {
@@ -164,12 +165,19 @@ class SyncData {
         final response = await _apiService.get('/tasks');
         final List<dynamic> data = response.data;
         final tasks = data.map((json) => Task.fromMap(json)).toList();
+        final pendingDeleteIds = await LocalData.getPendingTaskDeleteServerIds();
+        final filtered =
+            tasks.where((task) => !pendingDeleteIds.contains(task.id)).toList();
 
-        for (var task in tasks) {
+        for (var task in filtered) {
+          if (task.id != null && await _isTaskLocallyUnsynced(task.id!)) {
+            // Preserve local unsynced edits and let outbound sync win.
+            continue;
+          }
           await LocalData.upsertTask(task);
         }
 
-        return tasks;
+        return filtered;
       } catch (e, st) {
         developer.log('getTasks API failed: $e', error: e, stackTrace: st);
         return await LocalData.getTasks();
@@ -180,43 +188,108 @@ class SyncData {
   }
 
   Future<int> insertTask(Task task) async {
+    final payload = _taskPayload(task);
     if (await _isOnline()) {
       try {
-        final response = await _apiService.post('/tasks', data: task.toMap());
-        final createdTask = Task.fromMap(response.data);
+        final response = await _apiService.post('/tasks', data: payload);
+        final createdTask = Task.fromMap(response.data).copyWith(isSynced: true);
         return await LocalData.upsertTask(createdTask);
       } catch (e, st) {
         developer.log('insertTask API failed, storing locally: $e',
             error: e, stackTrace: st);
-        return await LocalData.insertTask(task);
+        final localId =
+            await LocalData.insertTask(task.copyWith(isSynced: false, id: null));
+        await LocalData.queueTaskAction(
+          localId: localId,
+          action: 'create',
+          payload: payload,
+        );
+        return localId;
       }
     } else {
-      return await LocalData.insertTask(task);
+      final localId =
+          await LocalData.insertTask(task.copyWith(isSynced: false, id: null));
+      await LocalData.queueTaskAction(
+        localId: localId,
+        action: 'create',
+        payload: payload,
+      );
+      return localId;
     }
   }
 
   Future<int> updateTask(Task task) async {
     if (await _isOnline()) {
       try {
-        await _apiService.put('/tasks/${task.id}', data: task.toMap());
+        await _apiService.put('/tasks/${task.id}', data: _taskPayload(task));
+        return await LocalData.updateTask(task.copyWith(isSynced: true));
       } catch (e, st) {
         developer.log('updateTask API failed, updating local only: $e',
             error: e, stackTrace: st);
+        final updated = await LocalData.updateTask(task.copyWith(isSynced: false));
+        final localId = task.id;
+        if (localId != null) {
+          await LocalData.queueTaskAction(
+            localId: localId,
+            action: 'update',
+            payload: _taskPayload(task),
+          );
+        }
+        return updated;
       }
+    } else {
+      final updated = await LocalData.updateTask(task.copyWith(isSynced: false));
+      final localId = task.id;
+      if (localId != null) {
+        await LocalData.queueTaskAction(
+          localId: localId,
+          action: 'update',
+          payload: _taskPayload(task),
+        );
+      }
+      return updated;
     }
-    return await LocalData.updateTask(task);
   }
 
   Future<int> deleteTask(int id) async {
-    if (await _isOnline()) {
+    final isSyncedTask = await LocalData.isTaskSynced(id);
+    await LocalData.deletePendingTaskActionsForLocalId(id);
+    if (!isSyncedTask) {
+      return await LocalData.deleteTask(id);
+    }
+
+    if (await _isOnline() && isSyncedTask) {
       try {
         await _apiService.delete('/tasks/$id');
+        await LocalData.deletePendingTaskDeleteByServerId(id);
       } catch (e, st) {
         developer.log('deleteTask API failed, deleting local only: $e',
             error: e, stackTrace: st);
+        await LocalData.queueTaskDelete(id);
       }
+    } else if (isSyncedTask) {
+      await LocalData.queueTaskDelete(id);
     }
     return await LocalData.deleteTask(id);
+  }
+
+  Future<bool> _isTaskLocallyUnsynced(int id) async {
+    return LocalData.isTaskUnsynced(id);
+  }
+
+  Map<String, dynamic> _taskPayload(Task task) {
+    return {
+      'title': task.title,
+      'description': task.description,
+      'due_date': task.dueDate,
+      'priority': task.priority,
+      'status': task.status ?? 'pending',
+      'category': task.category,
+      'assigned_to': task.assignedTo,
+      'staff_member_id': task.staffMemberId,
+      'source_event_type': task.sourceEventType,
+      'source_event_id': task.sourceEventId,
+    }..removeWhere((key, value) => value == null);
   }
 
   // Feeding Schedule operations
@@ -353,6 +426,76 @@ class SyncData {
     return await LocalData.deleteFeedingLog(id);
   }
 
+  // Animal Health Record operations
+  Future<List<AnimalHealthRecord>> getAnimalHealthRecords() async {
+    if (await _isOnline()) {
+      try {
+        final response = await _apiService.get('/animal-health-records');
+        final List<dynamic> data = response.data;
+        final records =
+            data.map((json) => AnimalHealthRecord.fromMap(json)).toList();
+
+        for (final record in records) {
+          await LocalData.upsertAnimalHealthRecord(record);
+        }
+
+        return records;
+      } catch (e, st) {
+        developer.log('getAnimalHealthRecords API failed: $e',
+            error: e, stackTrace: st);
+        return await LocalData.getAnimalHealthRecords();
+      }
+    } else {
+      return await LocalData.getAnimalHealthRecords();
+    }
+  }
+
+  Future<int> insertAnimalHealthRecord(AnimalHealthRecord record) async {
+    if (await _isOnline()) {
+      try {
+        final response = await _apiService.post(
+          '/animal-health-records',
+          data: record.toMap()..remove('id'),
+        );
+        final created = AnimalHealthRecord.fromMap(response.data);
+        return await LocalData.upsertAnimalHealthRecord(created);
+      } catch (e, st) {
+        developer.log('insertAnimalHealthRecord API failed: $e',
+            error: e, stackTrace: st);
+        return await LocalData.insertAnimalHealthRecord(record);
+      }
+    } else {
+      return await LocalData.insertAnimalHealthRecord(record);
+    }
+  }
+
+  Future<int> updateAnimalHealthRecord(AnimalHealthRecord record) async {
+    if (await _isOnline()) {
+      try {
+        await _apiService.put(
+          '/animal-health-records/${record.id}',
+          data: record.toMap()..remove('id'),
+        );
+      } catch (e, st) {
+        developer.log('updateAnimalHealthRecord API failed: $e',
+            error: e, stackTrace: st);
+      }
+    }
+    return await LocalData.updateAnimalHealthRecord(record);
+  }
+
+  Future<int> deleteAnimalHealthRecord(int id) async {
+    if (await _isOnline()) {
+      try {
+        await _apiService.delete('/animal-health-records/$id');
+      } catch (e, st) {
+        developer.log('deleteAnimalHealthRecord API failed: $e',
+            error: e, stackTrace: st);
+      }
+    }
+    return await LocalData.deleteAnimalHealthRecord(id);
+  }
+
   // Farm summary
   Future<Map<String, dynamic>> getFarmSummary() async {
     return await LocalData.getFarmSummary();
@@ -393,6 +536,8 @@ class SyncDataRepository {
   SyncDataRepository._internal();
 
   final DatabaseHelper _dbHelper = DatabaseHelper();
+
+  static const Duration _inventoryDeleteTombstoneTtl = Duration(days: 30);
 
   /// Queue an inventory action for background sync
   Future<void> queueInventoryAction({
@@ -546,5 +691,76 @@ class SyncDataRepository {
       where: 'id = ?',
       whereArgs: [queueId],
     );
+  }
+
+  Future<void> addInventoryDeleteTombstone({
+    required int localId,
+    int? serverId,
+    String? clientUuid,
+  }) async {
+    final db = await _dbHelper.database;
+    final now = DateTime.now();
+    final expiresAt = now.add(_inventoryDeleteTombstoneTtl).toIso8601String();
+    final normalizedUuid =
+        (clientUuid != null && clientUuid.isNotEmpty) ? clientUuid : null;
+
+    // Keep one tombstone per remote identity to avoid duplicate rows.
+    if (serverId != null) {
+      await db.delete(
+        'inventory_delete_tombstones',
+        where: 'server_id = ?',
+        whereArgs: [serverId],
+      );
+    } else if (normalizedUuid != null) {
+      await db.delete(
+        'inventory_delete_tombstones',
+        where: 'client_uuid = ?',
+        whereArgs: [normalizedUuid],
+      );
+    }
+
+    await db.insert('inventory_delete_tombstones', {
+      'inventory_local_id': localId,
+      'server_id': serverId,
+      'client_uuid': normalizedUuid,
+      'deleted_at': now.toIso8601String(),
+      'expires_at': expiresAt,
+    });
+  }
+
+  Future<void> purgeExpiredInventoryDeleteTombstones() async {
+    final db = await _dbHelper.database;
+    await db.delete(
+      'inventory_delete_tombstones',
+      where: 'expires_at <= ?',
+      whereArgs: [DateTime.now().toIso8601String()],
+    );
+  }
+
+  Future<Set<int>> getInventoryDeleteTombstoneServerIds() async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      'inventory_delete_tombstones',
+      columns: ['server_id'],
+      where: 'server_id IS NOT NULL',
+    );
+    return rows
+        .map((row) => row['server_id'])
+        .whereType<int>()
+        .toSet();
+  }
+
+  Future<Set<String>> getInventoryDeleteTombstoneClientUuids() async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      'inventory_delete_tombstones',
+      columns: ['client_uuid'],
+      where: 'client_uuid IS NOT NULL',
+    );
+    return rows
+        .map((row) => row['client_uuid'])
+        .whereType<String>()
+        .where((value) => value.isNotEmpty)
+        .toSet();
   }
 }

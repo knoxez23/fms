@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pamoja_twalima/business/domain/entities/sale_aggregate.dart';
-import 'package:pamoja_twalima/business/domain/entities/sale_entity.dart';
-import 'package:pamoja_twalima/business/domain/value_objects/value_objects.dart';
+import 'package:pamoja_twalima/features/business/domain/entities/sale_aggregate.dart';
+import 'package:pamoja_twalima/features/business/domain/entities/sale_entity.dart';
+import 'package:pamoja_twalima/features/business/domain/value_objects/value_objects.dart';
 
 void main() {
   test('rejects inconsistent total amount', () {

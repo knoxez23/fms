@@ -3,10 +3,15 @@ import 'package:injectable/injectable.dart';
 import 'injection.config.dart';
 
 final getIt = GetIt.instance;
+bool _diConfigured = false;
 
 @InjectableInit(
   initializerName: 'init',
   preferRelativeImports: true,
   asExtension: true,
 )
-void configureDependencies() => getIt.init();
+Future<void> configureDependencies() async {
+  if (_diConfigured) return;
+  getIt.init();
+  _diConfigured = true;
+}

@@ -19,6 +19,8 @@ void main() {
     await db.delete('animals');
     await db.delete('crops');
     await db.delete('tasks');
+    await db.delete('task_sync_queue');
+    await db.delete('task_delete_sync_queue');
   });
 
   test('upsertAnimal is idempotent by primary id', () async {
@@ -91,5 +93,50 @@ void main() {
     final rows = await LocalData.getTasks();
     expect(rows, hasLength(1));
     expect(rows.first.status, 'completed');
+  });
+
+  test('insertTask marks local-only task as unsynced', () async {
+    final id = await LocalData.insertTask(
+      Task(
+        title: 'Local task',
+        status: 'pending',
+      ),
+    );
+
+    final db = await DatabaseHelper().database;
+    final rows = await db.query(
+      'tasks',
+      columns: ['is_synced'],
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    expect(rows, hasLength(1));
+    expect(rows.first['is_synced'], 0);
+  });
+
+  test('queueTaskDelete is idempotent by task_server_id', () async {
+    await LocalData.queueTaskDelete(42);
+    await LocalData.queueTaskDelete(42);
+
+    final pending = await LocalData.getPendingTaskDeletes();
+    expect(pending, hasLength(1));
+    expect(pending.first['task_server_id'], 42);
+  });
+
+  test('queueTaskAction coalesces create then update for same task', () async {
+    await LocalData.queueTaskAction(
+      localId: 700,
+      action: 'create',
+      payload: {'title': 'Irrigate', 'status': 'pending'},
+    );
+    await LocalData.queueTaskAction(
+      localId: 700,
+      action: 'update',
+      payload: {'title': 'Irrigate field A', 'status': 'pending'},
+    );
+
+    final pending = await LocalData.getPendingTaskActions();
+    expect(pending, hasLength(1));
+    expect(pending.first['action'], 'create');
   });
 }

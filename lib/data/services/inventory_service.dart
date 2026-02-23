@@ -2,7 +2,7 @@ import 'dart:developer' as developer;
 import 'package:injectable/injectable.dart';
 import '../network/api_service.dart';
 import '../models/inventory_dto.dart';
-import '../../inventory/domain/entities/inventory_item.dart';
+import '../../features/inventory/domain/entities/inventory_item.dart';
 
 @LazySingleton()
 class InventoryService {
@@ -35,6 +35,7 @@ class InventoryService {
     required String unit,
     int? minStock,
     String? supplier,
+    int? supplierId,
     double? unitPrice,
     double? totalValue,
     String? notes,
@@ -48,6 +49,7 @@ class InventoryService {
         unit: unit,
         minStock: minStock ?? 0,
         supplier: supplier,
+        supplierId: supplierId,
         unitPrice: unitPrice,
         totalValue: totalValue,
         notes: notes,
@@ -72,6 +74,7 @@ class InventoryService {
     String? unit,
     int? minStock,
     String? supplier,
+    int? supplierId,
     double? unitPrice,
     double? totalValue,
     String? notes,
@@ -85,6 +88,7 @@ class InventoryService {
         if (unit != null) 'unit': unit,
         if (minStock != null) 'min_stock': minStock,
         if (supplier != null) 'supplier': supplier,
+        if (supplierId != null) 'supplier_id': supplierId,
         if (unitPrice != null) 'unit_price': unitPrice,
         if (totalValue != null) 'total_value': totalValue,
         if (notes != null) 'notes': notes,
@@ -138,6 +142,7 @@ class InventoryService {
     return InventoryItem(
       id: data['id']?.toString(),
       clientUuid: data['client_uuid'],
+      supplierId: data['supplier_id']?.toString(),
       itemName: data['item_name'] ?? data['itemName'] ?? '',
       category: data['category'] ?? '',
       quantity: (data['quantity'] as num?)?.toDouble() ?? 0.0,

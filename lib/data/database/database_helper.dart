@@ -19,7 +19,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'pamoja_twalima.db');
     return await openDatabase(
       path,
-      version: 10,
+      version: 15,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -83,8 +83,10 @@ class DatabaseHelper {
         status TEXT DEFAULT 'pending',
         category TEXT,
         assigned_to TEXT,
+        staff_member_id INTEGER,
         source_event_type TEXT,
         source_event_id TEXT,
+        is_synced INTEGER DEFAULT 1,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         user_id INTEGER,
         FOREIGN KEY (user_id) REFERENCES users (id)
@@ -104,6 +106,7 @@ class DatabaseHelper {
         unit_price REAL,
         total_value REAL,
         supplier TEXT,
+        supplier_id INTEGER,
         notes TEXT,
         last_restock TEXT,
         last_updated TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -126,6 +129,7 @@ class DatabaseHelper {
         price REAL,
         total_amount REAL,
         customer_name TEXT,
+        customer_id INTEGER,
         sale_date TEXT DEFAULT CURRENT_TIMESTAMP,
         payment_status TEXT,
         notes TEXT,
@@ -184,6 +188,20 @@ class DatabaseHelper {
       )
     ''');
 
+    // Animal health records table
+    await db.execute('''
+      CREATE TABLE animal_health_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        animal_id INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        name TEXT NOT NULL,
+        notes TEXT,
+        treated_at TEXT,
+        user_id INTEGER,
+        FOREIGN KEY (animal_id) REFERENCES animals (id)
+      )
+    ''');
+
     // Weather cache table
     await db.execute('''
       CREATE TABLE weather_cache (
@@ -214,6 +232,40 @@ class DatabaseHelper {
         payload TEXT NOT NULL,
         created_at TEXT NOT NULL,
         retry_count INTEGER DEFAULT 0
+      )
+    ''');
+
+    // Task delete sync queue table
+    await db.execute('''
+      CREATE TABLE task_delete_sync_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_server_id INTEGER NOT NULL UNIQUE,
+        created_at TEXT NOT NULL,
+        retry_count INTEGER DEFAULT 0
+      )
+    ''');
+
+    // Task create/update sync queue table
+    await db.execute('''
+      CREATE TABLE task_sync_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_local_id INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        retry_count INTEGER DEFAULT 0
+      )
+    ''');
+
+    // Inventory delete tombstones table
+    await db.execute('''
+      CREATE TABLE inventory_delete_tombstones (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        inventory_local_id INTEGER,
+        server_id INTEGER,
+        client_uuid TEXT,
+        deleted_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
       )
     ''');
 
@@ -372,6 +424,99 @@ class DatabaseHelper {
     if (oldVersion < 10) {
       try {
         await db.execute('ALTER TABLE sales ADD COLUMN server_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+    }
+
+    if (oldVersion < 11) {
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS animal_health_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            animal_id INTEGER NOT NULL,
+            type TEXT NOT NULL,
+            name TEXT NOT NULL,
+            notes TEXT,
+            treated_at TEXT,
+            user_id INTEGER,
+            FOREIGN KEY (animal_id) REFERENCES animals (id)
+          )
+        ''');
+      } catch (e) {
+        // Table may already exist
+      }
+    }
+
+    if (oldVersion < 12) {
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS inventory_delete_tombstones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            inventory_local_id INTEGER,
+            server_id INTEGER,
+            client_uuid TEXT,
+            deleted_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL
+          )
+        ''');
+      } catch (e) {
+        // Table may already exist
+      }
+    }
+
+    if (oldVersion < 13) {
+      try {
+        await db.execute(
+            'ALTER TABLE tasks ADD COLUMN is_synced INTEGER DEFAULT 1');
+      } catch (e) {
+        // Column may already exist
+      }
+
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS task_delete_sync_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_server_id INTEGER NOT NULL UNIQUE,
+            created_at TEXT NOT NULL,
+            retry_count INTEGER DEFAULT 0
+          )
+        ''');
+      } catch (e) {
+        // Table may already exist
+      }
+    }
+
+    if (oldVersion < 14) {
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS task_sync_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_local_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            retry_count INTEGER DEFAULT 0
+          )
+        ''');
+      } catch (e) {
+        // Table may already exist
+      }
+    }
+
+    if (oldVersion < 15) {
+      try {
+        await db.execute('ALTER TABLE inventory ADD COLUMN supplier_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+      try {
+        await db.execute('ALTER TABLE sales ADD COLUMN customer_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+      try {
+        await db.execute('ALTER TABLE tasks ADD COLUMN staff_member_id INTEGER');
       } catch (e) {
         // Column may already exist
       }

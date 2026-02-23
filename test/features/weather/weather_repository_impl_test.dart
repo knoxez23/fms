@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:pamoja_twalima/data/services/weather_service.dart';
-import 'package:pamoja_twalima/weather/infrastructure/weather_repository_impl.dart';
+import 'package:pamoja_twalima/features/weather/infrastructure/weather_repository_impl.dart';
 
 class MockWeatherService extends Mock implements WeatherService {}
 

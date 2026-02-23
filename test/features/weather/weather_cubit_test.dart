@@ -2,9 +2,9 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:pamoja_twalima/weather/application/weather_usecases.dart';
-import 'package:pamoja_twalima/weather/domain/entities/weather_entities.dart';
-import 'package:pamoja_twalima/weather/presentation/bloc/weather/weather_cubit.dart';
+import 'package:pamoja_twalima/features/weather/application/weather_usecases.dart';
+import 'package:pamoja_twalima/features/weather/domain/entities/weather_entities.dart';
+import 'package:pamoja_twalima/features/weather/presentation/bloc/weather/weather_cubit.dart';
 
 class MockGetWeather extends Mock implements GetWeather {}
 

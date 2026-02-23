@@ -8,8 +8,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:pamoja_twalima/data/database/database_helper.dart';
 import 'package:pamoja_twalima/data/repositories/sync_data.dart';
-import 'package:pamoja_twalima/inventory/domain/entities/inventory_item.dart';
-import 'package:pamoja_twalima/inventory/infrastructure/inventory_repository_impl.dart';
+import 'package:pamoja_twalima/features/inventory/domain/entities/inventory_item.dart';
+import 'package:pamoja_twalima/features/inventory/infrastructure/inventory_repository_impl.dart';
 import 'package:pamoja_twalima/data/services/inventory_service.dart';
 import 'package:pamoja_twalima/data/services/connectivity_service.dart';
 
@@ -33,12 +33,14 @@ void main() {
     final db = await DatabaseHelper().database;
     await db.delete('inventory');
     await db.delete('inventory_sync_queue');
+    await db.delete('inventory_delete_tombstones');
   });
 
   tearDown(() async {
     final db = await DatabaseHelper().database;
     await db.delete('inventory');
     await db.delete('inventory_sync_queue');
+    await db.delete('inventory_delete_tombstones');
   });
 
   test('addItem queues create with client_uuid', () async {
@@ -255,6 +257,54 @@ void main() {
     final payload = jsonDecode(queueRows.first['payload'] as String);
     expect(payload['server_id'], 55);
     expect(payload['client_uuid'], 'sync-delete-uuid');
+
+    final tombstones = await db.query('inventory_delete_tombstones');
+    expect(tombstones, hasLength(1));
+    expect(tombstones.first['server_id'], 55);
+    expect(tombstones.first['client_uuid'], 'sync-delete-uuid');
+  });
+
+  test(
+      'delete tombstone prevents item reinsertion even when delete queue is gone',
+      () async {
+    final service = MockInventoryService();
+    final connectivity = MockConnectivityService();
+    when(() => connectivity.isOnline()).thenAnswer((_) async => true);
+    when(() => service.list()).thenAnswer(
+      (_) async => [
+        {
+          'id': 55,
+          'client_uuid': 'sync-delete-uuid',
+          'item_name': 'Silage',
+          'category': 'Feed',
+          'quantity': 10.0,
+          'unit': 'kg',
+          'min_stock': 2,
+          'updated_at': DateTime.now().toIso8601String(),
+        }
+      ],
+    );
+
+    final repo = InventoryRepositoryImpl(service, connectivity);
+    final db = await DatabaseHelper().database;
+
+    final localId = await db.insert('inventory', {
+      'client_uuid': 'sync-delete-uuid',
+      'item_name': 'Silage',
+      'category': 'Feed',
+      'quantity': 10.0,
+      'unit': 'kg',
+      'min_stock': 2,
+      'is_synced': 1,
+      'server_id': 55,
+    });
+
+    await repo.deleteItem(localId.toString());
+    await db.delete('inventory_sync_queue');
+
+    final items = await repo.getItems();
+    expect(items, isEmpty);
+    expect(await db.query('inventory'), isEmpty);
   });
 
   test('unsynced local row is not overwritten by newer server item', () async {

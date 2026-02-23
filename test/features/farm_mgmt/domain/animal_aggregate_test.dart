@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/entities/animal_aggregate.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/entities/animal_entity.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/value_objects/value_objects.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/animal_aggregate.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/animal_entity.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/value_objects/value_objects.dart';
 
 void main() {
   test('rejects future birth date', () {

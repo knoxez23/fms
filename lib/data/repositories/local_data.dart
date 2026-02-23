@@ -6,6 +6,7 @@ import '../models/crop.dart';
 import '../models/task.dart';
 import '../models/feeding_schedule.dart';
 import '../models/feeding_log.dart';
+import '../models/animal_health_record.dart';
 
 class LocalData {
   static final DatabaseHelper _dbHelper = DatabaseHelper();
@@ -29,7 +30,9 @@ class LocalData {
 
     // Get pending tasks count
     final tasksResult = await db.rawQuery(
-        'SELECT COUNT(*) as count FROM tasks WHERE status != "completed"');
+      'SELECT COUNT(*) as count FROM tasks WHERE status != ?',
+      ['completed'],
+    );
     final pendingTasksCount = Sqflite.firstIntValue(tasksResult) ?? 0;
 
     // Get today's sales
@@ -50,6 +53,11 @@ class LocalData {
     final monthlySales =
         (monthlySalesResult.first['total'] as num?)?.toDouble() ?? 0.0;
 
+    final lowStockResult = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM inventory WHERE min_stock > 0 AND quantity <= min_stock',
+    );
+    final lowStockItems = Sqflite.firstIntValue(lowStockResult) ?? 0;
+
     return {
       "crops": cropCount,
       "livestock": animalCount,
@@ -57,7 +65,76 @@ class LocalData {
       "pendingTasks": pendingTasksCount,
       "salesToday": salesToday,
       "monthlySales": monthlySales,
+      "lowStockItems": lowStockItems,
     };
+  }
+
+  static Future<List<Map<String, dynamic>>> getUpcomingTasks({
+    int limit = 5,
+  }) async {
+    final db = await _dbHelper.database;
+    return db.query(
+      'tasks',
+      columns: ['id', 'title', 'due_date', 'status', 'priority'],
+      where: 'status != ?',
+      whereArgs: ['completed'],
+      orderBy: 'CASE WHEN due_date IS NULL THEN 1 ELSE 0 END, due_date ASC',
+      limit: limit,
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>> getRecentSales({
+    int limit = 5,
+  }) async {
+    final db = await _dbHelper.database;
+    return db.query(
+      'sales',
+      columns: [
+        'id',
+        'product_name',
+        'total_amount',
+        'sale_date',
+        'payment_status',
+        'customer_name',
+      ],
+      orderBy: 'sale_date DESC',
+      limit: limit,
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>> getProductionTrend({
+    int days = 7,
+  }) async {
+    final db = await _dbHelper.database;
+    final startDate = DateTime.now().subtract(Duration(days: days - 1));
+    final start = DateTime(startDate.year, startDate.month, startDate.day)
+        .toIso8601String();
+
+    final rows = await db.rawQuery('''
+      SELECT DATE(date_produced) as day, COALESCE(SUM(quantity), 0) as total
+      FROM production_logs
+      WHERE date_produced >= ?
+      GROUP BY DATE(date_produced)
+      ORDER BY day ASC
+    ''', [start]);
+
+    final totalsByDay = <String, double>{
+      for (final row in rows)
+        (row['day']?.toString() ?? ''):
+            (row['total'] as num?)?.toDouble() ?? 0.0,
+    };
+
+    final trend = <Map<String, dynamic>>[];
+    for (var i = days - 1; i >= 0; i--) {
+      final date = DateTime.now().subtract(Duration(days: i));
+      final key =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      trend.add({
+        'day': key,
+        'total': totalsByDay[key] ?? 0.0,
+      });
+    }
+    return trend;
   }
 
   static Future<List<Map<String, String>>> getMarketPrices() async {
@@ -164,12 +241,15 @@ class LocalData {
 
   static Future<int> insertTask(Task task) async {
     final db = await _dbHelper.database;
-    return await db.insert('tasks', task.toMap());
+    final map = task.toMap()
+      ..['is_synced'] = task.isSynced == null ? 0 : (task.isSynced! ? 1 : 0);
+    return await db.insert('tasks', map);
   }
 
   static Future<int> upsertTask(Task task) async {
     final db = await _dbHelper.database;
-    final map = task.toMap();
+    final map = task.toMap()
+      ..['is_synced'] = task.isSynced == null ? 1 : (task.isSynced! ? 1 : 0);
     if (task.id == null) {
       return await db.insert('tasks', map);
     }
@@ -182,9 +262,20 @@ class LocalData {
 
   static Future<int> updateTask(Task task) async {
     final db = await _dbHelper.database;
+    final existing = await db.query(
+      'tasks',
+      columns: ['is_synced'],
+      where: 'id = ?',
+      whereArgs: [task.id],
+      limit: 1,
+    );
+    final isSynced =
+        existing.isNotEmpty ? (existing.first['is_synced'] ?? 0) : 0;
+    final nextSynced =
+        task.isSynced == null ? isSynced : (task.isSynced! ? 1 : 0);
     return await db.update(
       'tasks',
-      task.toMap(),
+      task.toMap()..['is_synced'] = nextSynced,
       where: 'id = ?',
       whereArgs: [task.id],
     );
@@ -193,6 +284,195 @@ class LocalData {
   static Future<int> deleteTask(int id) async {
     final db = await _dbHelper.database;
     return await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<bool> isTaskSynced(int id) async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      'tasks',
+      columns: ['is_synced'],
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return false;
+    return (rows.first['is_synced'] ?? 0) == 1;
+  }
+
+  static Future<bool> isTaskUnsynced(int id) async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      'tasks',
+      columns: ['is_synced'],
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return false;
+    return (rows.first['is_synced'] ?? 0) != 1;
+  }
+
+  static Future<void> queueTaskDelete(int taskServerId) async {
+    final db = await _dbHelper.database;
+    await db.insert(
+      'task_delete_sync_queue',
+      {
+        'task_server_id': taskServerId,
+        'created_at': DateTime.now().toIso8601String(),
+        'retry_count': 0,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>> getPendingTaskDeletes() async {
+    final db = await _dbHelper.database;
+    return db.query('task_delete_sync_queue', orderBy: 'created_at ASC');
+  }
+
+  static Future<int> deletePendingTaskDelete(int id) async {
+    final db = await _dbHelper.database;
+    return db.delete('task_delete_sync_queue', where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<int> deletePendingTaskDeleteByServerId(int taskServerId) async {
+    final db = await _dbHelper.database;
+    return db.delete(
+      'task_delete_sync_queue',
+      where: 'task_server_id = ?',
+      whereArgs: [taskServerId],
+    );
+  }
+
+  static Future<int> updatePendingTaskDeleteRetryCount(
+      int id, int retryCount) async {
+    final db = await _dbHelper.database;
+    return db.update(
+      'task_delete_sync_queue',
+      {'retry_count': retryCount},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  static Future<Set<int>> getPendingTaskDeleteServerIds() async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      'task_delete_sync_queue',
+      columns: ['task_server_id'],
+    );
+    return rows
+        .map((row) => row['task_server_id'])
+        .whereType<int>()
+        .toSet();
+  }
+
+  static Future<void> queueTaskAction({
+    required int localId,
+    required String action,
+    required Map<String, dynamic> payload,
+  }) async {
+    final db = await _dbHelper.database;
+    final encodedPayload = jsonEncode(payload);
+    final existing = await db.query(
+      'task_sync_queue',
+      where: 'task_local_id = ?',
+      whereArgs: [localId],
+      orderBy: 'created_at DESC',
+    );
+
+    if (action == 'update') {
+      final createEntry = existing.firstWhere(
+        (row) => row['action'] == 'create',
+        orElse: () => const <String, dynamic>{},
+      );
+      if (createEntry.isNotEmpty) {
+        await db.update(
+          'task_sync_queue',
+          {
+            'payload': encodedPayload,
+            'created_at': DateTime.now().toIso8601String(),
+            'retry_count': 0,
+          },
+          where: 'id = ?',
+          whereArgs: [createEntry['id']],
+        );
+        return;
+      }
+
+      final latestUpdate = existing.firstWhere(
+        (row) => row['action'] == 'update',
+        orElse: () => const <String, dynamic>{},
+      );
+      if (latestUpdate.isNotEmpty) {
+        await db.update(
+          'task_sync_queue',
+          {
+            'payload': encodedPayload,
+            'created_at': DateTime.now().toIso8601String(),
+            'retry_count': 0,
+          },
+          where: 'id = ?',
+          whereArgs: [latestUpdate['id']],
+        );
+        return;
+      }
+    }
+
+    if (action == 'create') {
+      final latestCreate = existing.firstWhere(
+        (row) => row['action'] == 'create',
+        orElse: () => const <String, dynamic>{},
+      );
+      if (latestCreate.isNotEmpty) {
+        await db.update(
+          'task_sync_queue',
+          {
+            'payload': encodedPayload,
+            'created_at': DateTime.now().toIso8601String(),
+            'retry_count': 0,
+          },
+          where: 'id = ?',
+          whereArgs: [latestCreate['id']],
+        );
+        return;
+      }
+    }
+
+    await db.insert('task_sync_queue', {
+      'task_local_id': localId,
+      'action': action,
+      'payload': encodedPayload,
+      'created_at': DateTime.now().toIso8601String(),
+      'retry_count': 0,
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> getPendingTaskActions() async {
+    final db = await _dbHelper.database;
+    return db.query('task_sync_queue', orderBy: 'created_at ASC');
+  }
+
+  static Future<int> deletePendingTaskAction(int id) async {
+    final db = await _dbHelper.database;
+    return db.delete('task_sync_queue', where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<int> deletePendingTaskActionsForLocalId(int localId) async {
+    final db = await _dbHelper.database;
+    return db.delete('task_sync_queue',
+        where: 'task_local_id = ?', whereArgs: [localId]);
+  }
+
+  static Future<int> updatePendingTaskActionRetryCount(
+      int id, int retryCount) async {
+    final db = await _dbHelper.database;
+    return db.update(
+      'task_sync_queue',
+      {'retry_count': retryCount},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // Feeding Schedule CRUD operations
@@ -276,6 +556,61 @@ class LocalData {
     return await db.delete('feeding_logs', where: 'id = ?', whereArgs: [id]);
   }
 
+  // Animal Health Record CRUD operations
+  static Future<List<AnimalHealthRecord>> getAnimalHealthRecords() async {
+    final db = await _dbHelper.database;
+    final maps = await db.query(
+      'animal_health_records',
+      orderBy: 'treated_at DESC, id DESC',
+    );
+    return List.generate(
+      maps.length,
+      (i) => AnimalHealthRecord.fromMap(maps[i]),
+    );
+  }
+
+  static Future<int> insertAnimalHealthRecord(AnimalHealthRecord record) async {
+    final db = await _dbHelper.database;
+    final map = record.toMap();
+    if (map['id'] == null) {
+      map.remove('id');
+    }
+    return await db.insert('animal_health_records', map);
+  }
+
+  static Future<int> upsertAnimalHealthRecord(AnimalHealthRecord record) async {
+    final db = await _dbHelper.database;
+    final map = record.toMap();
+    if (record.id == null) {
+      map.remove('id');
+      return await db.insert('animal_health_records', map);
+    }
+    return await db.insert(
+      'animal_health_records',
+      map,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<int> updateAnimalHealthRecord(AnimalHealthRecord record) async {
+    final db = await _dbHelper.database;
+    return await db.update(
+      'animal_health_records',
+      record.toMap(),
+      where: 'id = ?',
+      whereArgs: [record.id],
+    );
+  }
+
+  static Future<int> deleteAnimalHealthRecord(int id) async {
+    final db = await _dbHelper.database;
+    return await db.delete(
+      'animal_health_records',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   // Sales CRUD operations
   static Future<List<Map<String, dynamic>>> getSales() async {
     final db = await _dbHelper.database;
@@ -297,6 +632,7 @@ class LocalData {
       'total_amount': sale['total_amount'],
       'customer_name':
           sale['customer_name'] ?? sale['customer'], // Handle both formats
+      'customer_id': sale['customer_id'],
       'sale_date': sale['sale_date'] ?? sale['date'], // Handle both formats
       'payment_status': sale['payment_status'] ?? 'Pending',
       'notes': sale['notes'] ?? '',
@@ -329,6 +665,7 @@ class LocalData {
       'price': sale['price'],
       'total_amount': sale['total_amount'],
       'customer_name': sale['customer_name'] ?? sale['customer'],
+      'customer_id': sale['customer_id'],
       'sale_date': sale['sale_date'] ?? sale['date'],
       'payment_status': sale['payment_status'] ?? 'Pending',
       'notes': sale['notes'] ?? '',
@@ -363,6 +700,7 @@ class LocalData {
       'price': sale['price'],
       'total_amount': sale['total_amount'],
       'customer_name': sale['customer_name'] ?? sale['customer'],
+      'customer_id': sale['customer_id'],
       'sale_date': sale['sale_date'] ?? sale['date'],
       'payment_status': sale['payment_status'] ?? 'Pending',
       'notes': sale['notes'] ?? '',

@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pamoja_twalima/core/domain/events/domain_event_bus.dart';
-import 'package:pamoja_twalima/farm_mgmt/application/domain_event_subscribers.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/entities/task_entity.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/events/farm_domain_events.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/repositories/task_repository.dart';
-import 'package:pamoja_twalima/inventory/domain/events/inventory_domain_events.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/application/domain_event_subscribers.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/task_entity.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/events/farm_domain_events.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/repositories/task_repository.dart';
+import 'package:pamoja_twalima/features/inventory/domain/events/inventory_domain_events.dart';
 
 class _InMemoryTaskRepository implements TaskRepository {
   final List<TaskEntity> items = [];
@@ -61,11 +61,11 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 10));
 
     expect(
-      repo.items.any((t) => t.title.value.startsWith('Prepare for birth:')),
+      repo.items.any((t) => t.title.value.startsWith('Breeding follow-up:')),
       isTrue,
     );
     expect(
-      repo.items.any((t) => t.sourceEventType == 'AnimalBred'),
+      repo.items.any((t) => t.sourceEventType == 'breeding'),
       isTrue,
     );
     expect(

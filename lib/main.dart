@@ -3,23 +3,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/di/injection.dart';
-import 'auth/application/auth_usecases.dart';
-import 'farm_mgmt/application/domain_event_subscribers.dart';
-import 'package:pamoja_twalima/business/presentation/sales/sales_screen.dart';
-import 'package:pamoja_twalima/inventory/presentation/inventory_screen.dart';
+import 'core/services/local_notification_service.dart';
+import 'features/auth/application/auth_usecases.dart';
+import 'features/farm_mgmt/application/domain_event_subscribers.dart';
+import 'package:pamoja_twalima/features/business/presentation/sales/sales_screen.dart';
+import 'package:pamoja_twalima/features/inventory/presentation/inventory_screen.dart';
 import 'data/repositories/sync_worker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'auth/presentation/bloc/auth/auth_bloc.dart';
+import 'features/auth/presentation/bloc/auth/auth_bloc.dart';
 
 // Screens
-import 'home/presentation/home_screen.dart';
-import 'farm_mgmt/presentation/farm_mgmt_screen.dart';
-import 'farm_mgmt/presentation/animals/animals_screen.dart';
-import 'onboarding/presentation/onboarding_screen.dart';
-import 'profile/presentation/profile_screen.dart';
-import 'marketplace/presentation/sell_product_screen.dart';
-import 'auth/presentation/register_screen.dart';
-import 'auth/presentation/login_screen.dart';
+import 'features/home/presentation/home_screen.dart';
+import 'features/farm_mgmt/presentation/farm_mgmt_screen.dart';
+import 'features/farm_mgmt/presentation/animals/animals_screen.dart';
+import 'features/onboarding/presentation/onboarding_screen.dart';
+import 'features/profile/presentation/profile_screen.dart';
+import 'features/marketplace/presentation/sell_product_screen.dart';
+import 'features/auth/presentation/register_screen.dart';
+import 'features/auth/presentation/login_screen.dart';
 
 // Theme
 import 'core/presentation/themes/theme.dart';
@@ -29,11 +30,14 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Load environment variables
-  await dotenv.load();
+  if (!dotenv.isInitialized) {
+    await dotenv.load(fileName: '.env', isOptional: true);
+  }
 
   // Initialize dependency injection
-  configureDependencies();
+  await configureDependencies();
   getIt<DomainEventSubscribers>().start();
+  await LocalNotificationService.instance.init();
 
   runApp(const PamojaApp());
 }
@@ -165,8 +169,8 @@ class _MainShellState extends State<MainShell> {
     super.initState();
 
     // Initialize pages
-    _pages = const [
-      HomeScreen(),
+    _pages = [
+      HomeScreen(onNavigateTab: _navigateToTab),
       FarmMgmtScreen(),
       InventoryScreen(),
       SalesScreen(),
@@ -174,14 +178,17 @@ class _MainShellState extends State<MainShell> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeSyncWorkers();
-      _performInitialSync();
+      Future<void>.delayed(const Duration(seconds: 2), _performInitialSync);
     });
   }
 
   void _initializeSyncWorkers() {
     try {
       // Start the unified sync worker (handles both sales and inventory)
-      SyncWorker().start(interval: const Duration(minutes: 2));
+      SyncWorker().start(
+        interval: const Duration(minutes: 2),
+        runImmediately: false,
+      );
 
       debugPrint('✅ Sync workers initialized successfully');
     } catch (e) {
@@ -241,6 +248,12 @@ class _MainShellState extends State<MainShell> {
         bottomNavigationBar: _buildBottomNav(theme),
       ),
     );
+  }
+
+  void _navigateToTab(int index) {
+    if (!mounted) return;
+    if (index < 0 || index >= _pages.length) return;
+    setState(() => _currentIndex = index);
   }
 
   Widget _buildBottomNav(ThemeData theme) {

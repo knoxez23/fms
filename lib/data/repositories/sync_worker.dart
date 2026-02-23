@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'package:pamoja_twalima/inventory/domain/repositories/inventory_repository.dart';
+import 'package:pamoja_twalima/features/inventory/domain/repositories/inventory_repository.dart';
 import 'local_data.dart';
 import 'sync_data.dart';
 import '../services/sale_service.dart';
 import 'inventory_sync_worker.dart';
 import '../../core/di/injection.dart';
+import '../network/api_service.dart';
+import '../models/task.dart';
 
 class SyncWorker {
   static final SyncWorker _instance = SyncWorker._internal();
@@ -14,16 +16,22 @@ class SyncWorker {
 
   Timer? _timer;
   bool _running = false;
+  final ApiService _apiService = ApiService();
 
   SyncWorker._internal();
 
-  void start({Duration interval = const Duration(minutes: 2)}) {
+  void start({
+    Duration interval = const Duration(minutes: 2),
+    bool runImmediately = true,
+  }) {
     if (_timer != null) return;
     _timer = Timer.periodic(interval, (_) => _runOnce());
     developer
         .log('SyncWorker started, interval: ${interval.inMinutes} minutes');
-    // Run cleanup and sync immediately once
-    _runOnce();
+    if (runImmediately) {
+      // Run cleanup and sync immediately once
+      _runOnce();
+    }
   }
 
   void stop() {
@@ -43,6 +51,10 @@ class SyncWorker {
       // Sync pending sales
       await _syncPendingSales();
 
+      // Sync pending task deletes
+      await _syncPendingTaskActions();
+      await _syncPendingTaskDeletes();
+
       // Sync inventory items
       await _syncInventory();
     } catch (e, st) {
@@ -59,6 +71,8 @@ class SyncWorker {
       developer.log('📥 Syncing data from server...');
 
       final syncData = getIt<SyncData>();
+      await _syncPendingTaskActions();
+      await _syncPendingTaskDeletes();
 
       // Keep pull logic centralized in repositories/sync data.
       await getIt<InventoryRepository>().getItems();
@@ -72,6 +86,137 @@ class SyncWorker {
       developer.log('✅ Server sync completed');
     } catch (e, st) {
       developer.log('❌ Server sync failed: $e', error: e, stackTrace: st);
+    }
+  }
+
+  Future<void> _syncPendingTaskDeletes() async {
+    final pending = await LocalData.getPendingTaskDeletes();
+    if (pending.isEmpty) return;
+
+    for (final row in pending) {
+      final queueId = row['id'] as int;
+      final taskServerId = row['task_server_id'] as int?;
+      final retryCount = row['retry_count'] as int? ?? 0;
+
+      if (taskServerId == null) {
+        await LocalData.deletePendingTaskDelete(queueId);
+        continue;
+      }
+
+      try {
+        await _apiService.delete('/tasks/$taskServerId');
+        await LocalData.deletePendingTaskDelete(queueId);
+      } on ApiException catch (e) {
+        if (e.statusCode == 404) {
+          await LocalData.deletePendingTaskDelete(queueId);
+          continue;
+        }
+
+        final nextRetry = retryCount + 1;
+        if (nextRetry >= 3) {
+          await LocalData.deletePendingTaskDelete(queueId);
+          continue;
+        }
+
+        await LocalData.updatePendingTaskDeleteRetryCount(queueId, nextRetry);
+      } catch (e) {
+        final nextRetry = retryCount + 1;
+        if (nextRetry >= 3) {
+          await LocalData.deletePendingTaskDelete(queueId);
+          continue;
+        }
+        await LocalData.updatePendingTaskDeleteRetryCount(queueId, nextRetry);
+      }
+    }
+  }
+
+  Future<void> _syncPendingTaskActions() async {
+    final pending = await LocalData.getPendingTaskActions();
+    if (pending.isEmpty) return;
+
+    for (final row in pending) {
+      final queueId = row['id'] as int;
+      final localId = row['task_local_id'] as int?;
+      final action = row['action'] as String? ?? '';
+      final payloadText = row['payload'] as String? ?? '';
+      final retryCount = row['retry_count'] as int? ?? 0;
+
+      if (localId == null || payloadText.isEmpty) {
+        await LocalData.deletePendingTaskAction(queueId);
+        continue;
+      }
+
+      Map<String, dynamic> payload;
+      try {
+        payload = jsonDecode(payloadText) as Map<String, dynamic>;
+      } catch (_) {
+        await LocalData.deletePendingTaskAction(queueId);
+        continue;
+      }
+
+      try {
+        if (action == 'create') {
+          final response = await _apiService.post('/tasks', data: payload);
+          final created = Task.fromMap(
+            Map<String, dynamic>.from(response.data as Map),
+          ).copyWith(isSynced: true);
+
+          if (created.id != null && created.id != localId) {
+            await LocalData.deleteTask(localId);
+          }
+          await LocalData.upsertTask(created);
+          await LocalData.deletePendingTaskActionsForLocalId(localId);
+          continue;
+        }
+
+        if (action == 'update') {
+          await _apiService.put('/tasks/$localId', data: payload);
+          final updated = Task(
+            id: localId,
+            title: payload['title']?.toString() ?? '',
+            description: payload['description']?.toString(),
+            dueDate: payload['due_date']?.toString(),
+            priority: payload['priority']?.toString(),
+            status: payload['status']?.toString(),
+            category: payload['category']?.toString(),
+            assignedTo: payload['assigned_to']?.toString(),
+            staffMemberId: _parseInt(payload['staff_member_id']),
+            sourceEventType: payload['source_event_type']?.toString(),
+            sourceEventId: payload['source_event_id']?.toString(),
+            isSynced: true,
+          );
+          await LocalData.updateTask(updated);
+          await LocalData.deletePendingTaskAction(queueId);
+          continue;
+        }
+
+        await LocalData.deletePendingTaskAction(queueId);
+      } on ApiException catch (e) {
+        if (e.statusCode == 404 && action == 'update') {
+          // Remote row missing, fallback to create with same payload.
+          await LocalData.queueTaskAction(
+            localId: localId,
+            action: 'create',
+            payload: payload,
+          );
+          await LocalData.deletePendingTaskAction(queueId);
+          continue;
+        }
+
+        final nextRetry = retryCount + 1;
+        if (nextRetry >= 3) {
+          await LocalData.deletePendingTaskAction(queueId);
+          continue;
+        }
+        await LocalData.updatePendingTaskActionRetryCount(queueId, nextRetry);
+      } catch (_) {
+        final nextRetry = retryCount + 1;
+        if (nextRetry >= 3) {
+          await LocalData.deletePendingTaskAction(queueId);
+          continue;
+        }
+        await LocalData.updatePendingTaskActionRetryCount(queueId, nextRetry);
+      }
     }
   }
 
@@ -216,6 +361,7 @@ class SyncWorker {
       'sale_date': serverResult['sale_date'] ?? payload['sale_date'],
       'customer_name':
           serverResult['customer_name'] ?? payload['customer_name'],
+      'customer_id': serverResult['customer_id'] ?? payload['customer_id'],
     };
 
     final serverId = _parseInt(serverResult['id']);
@@ -254,6 +400,7 @@ class SyncWorker {
       'price': payload['price'],
       'total_amount': payload['total_amount'],
       'customer_name': payload['customer_name'] ?? payload['customer'],
+      'customer_id': payload['customer_id'],
       'sale_date': payload['sale_date'] ?? payload['date'],
       'payment_status': payload['payment_status'],
       'notes': payload['notes'] ?? '',

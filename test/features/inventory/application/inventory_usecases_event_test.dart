@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pamoja_twalima/core/domain/events/domain_event_bus.dart';
-import 'package:pamoja_twalima/inventory/application/inventory_usecases.dart';
-import 'package:pamoja_twalima/inventory/domain/entities/inventory_item.dart';
-import 'package:pamoja_twalima/inventory/domain/events/inventory_domain_events.dart';
-import 'package:pamoja_twalima/inventory/domain/repositories/inventory_repository.dart';
+import 'package:pamoja_twalima/features/inventory/application/inventory_usecases.dart';
+import 'package:pamoja_twalima/features/inventory/domain/entities/inventory_item.dart';
+import 'package:pamoja_twalima/features/inventory/domain/events/inventory_domain_events.dart';
+import 'package:pamoja_twalima/features/inventory/domain/repositories/inventory_repository.dart';
 
 class _FakeInventoryRepository implements InventoryRepository {
   @override

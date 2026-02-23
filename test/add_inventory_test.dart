@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pamoja_twalima/inventory/presentation/add_inventory_screen.dart';
+import 'package:pamoja_twalima/features/inventory/presentation/add_inventory_screen.dart';
 
 void main() {
   testWidgets('AddInventory returns new item on Save', (tester) async {

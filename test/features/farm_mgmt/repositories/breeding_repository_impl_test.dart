@@ -5,8 +5,8 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:pamoja_twalima/data/database/database_helper.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/entities/breeding_record_entity.dart';
-import 'package:pamoja_twalima/farm_mgmt/infrastructure/breeding_repository_impl.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/breeding_record_entity.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/infrastructure/breeding_repository_impl.dart';
 
 void main() {
   setUpAll(() async {

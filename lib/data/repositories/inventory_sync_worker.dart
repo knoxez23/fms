@@ -183,12 +183,31 @@ class InventorySyncWorker {
         if (serverId != null) {
           developer
               .log('InventorySyncWorker: DELETEing /inventories/$serverId');
-          await _api.delete('/inventories/$serverId');
+          try {
+            await _api.delete('/inventories/$serverId');
+          } on ApiException catch (e) {
+            // Treat missing remote row as already-deleted (idempotent delete).
+            if (e.statusCode != 404) {
+              rethrow;
+            }
+            developer.log(
+              'InventorySyncWorker: Remote row already deleted for server_id=$serverId',
+            );
+          }
           developer.log('InventorySyncWorker: Delete successful');
         } else if (clientUuid != null) {
           developer.log(
               'InventorySyncWorker: DELETEing /inventories/by-client/$clientUuid');
-          await _api.delete('/inventories/by-client/$clientUuid');
+          try {
+            await _api.delete('/inventories/by-client/$clientUuid');
+          } on ApiException catch (e) {
+            if (e.statusCode != 404) {
+              rethrow;
+            }
+            developer.log(
+              'InventorySyncWorker: Remote row already deleted for client_uuid=$clientUuid',
+            );
+          }
           developer
               .log('InventorySyncWorker: Delete by client_uuid successful');
         } else {

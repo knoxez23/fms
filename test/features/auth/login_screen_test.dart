@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:pamoja_twalima/auth/presentation/login_screen.dart';
-import 'package:pamoja_twalima/auth/presentation/bloc/auth/auth_bloc.dart';
+import 'package:pamoja_twalima/features/auth/presentation/login_screen.dart';
+import 'package:pamoja_twalima/features/auth/presentation/bloc/auth/auth_bloc.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class MockAuthBloc extends MockBloc<AuthEvent, AuthState>

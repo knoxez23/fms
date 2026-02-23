@@ -38,6 +38,10 @@ jobs:
         working-directory: backend
         run: composer install --prefer-dist --no-progress
 
+      - name: Security audit (Composer)
+        working-directory: backend
+        run: composer audit --no-interaction
+
       - name: Generate key
         working-directory: backend
         run: php artisan key:generate
@@ -66,4 +70,4 @@ jobs:
           DB_DATABASE: test_db
           DB_USERNAME: root
           DB_PASSWORD: password
-        run: php artisan test --coverage
+        run: php artisan test --coverage --stop-on-failure

@@ -1,4 +1,4 @@
-import '../../inventory/domain/entities/inventory_item.dart';
+import '../../features/inventory/domain/entities/inventory_item.dart';
 
 class InventoryDto {
   final int? localId;
@@ -11,6 +11,7 @@ class InventoryDto {
   final double? unitPrice;
   final double? totalValue;
   final String? supplier;
+  final int? supplierId;
   final String? notes;
   final DateTime lastRestock;
 
@@ -25,6 +26,7 @@ class InventoryDto {
     this.unitPrice,
     this.totalValue,
     this.supplier,
+    this.supplierId,
     this.notes,
     required this.lastRestock,
   });
@@ -42,6 +44,7 @@ class InventoryDto {
       unitPrice: item.unitPrice,
       totalValue: item.totalValue,
       supplier: item.supplier,
+      supplierId: item.supplierId != null ? int.tryParse(item.supplierId!) : null,
       notes: null,
       lastRestock: item.lastRestock ?? DateTime.now(),
     );
@@ -64,6 +67,7 @@ class InventoryDto {
       'unit': unit,
       'min_stock': minStock,
       'supplier': supplier ?? '', // Provide empty string instead of null
+      'supplier_id': supplierId,
       'unit_price': unitPrice,
       'total_value': totalValue,
       'notes': notes,
@@ -83,6 +87,7 @@ class InventoryDto {
       'unit_price': unitPrice,
       'total_value': totalValue,
       'supplier': supplier,
+      'supplier_id': supplierId,
       'last_restock': lastRestock.toIso8601String(),
       'is_synced': 0,
     };

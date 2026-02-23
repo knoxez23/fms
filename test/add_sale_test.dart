@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pamoja_twalima/business/presentation/sales/add_sale_screen.dart';
-import 'package:pamoja_twalima/business/domain/entities/sale_entity.dart';
+import 'package:pamoja_twalima/features/business/presentation/sales/add_sale_screen.dart';
+import 'package:pamoja_twalima/features/business/domain/entities/sale_entity.dart';
 
 void main() {
   testWidgets('AddSale returns new sale on Save', (tester) async {

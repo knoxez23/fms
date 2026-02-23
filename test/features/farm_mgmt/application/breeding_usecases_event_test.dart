@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pamoja_twalima/core/domain/events/domain_event_bus.dart';
-import 'package:pamoja_twalima/farm_mgmt/application/breeding_usecases.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/entities/breeding_record_entity.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/events/farm_domain_events.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/repositories/breeding_repository.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/application/breeding_usecases.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/breeding_record_entity.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/events/farm_domain_events.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/repositories/breeding_repository.dart';
 
 class _FakeBreedingRepository implements BreedingRepository {
   @override

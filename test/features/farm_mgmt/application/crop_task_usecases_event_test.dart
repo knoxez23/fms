@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pamoja_twalima/core/domain/events/domain_event_bus.dart';
-import 'package:pamoja_twalima/farm_mgmt/application/crop_usecases.dart';
-import 'package:pamoja_twalima/farm_mgmt/application/task_usecases.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/entities/crop_entity.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/entities/task_entity.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/events/farm_domain_events.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/repositories/crop_repository.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/repositories/task_repository.dart';
-import 'package:pamoja_twalima/farm_mgmt/domain/value_objects/value_objects.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/application/crop_usecases.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/application/task_usecases.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/crop_entity.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/task_entity.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/events/farm_domain_events.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/repositories/crop_repository.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/repositories/task_repository.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/value_objects/value_objects.dart';
 
 class _FakeCropRepository implements CropRepository {
   @override
