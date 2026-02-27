@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pamoja_twalima/core/di/injection.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
@@ -31,8 +32,8 @@ class _WeatherView extends StatelessWidget {
           return AppScaffold(
             backgroundColor: theme.colorScheme.surface,
             includeDrawer: false,
-            appBar: const ModernAppBar(
-              title: 'Weather Forecast',
+            appBar: ModernAppBar(
+              title: context.tr('weather_forecast'),
               variant: AppBarVariant.standard,
             ),
             body: const Center(child: CircularProgressIndicator()),
@@ -43,11 +44,13 @@ class _WeatherView extends StatelessWidget {
           return AppScaffold(
             backgroundColor: theme.colorScheme.surface,
             includeDrawer: false,
-            appBar: const ModernAppBar(
-              title: 'Weather Forecast',
+            appBar: ModernAppBar(
+              title: context.tr('weather_forecast'),
               variant: AppBarVariant.standard,
             ),
-            body: Center(child: Text(state.error ?? 'Unable to load weather')),
+            body: Center(
+              child: Text(state.error ?? context.tr('unable_load_weather')),
+            ),
           );
         }
 
@@ -58,8 +61,8 @@ class _WeatherView extends StatelessWidget {
         return AppScaffold(
           backgroundColor: theme.colorScheme.surface,
           includeDrawer: false,
-          appBar: const ModernAppBar(
-            title: 'Weather Forecast',
+          appBar: ModernAppBar(
+            title: context.tr('weather_forecast'),
             variant: AppBarVariant.standard,
           ),
           body: SingleChildScrollView(
@@ -90,7 +93,7 @@ class _WeatherView extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Current Weather',
+                                  context.tr('current_weather'),
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: Colors.white.withValues(alpha: 0.9),
                                   ),
@@ -133,19 +136,19 @@ class _WeatherView extends StatelessWidget {
                             _WeatherStat(
                               icon: Icons.water_drop,
                               value: '${current.humidity}%',
-                              label: 'Humidity',
+                              label: context.tr('humidity'),
                               theme: theme,
                             ),
                             _WeatherStat(
                               icon: Icons.air,
                               value: '${current.windKph} km/h',
-                              label: 'Wind',
+                              label: context.tr('wind'),
                               theme: theme,
                             ),
                             _WeatherStat(
                               icon: Icons.grain,
                               value: '${current.rainChance}%',
-                              label: 'Rain',
+                              label: context.tr('rain'),
                               theme: theme,
                             ),
                           ],
@@ -182,7 +185,7 @@ class _WeatherView extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  '7-Day Forecast',
+                  context.tr('seven_day_forecast'),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -338,7 +341,9 @@ class _ForecastCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '$rainChance% rain',
+                context
+                    .tr('rain_percent')
+                    .replaceFirst('{percent}', '$rainChance'),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),

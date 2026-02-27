@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pamoja_twalima/core/di/injection.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
@@ -38,7 +39,7 @@ class _KnowledgeView extends StatelessWidget {
     return BlocBuilder<KnowledgeCubit, KnowledgeState>(
       builder: (context, state) {
         final filteredTopics = state.topics.where((topic) {
-          final matchesCategory = state.selectedCategory == 'All' ||
+          final matchesCategory = state.selectedCategory == _allCategory ||
               topic.category == state.selectedCategory;
           final query = state.searchQuery.trim().toLowerCase();
           final matchesSearch = query.isEmpty ||
@@ -49,8 +50,8 @@ class _KnowledgeView extends StatelessWidget {
 
         return AppScaffold(
           backgroundColor: theme.colorScheme.surface,
-          appBar: const ModernAppBar(
-            title: 'Knowledge Base',
+          appBar: ModernAppBar(
+            title: context.tr('knowledge_base'),
             variant: AppBarVariant.home,
           ),
           body: Padding(
@@ -65,7 +66,7 @@ class _KnowledgeView extends StatelessWidget {
                     onChanged: (value) =>
                         context.read<KnowledgeCubit>().updateSearch(value),
                     decoration: InputDecoration(
-                      hintText: 'Search diseases, crops, or treatments...',
+                      hintText: context.tr('search_knowledge_hint'),
                       prefixIcon: Icon(
                         Icons.search,
                         color: theme.iconTheme.color?.withValues(alpha: 0.6),
@@ -99,7 +100,7 @@ class _KnowledgeView extends StatelessWidget {
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: ChoiceChip(
-                            label: Text(category),
+                            label: Text(_categoryLabel(context, category)),
                             selected: isSelected,
                             checkmarkColor: theme.colorScheme.primary,
                             selectedColor: theme.colorScheme.primary
@@ -139,14 +140,15 @@ class _KnowledgeView extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '${filteredTopics.length} Articles Found',
+                        context.tr('articles_found').replaceFirst(
+                            '{count}', '${filteredTopics.length}'),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurface
                               .withValues(alpha: 0.6),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      if (state.selectedCategory != 'All')
+                      if (state.selectedCategory != _allCategory)
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -158,7 +160,7 @@ class _KnowledgeView extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            state.selectedCategory,
+                            _categoryLabel(context, state.selectedCategory),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.primary,
                               fontWeight: FontWeight.w600,
@@ -225,8 +227,8 @@ class _KnowledgeView extends StatelessWidget {
                   },
                   icon:
                       const Icon(Icons.lightbulb_outline, color: Colors.white),
-                  label: const Text(
-                    "Ask an Expert",
+                  label: Text(
+                    context.tr('ask_expert'),
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
@@ -262,6 +264,29 @@ class _KnowledgeView extends StatelessWidget {
         return Icons.menu_book;
     }
   }
+
+  String _categoryLabel(BuildContext context, String category) {
+    switch (category) {
+      case _allCategory:
+        return context.tr('knowledge_category_all');
+      case 'Crops':
+        return context.tr('knowledge_category_crops');
+      case 'Livestock':
+        return context.tr('knowledge_category_livestock');
+      case 'Poultry':
+        return context.tr('knowledge_category_poultry');
+      case 'Vegetables':
+        return context.tr('knowledge_category_vegetables');
+      case 'Soil Health':
+        return context.tr('knowledge_category_soil_health');
+      case 'Storage':
+        return context.tr('knowledge_category_storage');
+      default:
+        return category;
+    }
+  }
+
+  static const String _allCategory = 'All';
 }
 
 class _KnowledgeCard extends StatelessWidget {
