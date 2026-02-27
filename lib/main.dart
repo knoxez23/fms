@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'core/config/app_environment.dart';
 import 'core/di/injection.dart';
 import 'core/presentation/settings/app_localizations.dart';
+import 'core/services/crash_reporting_service.dart';
 import 'core/services/local_notification_service.dart';
 import 'core/presentation/settings/app_settings_controller.dart';
 import 'features/auth/application/auth_usecases.dart';
@@ -46,7 +48,12 @@ void main() async {
   }
   await AppSettingsController.instance.load();
 
-  runApp(const PamojaApp());
+  await CrashReportingService.instance.start(
+    dsn: AppEnvironment.sentryDsn,
+    environment: AppEnvironment.appEnv,
+    enable: !isFlutterTest,
+    appRunner: () => runApp(const PamojaApp()),
+  );
 }
 
 class PamojaApp extends StatelessWidget {
@@ -320,6 +327,7 @@ class _MainShellState extends State<MainShell> {
                 children: List.generate(_icons.length, (i) {
                   final isSelected = _currentIndex == i;
                   return _NavItem(
+                    itemKey: Key('bottom_nav_${_labels[i].toLowerCase()}'),
                     icon: _icons[i],
                     label: _labels[i],
                     isSelected: isSelected,
@@ -336,12 +344,14 @@ class _MainShellState extends State<MainShell> {
 }
 
 class _NavItem extends StatelessWidget {
+  final Key? itemKey;
   final IconData icon;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _NavItem({
+    this.itemKey,
     required this.icon,
     required this.label,
     required this.isSelected,
@@ -353,6 +363,7 @@ class _NavItem extends StatelessWidget {
     final theme = Theme.of(context);
 
     return GestureDetector(
+      key: itemKey,
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(

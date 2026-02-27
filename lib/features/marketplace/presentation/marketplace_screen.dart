@@ -6,6 +6,7 @@ import 'package:pamoja_twalima/features/marketplace/presentation/export_inquiry_
 import 'package:pamoja_twalima/features/marketplace/presentation/import_inquiry_screen.dart';
 import 'package:pamoja_twalima/features/marketplace/presentation/product_detail_screen.dart';
 import 'package:pamoja_twalima/features/marketplace/presentation/sell_product_screen.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/di/injection.dart';
 import 'package:pamoja_twalima/features/marketplace/presentation/bloc/marketplace/marketplace_bloc.dart';
@@ -78,7 +79,7 @@ class _MarketplaceViewState extends State<MarketplaceView> {
           error: (message) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(message),
+                content: Text(context.tr(message)),
                 backgroundColor: Colors.red,
               ),
             );

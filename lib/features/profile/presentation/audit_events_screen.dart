@@ -25,7 +25,7 @@ class AuditEventsScreen extends StatelessWidget {
             body: state.isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : state.error != null
-                    ? Center(child: Text(state.error!))
+                    ? Center(child: Text(context.tr(state.error!)))
                     : state.events.isEmpty
                         ? Center(child: Text(context.tr('no_audit_events')))
                         : ListView.separated(

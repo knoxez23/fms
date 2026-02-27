@@ -66,7 +66,7 @@ void main() {
       isA<WeatherState>().having((s) => s.loading, 'loading', true),
       isA<WeatherState>()
           .having((s) => s.loading, 'loading', false)
-          .having((s) => s.error, 'error', 'Failed to load weather'),
+          .having((s) => s.error, 'error', 'error_weather_load'),
     ],
   );
 }

@@ -1,16 +1,29 @@
 # pamoja_twalima
 
-A new Flutter project.
+Farm management app for crops, livestock, inventory, sales, and farm operations.
 
-## Getting Started
+## Environment
 
-This project is a starting point for a Flutter application.
+Copy `.env.example` to `.env` and set:
 
-A few resources to get you started if this is your first Flutter project:
+- `API_BASE_URL`
+- `SENTRY_DSN`
+- `APP_ENV` (`development` or `production`)
+- `ENABLE_LOGGING` (`true` or `false`)
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Quality Gates
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Run before pushing:
+
+```bash
+flutter analyze
+flutter test
+```
+
+## Release Pipeline
+
+GitHub Actions workflow `.github/workflows/flutter-release.yml` builds release
+artifacts on `v*` tags:
+
+- `app-release.apk`
+- `app-release.aab`

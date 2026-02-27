@@ -29,8 +29,8 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
       final profile = await _getProfile.execute();
       emit(ProfileState.loaded(profile: profile));
     } catch (e) {
-      _logger.e('Failed to load profile', error: e);
-      emit(const ProfileState.error(message: 'Failed to load profile'));
+      _logger.e('error_profile_load', error: e);
+      emit(const ProfileState.error(message: 'error_profile_load'));
     }
   }
 
@@ -42,8 +42,8 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
       await _logout.execute();
       emit(const ProfileState.loggedOut());
     } catch (e) {
-      _logger.e('Failed to logout', error: e);
-      emit(const ProfileState.error(message: 'Failed to logout'));
+      _logger.e('error_profile_logout', error: e);
+      emit(const ProfileState.error(message: 'error_profile_logout'));
     }
   }
 }

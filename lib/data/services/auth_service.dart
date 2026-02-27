@@ -98,20 +98,41 @@ class AuthService {
     String? location,
     String? farmName,
   }) async {
-    final response = await _api.patch('/user', data: {
-      'name': name,
-      'phone': phone,
-      'location': location,
-      'farm_name': farmName,
-    });
+    try {
+      final response = await _api.patch('/user', data: {
+        'name': name,
+        'phone': phone,
+        'location': location,
+        'farm_name': farmName,
+      });
 
-    final user = User.fromMap(response.data);
-    await _storage.write(key: 'user_name', value: user.name);
-    await _storage.write(key: 'user_email', value: user.email);
-    if (user.id != null) {
-      await _storage.write(key: 'user_id', value: user.id.toString());
+      final user = User.fromMap(response.data);
+      await _storage.write(key: 'user_name', value: user.name);
+      await _storage.write(key: 'user_email', value: user.email);
+      if (user.id != null) {
+        await _storage.write(key: 'user_id', value: user.id.toString());
+      }
+      return user;
+    } catch (e) {
+      _logger.w(
+        'Remote profile update failed, applying local profile update fallback',
+        error: e,
+      );
+      final existingId = await _storage.read(key: 'user_id');
+      final existingEmail = await _storage.read(key: 'user_email');
+      await _storage.write(key: 'user_name', value: name);
+      if (existingEmail == null || existingEmail.isEmpty) {
+        await _storage.write(key: 'user_email', value: 'unknown@local');
+      }
+      return User(
+        id: int.tryParse(existingId ?? ''),
+        name: name,
+        email: existingEmail ?? 'unknown@local',
+        phone: phone,
+        farmName: farmName,
+        location: location,
+      );
     }
-    return user;
   }
 
   Future<void> forgotPassword(String email) async {

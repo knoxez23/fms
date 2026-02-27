@@ -39,7 +39,7 @@ class MarketplaceBloc extends Bloc<MarketplaceEvent, MarketplaceState> {
       emit(MarketplaceState.loaded(products: products));
     } catch (e) {
       _logger.e('Failed to load marketplace products', error: e);
-      emit(const MarketplaceState.error(message: 'Failed to load products'));
+      emit(const MarketplaceState.error(message: 'error_marketplace_load'));
     }
   }
 
@@ -51,8 +51,8 @@ class MarketplaceBloc extends Bloc<MarketplaceEvent, MarketplaceState> {
       await _addProduct.execute(event.product);
       add(const MarketplaceEvent.load());
     } catch (e) {
-      _logger.e('Failed to add product', error: e);
-      emit(const MarketplaceState.error(message: 'Failed to add product'));
+      _logger.e('error_marketplace_add', error: e);
+      emit(const MarketplaceState.error(message: 'error_marketplace_add'));
     }
   }
 
@@ -64,8 +64,8 @@ class MarketplaceBloc extends Bloc<MarketplaceEvent, MarketplaceState> {
       await _updateProduct.execute(event.product);
       add(const MarketplaceEvent.load());
     } catch (e) {
-      _logger.e('Failed to update product', error: e);
-      emit(const MarketplaceState.error(message: 'Failed to update product'));
+      _logger.e('error_marketplace_update', error: e);
+      emit(const MarketplaceState.error(message: 'error_marketplace_update'));
     }
   }
 
@@ -77,8 +77,8 @@ class MarketplaceBloc extends Bloc<MarketplaceEvent, MarketplaceState> {
       await _deleteProduct.execute(event.id);
       add(const MarketplaceEvent.load());
     } catch (e) {
-      _logger.e('Failed to delete product', error: e);
-      emit(const MarketplaceState.error(message: 'Failed to delete product'));
+      _logger.e('error_marketplace_delete', error: e);
+      emit(const MarketplaceState.error(message: 'error_marketplace_delete'));
     }
   }
 }

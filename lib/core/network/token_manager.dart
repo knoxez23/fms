@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:pamoja_twalima/core/config/app_environment.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:logger/logger.dart';
 import 'package:injectable/injectable.dart';
@@ -40,7 +40,9 @@ class TokenManager {
     }
 
     if (_expiresAt != null &&
-        _expiresAt!.subtract(const Duration(minutes: 5)).isBefore(DateTime.now())) {
+        _expiresAt!
+            .subtract(const Duration(minutes: 5))
+            .isBefore(DateTime.now())) {
       _logger.w('Access token expired or expiring soon, refreshing...');
       await _refreshAccessToken();
     }
@@ -69,7 +71,7 @@ class TokenManager {
     }
 
     try {
-      final base = dotenv.env['API_BASE_URL'] ?? 'http://10.0.2.2:8000/api';
+      final base = AppEnvironment.apiBaseUrl;
       final dio = Dio();
       final response = await dio.post(
         '$base/v1/refresh',

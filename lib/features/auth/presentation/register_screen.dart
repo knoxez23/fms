@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'bloc/auth/auth_bloc.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 
 class RegisterScreen extends StatelessWidget {
@@ -84,7 +85,7 @@ class _RegisterViewState extends State<RegisterView> {
             error: (message) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(message),
+                  content: Text(context.tr(message)),
                   backgroundColor: Colors.red,
                 ),
               );
@@ -122,7 +123,7 @@ class _RegisterViewState extends State<RegisterView> {
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              'Create Account',
+                              context.tr('register_create_account'),
                               style: theme.textTheme.headlineSmall?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
@@ -131,7 +132,7 @@ class _RegisterViewState extends State<RegisterView> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'Join Pamoja Twalima to grow smarter',
+                              context.tr('register_join_subtitle'),
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: Colors.white.withValues(alpha: 0.9),
                               ),
@@ -144,7 +145,7 @@ class _RegisterViewState extends State<RegisterView> {
                       TextFormField(
                         controller: _nameController,
                         decoration: InputDecoration(
-                          labelText: 'Full Name',
+                          labelText: context.tr('full_name_label'),
                           prefixIcon: const Icon(Icons.person_outlined),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -152,7 +153,7 @@ class _RegisterViewState extends State<RegisterView> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter your name';
+                            return context.tr('please_enter_name');
                           }
                           return null;
                         },
@@ -163,7 +164,7 @@ class _RegisterViewState extends State<RegisterView> {
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
-                          labelText: 'Email',
+                          labelText: context.tr('email_label'),
                           prefixIcon: const Icon(Icons.email_outlined),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -171,11 +172,11 @@ class _RegisterViewState extends State<RegisterView> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter your email';
+                            return context.tr('please_enter_email');
                           }
                           if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
                               .hasMatch(value)) {
-                            return 'Please enter a valid email';
+                            return context.tr('please_enter_valid_email');
                           }
                           return null;
                         },
@@ -186,7 +187,7 @@ class _RegisterViewState extends State<RegisterView> {
                         controller: _passwordController,
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
-                          labelText: 'Password',
+                          labelText: context.tr('password_label'),
                           prefixIcon: const Icon(Icons.lock_outlined),
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -203,29 +204,28 @@ class _RegisterViewState extends State<RegisterView> {
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          helperText:
-                              'Min 12 chars, uppercase, lowercase, number, symbol',
+                          helperText: context.tr('password_requirements_hint'),
                           helperMaxLines: 2,
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter a password';
+                            return context.tr('please_enter_new_password');
                           }
                           if (value.length < 12) {
-                            return 'Password must be at least 12 characters';
+                            return context.tr('password_min_chars');
                           }
                           if (!RegExp(r'[A-Z]').hasMatch(value)) {
-                            return 'Password must contain uppercase letter';
+                            return context.tr('password_uppercase');
                           }
                           if (!RegExp(r'[a-z]').hasMatch(value)) {
-                            return 'Password must contain lowercase letter';
+                            return context.tr('password_lowercase');
                           }
                           if (!RegExp(r'[0-9]').hasMatch(value)) {
-                            return 'Password must contain a number';
+                            return context.tr('password_number');
                           }
                           if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]')
                               .hasMatch(value)) {
-                            return 'Password must contain a special character';
+                            return context.tr('password_special');
                           }
                           return null;
                         },
@@ -236,7 +236,7 @@ class _RegisterViewState extends State<RegisterView> {
                         controller: _confirmPasswordController,
                         obscureText: _obscureConfirmPassword,
                         decoration: InputDecoration(
-                          labelText: 'Confirm Password',
+                          labelText: context.tr('confirm_password_label'),
                           prefixIcon: const Icon(Icons.lock_outlined),
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -257,7 +257,7 @@ class _RegisterViewState extends State<RegisterView> {
                         ),
                         validator: (value) {
                           if (value != _passwordController.text) {
-                            return 'Passwords do not match';
+                            return context.tr('passwords_do_not_match');
                           }
                           return null;
                         },
@@ -268,7 +268,7 @@ class _RegisterViewState extends State<RegisterView> {
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
                         decoration: InputDecoration(
-                          labelText: 'Phone (optional)',
+                          labelText: context.tr('phone_optional'),
                           prefixIcon: const Icon(Icons.phone_outlined),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -280,7 +280,7 @@ class _RegisterViewState extends State<RegisterView> {
                       TextFormField(
                         controller: _farmNameController,
                         decoration: InputDecoration(
-                          labelText: 'Farm Name (optional)',
+                          labelText: context.tr('farm_name_optional'),
                           prefixIcon: const Icon(Icons.agriculture_outlined),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -292,7 +292,7 @@ class _RegisterViewState extends State<RegisterView> {
                       TextFormField(
                         controller: _locationController,
                         decoration: InputDecoration(
-                          labelText: 'Location (optional)',
+                          labelText: context.tr('location_optional'),
                           prefixIcon: const Icon(Icons.location_on_outlined),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -319,8 +319,8 @@ class _RegisterViewState extends State<RegisterView> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text(
-                                'Create Account',
+                            : Text(
+                                context.tr('register_create_account'),
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -332,7 +332,7 @@ class _RegisterViewState extends State<RegisterView> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Already have an account? ',
+                            context.tr('already_have_account'),
                             style: theme.textTheme.bodyMedium,
                           ),
                           TextButton(
@@ -343,7 +343,7 @@ class _RegisterViewState extends State<RegisterView> {
                                     Navigator.of(context)
                                         .pushReplacementNamed('/login');
                                   },
-                            child: const Text('Login'),
+                            child: Text(context.tr('login_cta')),
                           ),
                         ],
                       ),

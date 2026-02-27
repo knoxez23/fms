@@ -43,16 +43,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       emit(AuthState.authenticated(user: user));
       _logger.i('User logged in successfully: ${user.email.value}');
-    } on ArgumentError catch (e) {
-      emit(AuthState.error(message: e.message ?? 'Invalid credentials'));
+    } on ArgumentError {
+      emit(AuthState.error(message: 'error_auth_invalid_credentials'));
     } catch (e) {
       _logger.e('Login failed', error: e);
-      String message = 'Login failed';
+      String message = 'error_auth_login_failed';
       final statusCode = _extractStatusCode(e);
       if (statusCode == 422) {
-        message = 'Invalid email or password';
+        message = 'error_auth_invalid_email_password';
       } else if (statusCode == 429) {
-        message = 'Too many login attempts. Please try again later.';
+        message = 'error_auth_too_many_attempts';
       }
 
       emit(AuthState.error(message: message));
@@ -78,11 +78,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       emit(AuthState.authenticated(user: user));
       _logger.i('User registered successfully: ${user.email.value}');
-    } on ArgumentError catch (e) {
-      emit(AuthState.error(message: e.message ?? 'Invalid registration data'));
+    } on ArgumentError {
+      emit(AuthState.error(message: 'error_auth_invalid_registration'));
     } catch (e) {
       _logger.e('Registration failed', error: e);
-      String message = 'Registration failed';
+      String message = 'error_auth_registration_failed';
       final statusCode = _extractStatusCode(e);
       if (statusCode == 422) {
         final errors = _extractErrorMap(e);

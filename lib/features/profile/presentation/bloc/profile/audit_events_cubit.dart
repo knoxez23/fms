@@ -44,8 +44,8 @@ class AuditEventsCubit extends Cubit<AuditEventsState> {
       final items = await _getAuditEvents.execute(limit: 200);
       emit(state.copyWith(isLoading: false, events: items));
     } catch (e) {
-      _logger.e('Failed to load audit events', error: e);
-      emit(state.copyWith(isLoading: false, error: 'Failed to load audit events'));
+      _logger.e('error_audit_load', error: e);
+      emit(state.copyWith(isLoading: false, error: 'error_audit_load'));
     }
   }
 }

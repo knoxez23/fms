@@ -35,7 +35,7 @@ class ProfileScreen extends StatelessWidget {
             },
             error: (message) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(message)),
+                SnackBar(content: Text(context.tr(message))),
               );
             },
           );
@@ -50,7 +50,7 @@ class ProfileScreen extends StatelessWidget {
               final theme = Theme.of(context);
               final name = state.maybeWhen(
                 loaded: (profile) => profile.name,
-                orElse: () => 'Farmer',
+                orElse: () => context.tr('profile_default_name'),
               );
               final phone = state.maybeWhen(
                 loaded: (profile) => profile.phone?.value ?? '—',
@@ -111,6 +111,7 @@ class ProfileScreen extends StatelessWidget {
                           ),
                         ),
                         IconButton(
+                          key: const Key('profile_open_edit_button'),
                           onPressed: () => _showEditProfileDialog(
                             context,
                             state: state,
@@ -158,8 +159,8 @@ class ProfileScreen extends StatelessWidget {
                               SnackBar(
                                 content: Text(
                                   value
-                                      ? 'Language set to Kiswahili.'
-                                      : 'Language set to English.',
+                                      ? context.tr('language_set_swahili')
+                                      : context.tr('language_set_english'),
                                 ),
                               ),
                             );
@@ -204,8 +205,8 @@ class ProfileScreen extends StatelessWidget {
                           title: Text(context.tr('sync_now')),
                           onTap: () async {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Running sync...'),
+                              SnackBar(
+                                content: Text(context.tr('sync_running')),
                                 duration: Duration(seconds: 1),
                               ),
                             );
@@ -213,15 +214,16 @@ class ProfileScreen extends StatelessWidget {
                               await SyncWorker().syncFromServer();
                               if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Sync completed.'),
+                                SnackBar(
+                                  content: Text(context.tr('sync_completed')),
                                 ),
                               );
                             } catch (_) {
                               if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Sync failed.'),
+                                SnackBar(
+                                  content:
+                                      Text(context.tr('sync_failed_short')),
                                 ),
                               );
                             }
@@ -235,15 +237,15 @@ class ProfileScreen extends StatelessWidget {
                             showDialog<void>(
                               context: context,
                               builder: (_) => AlertDialog(
-                                title: const Text('Offline Content'),
-                                content: const Text(
-                                  'Offline records are managed automatically. '
-                                  'Use "Sync Now" to push and refresh data.',
+                                title:
+                                    Text(context.tr('offline_content_title')),
+                                content: Text(
+                                  context.tr('offline_content_desc'),
                                 ),
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.pop(context),
-                                    child: const Text('OK'),
+                                    child: Text(context.tr('ok')),
                                   ),
                                 ],
                               ),
@@ -290,10 +292,8 @@ class ProfileScreen extends StatelessWidget {
                               context: context,
                               applicationName: 'Pamoja Twalima',
                               applicationVersion: '1.0.0',
-                              children: const [
-                                Text(
-                                  'Farm management for crops, animals, inventory, and sales.',
-                                ),
+                              children: [
+                                Text(context.tr('about_app_desc')),
                               ],
                             );
                           },
@@ -306,15 +306,14 @@ class ProfileScreen extends StatelessWidget {
                             showDialog<void>(
                               context: context,
                               builder: (_) => AlertDialog(
-                                title: const Text('Privacy & Terms'),
-                                content: const Text(
-                                  'Use consented farm data only and keep device access secure. '
-                                  'Full policy text should be linked before release.',
+                                title: Text(context.tr('privacy_terms_title')),
+                                content: Text(
+                                  context.tr('privacy_terms_desc'),
                                 ),
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.pop(context),
-                                    child: const Text('Close'),
+                                    child: Text(context.tr('close_button')),
                                   ),
                                 ],
                               ),
@@ -336,7 +335,7 @@ class ProfileScreen extends StatelessWidget {
                           .add(const ProfileEvent.logout());
                     },
                     icon: const Icon(Icons.logout),
-                    label: const Text('Logout'),
+                    label: Text(context.tr('drawer_logout')),
                   ),
                 ],
               );
@@ -366,35 +365,42 @@ class ProfileScreen extends StatelessWidget {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Edit Profile'),
+        title: Text(context.tr('edit_profile_title')),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
+                key: const Key('profile_edit_name_input'),
                 controller: nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration:
+                    InputDecoration(labelText: context.tr('name_label')),
               ),
               const SizedBox(height: 10),
               TextField(
+                key: const Key('profile_edit_phone_input'),
                 controller: phoneController,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Phone'),
+                decoration: InputDecoration(labelText: context.tr('phone')),
               ),
               const SizedBox(height: 10),
               TextField(
+                key: const Key('profile_edit_location_input'),
                 controller: locationController,
-                decoration: const InputDecoration(labelText: 'Location'),
+                decoration:
+                    InputDecoration(labelText: context.tr('location_label')),
               ),
             ],
           ),
         ),
         actions: [
           TextButton(
+            key: const Key('profile_edit_cancel_button'),
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            child: Text(context.tr('cancel')),
           ),
           FilledButton(
+            key: const Key('profile_edit_save_button'),
             onPressed: () async {
               final name = nameController.text.trim();
               if (name.isEmpty) return;
@@ -413,16 +419,16 @@ class ProfileScreen extends StatelessWidget {
                 if (!context.mounted) return;
                 context.read<ProfileBloc>().add(const ProfileEvent.load());
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Profile updated')),
+                  SnackBar(content: Text(context.tr('profile_updated'))),
                 );
               } catch (_) {
                 if (!dialogContext.mounted) return;
                 ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  const SnackBar(content: Text('Failed to update profile')),
+                  SnackBar(content: Text(context.tr('profile_update_failed'))),
                 );
               }
             },
-            child: const Text('Save'),
+            child: Text(context.tr('save')),
           ),
         ],
       ),
@@ -432,11 +438,11 @@ class ProfileScreen extends StatelessWidget {
   String _themeLabel(BuildContext context, ThemeMode mode) {
     switch (mode) {
       case ThemeMode.light:
-        return 'Light';
+        return context.tr('theme_light');
       case ThemeMode.dark:
-        return 'Dark';
+        return context.tr('theme_dark');
       case ThemeMode.system:
-        return 'System default';
+        return context.tr('theme_system_default');
     }
   }
 
@@ -458,23 +464,25 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   ListTile(
                     leading: const Icon(Icons.brightness_auto),
-                    title: const Text('System default'),
+                    title: Text(context.tr('theme_system_default')),
                     trailing: selected == ThemeMode.system
                         ? const Icon(Icons.check)
                         : null,
-                    onTap: () => setSheetState(() => selected = ThemeMode.system),
+                    onTap: () =>
+                        setSheetState(() => selected = ThemeMode.system),
                   ),
                   ListTile(
                     leading: const Icon(Icons.light_mode_outlined),
-                    title: const Text('Light'),
+                    title: Text(context.tr('theme_light')),
                     trailing: selected == ThemeMode.light
                         ? const Icon(Icons.check)
                         : null,
-                    onTap: () => setSheetState(() => selected = ThemeMode.light),
+                    onTap: () =>
+                        setSheetState(() => selected = ThemeMode.light),
                   ),
                   ListTile(
                     leading: const Icon(Icons.dark_mode_outlined),
-                    title: const Text('Dark'),
+                    title: Text(context.tr('theme_dark')),
                     trailing: selected == ThemeMode.dark
                         ? const Icon(Icons.check)
                         : null,
@@ -491,13 +499,14 @@ class ProfileScreen extends StatelessWidget {
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(
-                              'Theme updated to ${_themeLabel(context, selected)}.',
-                            ),
+                            content: Text(context
+                                .tr('theme_updated_to')
+                                .replaceFirst(
+                                    '{theme}', _themeLabel(context, selected))),
                           ),
                         );
                       },
-                      child: const Text('Apply'),
+                      child: Text(context.tr('apply')),
                     ),
                   ),
                   const SizedBox(height: 16),

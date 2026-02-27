@@ -43,7 +43,7 @@ class WeatherCubit extends Cubit<WeatherState> {
       final snapshot = await _getWeather.execute();
       emit(state.copyWith(snapshot: snapshot, loading: false));
     } catch (e) {
-      emit(state.copyWith(loading: false, error: 'Failed to load weather'));
+      emit(state.copyWith(loading: false, error: 'error_weather_load'));
     }
   }
 }

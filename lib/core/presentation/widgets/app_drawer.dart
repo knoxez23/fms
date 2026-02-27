@@ -51,7 +51,13 @@ class _AppDrawerState extends State<AppDrawer> {
             children: [
               const Icon(Icons.error_outline, color: Colors.white),
               const SizedBox(width: 12),
-              Expanded(child: Text('Logout failed: ${e.toString()}')),
+              Expanded(
+                child: Text(
+                  context
+                      .tr('logout_failed')
+                      .replaceFirst('{message}', e.toString()),
+                ),
+              ),
             ],
           ),
           backgroundColor: Colors.red.shade700,
@@ -69,12 +75,12 @@ class _AppDrawerState extends State<AppDrawer> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
+        title: Text(context.tr('logout_confirm_title')),
+        content: Text(context.tr('logout_confirm_body')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(context.tr('cancel')),
           ),
           ElevatedButton(
             onPressed: () {
@@ -85,7 +91,7 @@ class _AppDrawerState extends State<AppDrawer> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Logout'),
+            child: Text(context.tr('drawer_logout')),
           ),
         ],
       ),
@@ -111,10 +117,10 @@ class _AppDrawerState extends State<AppDrawer> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Row(
-                  children: const [
-                    Icon(Icons.check_circle_outline, color: Colors.white),
-                    SizedBox(width: 12),
-                    Text('Logged out successfully'),
+                  children: [
+                    const Icon(Icons.check_circle_outline, color: Colors.white),
+                    const SizedBox(width: 12),
+                    Text(context.tr('logged_out_successfully')),
                   ],
                 ),
                 backgroundColor: Colors.green.shade700,
@@ -142,7 +148,13 @@ class _AppDrawerState extends State<AppDrawer> {
                   children: [
                     const Icon(Icons.error_outline, color: Colors.white),
                     const SizedBox(width: 12),
-                    Expanded(child: Text('Logout failed: $message')),
+                    Expanded(
+                      child: Text(
+                        context
+                            .tr('logout_failed')
+                            .replaceFirst('{message}', context.tr(message)),
+                      ),
+                    ),
                   ],
                 ),
                 backgroundColor: Colors.red.shade700,
@@ -211,6 +223,7 @@ class _AppDrawerState extends State<AppDrawer> {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   children: [
                     _DrawerItem(
+                      tileKey: const Key('drawer_profile_item'),
                       icon: Icons.person_outline,
                       title: context.tr('drawer_profile'),
                       onTap: () {
@@ -219,6 +232,7 @@ class _AppDrawerState extends State<AppDrawer> {
                       },
                     ),
                     _DrawerItem(
+                      tileKey: const Key('drawer_settings_item'),
                       icon: Icons.settings_outlined,
                       title: context.tr('drawer_settings'),
                       onTap: () {
@@ -227,6 +241,7 @@ class _AppDrawerState extends State<AppDrawer> {
                       },
                     ),
                     _DrawerItem(
+                      tileKey: const Key('drawer_help_item'),
                       icon: Icons.help_outline,
                       title: context.tr('drawer_help'),
                       onTap: () {
@@ -235,6 +250,7 @@ class _AppDrawerState extends State<AppDrawer> {
                       },
                     ),
                     _DrawerItem(
+                      tileKey: const Key('drawer_about_item'),
                       icon: Icons.info_outline,
                       title: context.tr('drawer_about'),
                       onTap: () {
@@ -244,6 +260,7 @@ class _AppDrawerState extends State<AppDrawer> {
                     ),
                     const Divider(height: 32),
                     _DrawerItem(
+                      tileKey: const Key('drawer_dark_mode_item'),
                       icon: Icons.dark_mode_outlined,
                       title: context.tr('drawer_dark_mode'),
                       onTap: () async {
@@ -272,6 +289,7 @@ class _AppDrawerState extends State<AppDrawer> {
                 child: _loadingLogout
                     ? const Center(child: CircularProgressIndicator())
                     : ListTile(
+                        key: const Key('drawer_logout_item'),
                         leading: const Icon(
                           Icons.logout,
                           color: Colors.red,
@@ -293,7 +311,9 @@ class _AppDrawerState extends State<AppDrawer> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: Text(
-                  'Version 1.0.0',
+                  context
+                      .tr('version_label')
+                      .replaceFirst('{version}', '1.0.0'),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.textTheme.bodySmall?.color
                         ?.withValues(alpha: 0.6),
@@ -329,22 +349,22 @@ class _AppDrawerState extends State<AppDrawer> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Help & Support'),
-        content: const Column(
+        title: Text(context.tr('help_support_title')),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Email: support@pamoja-twalima.app'),
-            SizedBox(height: 8),
-            Text('Phone: +254 700 000 000'),
-            SizedBox(height: 8),
-            Text('Response time: within 24 hours'),
+            Text(context.tr('help_email')),
+            const SizedBox(height: 8),
+            Text(context.tr('help_phone')),
+            const SizedBox(height: 8),
+            Text(context.tr('help_response_time')),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: Navigator.of(context).pop,
-            child: const Text('Close'),
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(context.tr('close_button')),
           ),
         ],
       ),
@@ -366,12 +386,14 @@ class _AppDrawerState extends State<AppDrawer> {
 }
 
 class _DrawerItem extends StatelessWidget {
+  final Key? tileKey;
   final IconData icon;
   final String title;
   final VoidCallback onTap;
   final Widget? trailing;
 
   const _DrawerItem({
+    this.tileKey,
     required this.icon,
     required this.title,
     required this.onTap,
@@ -381,6 +403,7 @@ class _DrawerItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      key: tileKey,
       leading: Icon(icon),
       title: Text(title),
       trailing: trailing,

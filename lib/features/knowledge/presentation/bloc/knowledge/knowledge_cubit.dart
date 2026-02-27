@@ -74,7 +74,8 @@ class KnowledgeCubit extends Cubit<KnowledgeState> {
         ),
       );
     } catch (e) {
-      emit(state.copyWith(loading: false, error: 'Failed to load topics'));
+      emit(
+          state.copyWith(loading: false, error: 'error_knowledge_load_topics'));
     }
   }
 

@@ -1,0 +1,59 @@
+name: Flutter Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-android-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Create app .env for release
+        run: |
+          cat > .env <<'ENVEOF'
+          API_BASE_URL=${{ secrets.API_BASE_URL }}
+          SENTRY_DSN=${{ secrets.SENTRY_DSN }}
+          APP_ENV=production
+          ENABLE_LOGGING=false
+          ENVEOF
+
+      - name: Static analysis
+        run: flutter analyze
+
+      - name: Unit and widget tests
+        run: flutter test
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Build release appbundle
+        run: flutter build appbundle --release
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-release-artifacts
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab

@@ -49,7 +49,7 @@ class _WeatherView extends StatelessWidget {
               variant: AppBarVariant.standard,
             ),
             body: Center(
-              child: Text(state.error ?? context.tr('unable_load_weather')),
+              child: Text(context.tr(state.error ?? 'unable_load_weather')),
             ),
           );
         }

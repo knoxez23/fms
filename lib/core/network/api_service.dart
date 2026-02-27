@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:pamoja_twalima/core/config/app_environment.dart';
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
@@ -28,7 +28,7 @@ class ApiService {
   final Logger _logger = Logger();
 
   ApiService._internal() {
-    final base = dotenv.env['API_BASE_URL'] ?? 'http://10.0.2.2:8000/api';
+    final base = AppEnvironment.apiBaseUrl;
     _dio = Dio(BaseOptions(
       baseUrl: '$base/v1',
       connectTimeout: const Duration(seconds: 10),

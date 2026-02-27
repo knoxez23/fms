@@ -27,7 +27,7 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
   final double elevation;
   final Widget? bottom;
   final double? bottomHeight;
-  
+
   // New sync parameters
   final bool showSyncButton;
   final VoidCallback? onSyncTap;
@@ -122,6 +122,7 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
             final isDark = theme.brightness == Brightness.dark;
 
             return IconButton(
+              key: const Key('appbar_menu_button'),
               icon: Icon(
                 Icons.menu_rounded,
                 size: 28,
@@ -305,7 +306,7 @@ class _SyncButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return IconButton(
       icon: isSyncing
           ? SizedBox(

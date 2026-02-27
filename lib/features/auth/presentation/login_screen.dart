@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'bloc/auth/auth_bloc.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 
 class LoginScreen extends StatelessWidget {
@@ -61,7 +62,7 @@ class _LoginViewState extends State<LoginView> {
             error: (message) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(message),
+                  content: Text(context.tr(message)),
                   backgroundColor: Colors.red,
                 ),
               );
@@ -100,7 +101,7 @@ class _LoginViewState extends State<LoginView> {
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              'Welcome Back',
+                              context.tr('welcome_back'),
                               style: theme.textTheme.headlineSmall?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
@@ -109,7 +110,7 @@ class _LoginViewState extends State<LoginView> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'Login to manage your farm',
+                              context.tr('login_manage_farm'),
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: Colors.white.withValues(alpha: 0.9),
                               ),
@@ -124,7 +125,7 @@ class _LoginViewState extends State<LoginView> {
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
-                          labelText: 'Email',
+                          labelText: context.tr('email_label'),
                           prefixIcon: const Icon(Icons.email_outlined),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -132,11 +133,11 @@ class _LoginViewState extends State<LoginView> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter your email';
+                            return context.tr('please_enter_email');
                           }
                           if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
                               .hasMatch(value)) {
-                            return 'Please enter a valid email';
+                            return context.tr('please_enter_valid_email');
                           }
                           return null;
                         },
@@ -148,7 +149,7 @@ class _LoginViewState extends State<LoginView> {
                         controller: _passwordController,
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
-                          labelText: 'Password',
+                          labelText: context.tr('password_label'),
                           prefixIcon: const Icon(Icons.lock_outlined),
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -168,7 +169,7 @@ class _LoginViewState extends State<LoginView> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter your password';
+                            return context.tr('please_enter_password');
                           }
                           return null;
                         },
@@ -193,8 +194,8 @@ class _LoginViewState extends State<LoginView> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text(
-                                'Login',
+                            : Text(
+                                context.tr('login_cta'),
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -206,7 +207,7 @@ class _LoginViewState extends State<LoginView> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            "Don't have an account? ",
+                            context.tr('no_account_prompt'),
                             style: theme.textTheme.bodyMedium,
                           ),
                           TextButton(
@@ -217,7 +218,7 @@ class _LoginViewState extends State<LoginView> {
                                     Navigator.of(context)
                                         .pushReplacementNamed('/register');
                                   },
-                            child: const Text('Create account'),
+                            child: Text(context.tr('create_account_cta')),
                           ),
                         ],
                       ),

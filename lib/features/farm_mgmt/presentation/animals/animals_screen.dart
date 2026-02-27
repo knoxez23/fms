@@ -1377,6 +1377,7 @@ class _AnimalCard extends StatelessWidget {
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
+        key: Key('animal_card_${animal.id ?? animal.name.value}'),
         isThreeLine: true,
         leading: Stack(
           children: [
@@ -1434,6 +1435,7 @@ class _AnimalCard extends StatelessWidget {
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: PopupMenuButton<String>(
+                key: const Key('animal_health_menu_button'),
                 tooltip: 'Set health status',
                 onSelected: onHealthStatusSelected,
                 padding: EdgeInsets.zero,

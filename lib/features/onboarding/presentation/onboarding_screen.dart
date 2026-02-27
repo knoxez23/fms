@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pamoja_twalima/core/di/injection.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/features/auth/application/auth_usecases.dart';
 import 'bloc/onboarding/onboarding_cubit.dart';
 
@@ -26,34 +27,30 @@ class _OnboardingView extends StatefulWidget {
 
 class _OnboardingViewState extends State<_OnboardingView> {
   final PageController _pageController = PageController();
-
-  final List<_OnboardPage> pages = const [
+  static const List<_OnboardPage> _pages = [
     _OnboardPage(
-      title: "Welcome to Pamoja Twalima",
-      description:
-          "Empowering Kenyan farmers to grow smarter, trade better, and thrive together.",
-      imagePath: "assets/images/maize.jpg",
+      titleKey: 'onboarding_welcome_title',
+      descriptionKey: 'onboarding_welcome_desc',
+      imagePath: 'assets/images/maize.jpg',
       icon: Icons.agriculture,
     ),
     _OnboardPage(
-      title: "Manage Your Farm",
-      description:
-          "Track crops, livestock, and expenses easily — all in one app.",
-      imagePath: "assets/images/cow.jpg",
+      titleKey: 'onboarding_manage_title',
+      descriptionKey: 'onboarding_manage_desc',
+      imagePath: 'assets/images/cow.jpg',
       icon: Icons.analytics,
     ),
     _OnboardPage(
-      title: "Market & Weather Insights",
-      description:
-          "Access daily market prices, forecasts, and sell directly via M-Pesa.",
-      imagePath: "assets/images/mpesa.png",
+      titleKey: 'onboarding_market_title',
+      descriptionKey: 'onboarding_market_desc',
+      imagePath: 'assets/images/mpesa.png',
       icon: Icons.trending_up,
     ),
   ];
 
   void _nextPage() {
     final currentPage = context.read<OnboardingCubit>().state.currentPage;
-    if (currentPage < pages.length - 1) {
+    if (currentPage < _pages.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 500),
         curve: Curves.easeInOut,
@@ -114,7 +111,7 @@ class _OnboardingViewState extends State<_OnboardingView> {
                           ),
                         ),
                         child: Text(
-                          "Skip",
+                          context.tr('onboarding_skip'),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: theme.colorScheme.primary,
@@ -129,9 +126,9 @@ class _OnboardingViewState extends State<_OnboardingView> {
                     controller: _pageController,
                     onPageChanged: (index) =>
                         context.read<OnboardingCubit>().setPage(index),
-                    itemCount: pages.length,
+                    itemCount: _pages.length,
                     itemBuilder: (context, index) {
-                      final page = pages[index];
+                      final page = _pages[index];
                       return _OnboardPageContent(
                         page: page,
                         index: index,
@@ -149,7 +146,7 @@ class _OnboardingViewState extends State<_OnboardingView> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: List.generate(
-                              pages.length,
+                              _pages.length,
                               (index) => _PageIndicator(
                                 isActive: index == state.currentPage,
                                 theme: theme,
@@ -174,9 +171,9 @@ class _OnboardingViewState extends State<_OnboardingView> {
                                   ),
                                 ),
                                 child: Text(
-                                  state.currentPage == pages.length - 1
-                                      ? "Get Started"
-                                      : "Next",
+                                  state.currentPage == _pages.length - 1
+                                      ? context.tr('onboarding_get_started')
+                                      : context.tr('onboarding_next'),
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -200,14 +197,14 @@ class _OnboardingViewState extends State<_OnboardingView> {
 }
 
 class _OnboardPage {
-  final String title;
-  final String description;
+  final String titleKey;
+  final String descriptionKey;
   final String imagePath;
   final IconData icon;
 
   const _OnboardPage({
-    required this.title,
-    required this.description,
+    required this.titleKey,
+    required this.descriptionKey,
     required this.imagePath,
     required this.icon,
   });
@@ -249,7 +246,7 @@ class _OnboardPageContent extends StatelessWidget {
         _AnimatedContainer(
           index: index + 1,
           child: Text(
-            page.title,
+            context.tr(page.titleKey),
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
@@ -262,7 +259,7 @@ class _OnboardPageContent extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Text(
-              page.description,
+              context.tr(page.descriptionKey),
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
