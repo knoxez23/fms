@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/task_entity.dart';
 
 class TaskListItemCard extends StatelessWidget {
@@ -22,7 +23,7 @@ class TaskListItemCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isOverdue = task.isOverdue;
     final isCompleted = task.isCompleted;
-    final origin = _originLabel(task.sourceEventType);
+    final origin = _originLabel(context, task.sourceEventType);
 
     return Card(
       elevation: 0,
@@ -34,7 +35,8 @@ class TaskListItemCard extends StatelessWidget {
         ),
         leading: Checkbox(
           value: isCompleted,
-          onChanged: onToggleComplete == null ? null : (_) => onToggleComplete!(),
+          onChanged:
+              onToggleComplete == null ? null : (_) => onToggleComplete!(),
           activeColor: theme.colorScheme.primary,
         ),
         title: Text(
@@ -61,7 +63,7 @@ class TaskListItemCard extends StatelessWidget {
             if (!compact && (task.assignedTo?.isNotEmpty ?? false)) ...[
               const SizedBox(height: 2),
               Text(
-                'Assigned: ${task.assignedTo}',
+                '${context.tr('task_assigned')}: ${task.assignedTo}',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
@@ -73,7 +75,7 @@ class TaskListItemCard extends StatelessWidget {
             Row(
               children: [
                 _Badge(
-                  label: _statusText(task),
+                  label: _statusText(context, task),
                   color: _statusColor(task),
                 ),
                 if (showOriginBadge && origin != null && !compact) ...[
@@ -88,9 +90,11 @@ class TaskListItemCard extends StatelessWidget {
           ],
         ),
         trailing: Text(
-          _dueLabel(task.dueDate),
+          _dueLabel(context, task.dueDate),
           style: theme.textTheme.bodySmall?.copyWith(
-            color: isOverdue ? Colors.red : theme.colorScheme.onSurface.withValues(alpha: 0.65),
+            color: isOverdue
+                ? Colors.red
+                : theme.colorScheme.onSurface.withValues(alpha: 0.65),
             fontWeight: isOverdue ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
@@ -99,10 +103,10 @@ class TaskListItemCard extends StatelessWidget {
     );
   }
 
-  String _statusText(TaskEntity task) {
-    if (task.isCompleted) return 'Completed';
-    if (task.isOverdue) return 'Overdue';
-    return 'Pending';
+  String _statusText(BuildContext context, TaskEntity task) {
+    if (task.isCompleted) return context.tr('task_completed');
+    if (task.isOverdue) return context.tr('task_overdue');
+    return context.tr('task_pending');
   }
 
   Color _statusColor(TaskEntity task) {
@@ -111,35 +115,39 @@ class TaskListItemCard extends StatelessWidget {
     return Colors.orange;
   }
 
-  String? _originLabel(String? sourceEventType) {
+  String? _originLabel(BuildContext context, String? sourceEventType) {
     switch (sourceEventType) {
       case 'breeding':
       case 'AnimalBred':
-        return 'Breeding';
+        return context.tr('task_breeding');
       case 'feeding':
-        return 'Feeding';
+        return context.tr('task_feeding');
       case 'production':
-        return 'Production';
+        return context.tr('task_production');
       case 'CropHarvested':
-        return 'Harvest';
+        return context.tr('task_harvest');
       case 'InventoryLowStock':
-        return 'Low Stock';
+        return context.tr('task_low_stock');
       default:
         return null;
     }
   }
 
-  String _dueLabel(DateTime? date) {
-    if (date == null) return 'No date';
+  String _dueLabel(BuildContext context, DateTime? date) {
+    if (date == null) return context.tr('no_date');
     final today = DateTime.now();
     final d = DateTime(date.year, date.month, date.day);
     final t = DateTime(today.year, today.month, today.day);
     final delta = d.difference(t).inDays;
-    if (delta == 0) return 'Today';
-    if (delta == 1) return 'Tomorrow';
-    if (delta == -1) return 'Yesterday';
-    if (delta > 1) return 'In $delta days';
-    return '${delta.abs()}d ago';
+    if (delta == 0) return context.tr('today');
+    if (delta == 1) return context.tr('tomorrow');
+    if (delta == -1) return context.tr('yesterday');
+    if (delta > 1) {
+      return context.tr('in_days').replaceFirst('{days}', '$delta');
+    }
+    return context
+        .tr('days_ago_short')
+        .replaceFirst('{days}', '${delta.abs()}');
   }
 }
 

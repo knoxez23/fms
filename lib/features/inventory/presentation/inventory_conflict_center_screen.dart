@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 
 import 'package:pamoja_twalima/features/inventory/domain/entities/inventory_item.dart';
 import 'package:pamoja_twalima/features/inventory/presentation/bloc/inventory/inventory_bloc.dart';
@@ -11,18 +12,18 @@ class InventoryConflictCenterScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Conflict Center'),
+        title: Text(context.tr('conflict_center')),
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) => _resolveAll(context, value),
-            itemBuilder: (context) => const [
+            itemBuilder: (context) => [
               PopupMenuItem(
                 value: 'server',
-                child: Text('Resolve All: Use Server'),
+                child: Text(context.tr('resolve_all_use_server')),
               ),
               PopupMenuItem(
                 value: 'local',
-                child: Text('Resolve All: Keep Local'),
+                child: Text(context.tr('resolve_all_keep_local')),
               ),
             ],
           ),
@@ -37,8 +38,8 @@ class InventoryConflictCenterScreen extends StatelessWidget {
           final conflicts = items.where((item) => item.hasConflict).toList();
 
           if (conflicts.isEmpty) {
-            return const Center(
-              child: Text('No sync conflicts found.'),
+            return Center(
+              child: Text(context.tr('no_sync_conflicts')),
             );
           }
 
@@ -76,8 +77,8 @@ class InventoryConflictCenterScreen extends StatelessWidget {
       SnackBar(
         content: Text(
           mode == 'server'
-              ? 'Queued ${conflicts.length} conflict(s): use server'
-              : 'Queued ${conflicts.length} conflict(s): keep local',
+              ? '${context.tr('resolve_all_use_server')} (${conflicts.length})'
+              : '${context.tr('resolve_all_keep_local')} (${conflicts.length})',
         ),
       ),
     );
@@ -119,7 +120,7 @@ class _ConflictCard extends StatelessWidget {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => _resolveUseServer(context, item),
-                  child: const Text('Use Server'),
+                  child: Text(context.tr('use_server')),
                 ),
               ),
               const SizedBox(width: 10),
@@ -130,7 +131,7 @@ class _ConflictCard extends StatelessWidget {
                     backgroundColor: Colors.orange,
                     foregroundColor: Colors.white,
                   ),
-                  child: const Text('Keep Local'),
+                  child: Text(context.tr('keep_local')),
                 ),
               ),
             ],
@@ -146,7 +147,9 @@ class _ConflictCard extends StatelessWidget {
           InventoryEvent.resolveConflictUseServer(id: int.parse(item.id!)),
         );
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${item.itemName}: applied server version')),
+      SnackBar(
+          content: Text(
+              '${item.itemName}: ${context.tr('applied_server_version')}')),
     );
   }
 
@@ -156,7 +159,9 @@ class _ConflictCard extends StatelessWidget {
           InventoryEvent.resolveConflictKeepLocal(id: int.parse(item.id!)),
         );
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${item.itemName}: local version queued')),
+      SnackBar(
+          content:
+              Text('${item.itemName}: ${context.tr('local_version_queued')}')),
     );
   }
 }

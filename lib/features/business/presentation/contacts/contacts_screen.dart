@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
 import 'package:pamoja_twalima/data/network/api_service.dart';
@@ -33,16 +34,16 @@ class _ContactsScreenState extends State<ContactsScreen>
     return AppScaffold(
       includeDrawer: false,
       appBar: ModernAppBar(
-        title: 'Contacts',
+        title: context.tr('contacts'),
         variant: AppBarVariant.standard,
         showNotifications: false,
         bottomHeight: 48,
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'Suppliers'),
-            Tab(text: 'Customers'),
-            Tab(text: 'Staff'),
+          tabs: [
+            Tab(text: context.tr('suppliers')),
+            Tab(text: context.tr('customers')),
+            Tab(text: context.tr('staff')),
           ],
         ),
       ),
@@ -50,17 +51,17 @@ class _ContactsScreenState extends State<ContactsScreen>
         controller: _tabController,
         children: [
           _ContactTab(
-            title: 'Supplier',
+            titleKey: 'supplier',
             type: ContactType.supplier,
             service: _service,
           ),
           _ContactTab(
-            title: 'Customer',
+            titleKey: 'customer',
             type: ContactType.customer,
             service: _service,
           ),
           _ContactTab(
-            title: 'Staff Member',
+            titleKey: 'staff_member',
             type: ContactType.staffMember,
             service: _service,
             includeRole: true,
@@ -73,13 +74,13 @@ class _ContactsScreenState extends State<ContactsScreen>
 
 class _ContactTab extends StatefulWidget {
   const _ContactTab({
-    required this.title,
+    required this.titleKey,
     required this.type,
     required this.service,
     this.includeRole = false,
   });
 
-  final String title;
+  final String titleKey;
   final ContactType type;
   final ContactDirectoryService service;
   final bool includeRole;
@@ -111,7 +112,11 @@ class _ContactTabState extends State<_ContactTab> {
       if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load ${widget.title.toLowerCase()}s: $e')),
+        SnackBar(
+          content: Text(
+            '${context.tr('failed_to_load')} ${context.tr(widget.titleKey).toLowerCase()}s: $e',
+          ),
+        ),
       );
     }
   }
@@ -128,7 +133,7 @@ class _ContactTabState extends State<_ContactTab> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Save failed: $e')),
+        SnackBar(content: Text('${context.tr('save_failed')}: $e')),
       );
     }
   }
@@ -140,7 +145,7 @@ class _ContactTabState extends State<_ContactTab> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Delete failed: $e')),
+        SnackBar(content: Text('${context.tr('delete_failed')}: $e')),
       );
     }
   }
@@ -154,7 +159,9 @@ class _ContactTabState extends State<_ContactTab> {
     return Scaffold(
       body: _rows.isEmpty
           ? Center(
-              child: Text('No ${widget.title.toLowerCase()}s yet'),
+              child: Text(
+                '${context.tr('no_items_yet')}: ${context.tr(widget.titleKey).toLowerCase()}',
+              ),
             )
           : RefreshIndicator(
               onRefresh: _reload,
@@ -173,7 +180,7 @@ class _ContactTabState extends State<_ContactTab> {
 
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                    title: Text(name.isEmpty ? 'Unnamed' : name),
+                    title: Text(name.isEmpty ? context.tr('unnamed') : name),
                     subtitle: subtitle.isEmpty ? null : Text(subtitle),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -181,10 +188,11 @@ class _ContactTabState extends State<_ContactTab> {
                         IconButton(
                           icon: const Icon(Icons.edit_outlined),
                           onPressed: () async {
-                            final result = await showDialog<Map<String, dynamic>>(
+                            final result =
+                                await showDialog<Map<String, dynamic>>(
                               context: context,
                               builder: (_) => _ContactEditorDialog(
-                                title: widget.title,
+                                titleKey: widget.titleKey,
                                 includeRole: widget.includeRole,
                                 initial: row,
                               ),
@@ -212,7 +220,7 @@ class _ContactTabState extends State<_ContactTab> {
             final result = await showDialog<Map<String, dynamic>>(
               context: context,
               builder: (_) => _ContactEditorDialog(
-                title: widget.title,
+                titleKey: widget.titleKey,
                 includeRole: widget.includeRole,
               ),
             );
@@ -220,7 +228,7 @@ class _ContactTabState extends State<_ContactTab> {
             await _save(result);
           },
           icon: const Icon(Icons.add),
-          label: Text('Add ${widget.title}'),
+          label: Text('${context.tr('add')} ${context.tr(widget.titleKey)}'),
         ),
       ),
     );
@@ -229,12 +237,12 @@ class _ContactTabState extends State<_ContactTab> {
 
 class _ContactEditorDialog extends StatefulWidget {
   const _ContactEditorDialog({
-    required this.title,
+    required this.titleKey,
     required this.includeRole,
     this.initial,
   });
 
-  final String title;
+  final String titleKey;
   final bool includeRole;
   final Map<String, dynamic>? initial;
 
@@ -258,15 +266,15 @@ class _ContactEditorDialogState extends State<_ContactEditorDialog> {
         TextEditingController(text: (widget.initial?['name'] ?? '').toString());
     _roleController =
         TextEditingController(text: (widget.initial?['role'] ?? '').toString());
-    _phoneController =
-        TextEditingController(text: (widget.initial?['phone'] ?? '').toString());
-    _emailController =
-        TextEditingController(text: (widget.initial?['email'] ?? '').toString());
+    _phoneController = TextEditingController(
+        text: (widget.initial?['phone'] ?? '').toString());
+    _emailController = TextEditingController(
+        text: (widget.initial?['email'] ?? '').toString());
     _addressController = TextEditingController(
       text: (widget.initial?['address'] ?? '').toString(),
     );
-    _notesController =
-        TextEditingController(text: (widget.initial?['notes'] ?? '').toString());
+    _notesController = TextEditingController(
+        text: (widget.initial?['notes'] ?? '').toString());
   }
 
   @override
@@ -283,7 +291,9 @@ class _ContactEditorDialogState extends State<_ContactEditorDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('${widget.initial == null ? 'Add' : 'Edit'} ${widget.title}'),
+      title: Text(
+        '${widget.initial == null ? context.tr('add') : context.tr('edit')} ${context.tr(widget.titleKey)}',
+      ),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -292,10 +302,11 @@ class _ContactEditorDialogState extends State<_ContactEditorDialog> {
             children: [
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name *'),
+                decoration:
+                    InputDecoration(labelText: context.tr('name_field')),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Name is required';
+                    return context.tr('name_required');
                   }
                   return null;
                 },
@@ -303,24 +314,24 @@ class _ContactEditorDialogState extends State<_ContactEditorDialog> {
               if (widget.includeRole)
                 TextFormField(
                   controller: _roleController,
-                  decoration: const InputDecoration(labelText: 'Role'),
+                  decoration: InputDecoration(labelText: context.tr('role')),
                 ),
               TextFormField(
                 controller: _phoneController,
-                decoration: const InputDecoration(labelText: 'Phone'),
+                decoration: InputDecoration(labelText: context.tr('phone')),
               ),
               TextFormField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
+                decoration: InputDecoration(labelText: context.tr('email')),
               ),
               if (!widget.includeRole)
                 TextFormField(
                   controller: _addressController,
-                  decoration: const InputDecoration(labelText: 'Address'),
+                  decoration: InputDecoration(labelText: context.tr('address')),
                 ),
               TextFormField(
                 controller: _notesController,
-                decoration: const InputDecoration(labelText: 'Notes'),
+                decoration: InputDecoration(labelText: context.tr('notes')),
                 maxLines: 2,
               ),
             ],
@@ -330,7 +341,7 @@ class _ContactEditorDialogState extends State<_ContactEditorDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(context.tr('cancel')),
         ),
         ElevatedButton(
           onPressed: () {
@@ -353,7 +364,7 @@ class _ContactEditorDialogState extends State<_ContactEditorDialog> {
                   : _notesController.text.trim(),
             });
           },
-          child: const Text('Save'),
+          child: Text(context.tr('save')),
         ),
       ],
     );

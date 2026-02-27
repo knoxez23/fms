@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pamoja_twalima/core/di/injection.dart';
@@ -153,8 +154,8 @@ class _InventoryHistoryViewState extends State<InventoryHistoryView> {
         return AppScaffold(
           backgroundColor: theme.colorScheme.surface,
           includeDrawer: false,
-          appBar: const ModernAppBar(
-            title: 'Inventory History',
+          appBar: ModernAppBar(
+            title: context.tr('inventory_history'),
             variant: AppBarVariant.standard,
           ),
           body: Column(
@@ -165,22 +166,23 @@ class _InventoryHistoryViewState extends State<InventoryHistoryView> {
                 child: Row(
                   children: [
                     _HistoryStat(
-                      value: 'KSh ${history.totalRestockCost.toStringAsFixed(0)}',
-                      label: 'Total Restock Cost',
+                      value:
+                          'KSh ${history.totalRestockCost.toStringAsFixed(0)}',
+                      label: context.tr('total_restock_cost'),
                       icon: Icons.attach_money,
                       theme: theme,
                     ),
                     const SizedBox(width: 12),
                     _HistoryStat(
                       value: '${history.lowStockAlerts.length}',
-                      label: 'Low Stock Alerts',
+                      label: context.tr('low_stock_alerts'),
                       icon: Icons.warning,
                       theme: theme,
                     ),
                     const SizedBox(width: 12),
                     _HistoryStat(
                       value: '${history.usageHistory.length}',
-                      label: 'Monthly Usage',
+                      label: context.tr('monthly_usage'),
                       icon: Icons.trending_up,
                       theme: theme,
                     ),
@@ -199,19 +201,19 @@ class _InventoryHistoryViewState extends State<InventoryHistoryView> {
                 child: Row(
                   children: [
                     _HistoryTab(
-                      label: 'Restocks',
+                      label: context.tr('restocks'),
                       isSelected: _selectedTab == 0,
                       onTap: () => setState(() => _selectedTab = 0),
                       theme: theme,
                     ),
                     _HistoryTab(
-                      label: 'Usage',
+                      label: context.tr('usage'),
                       isSelected: _selectedTab == 1,
                       onTap: () => setState(() => _selectedTab = 1),
                       theme: theme,
                     ),
                     _HistoryTab(
-                      label: 'Alerts',
+                      label: context.tr('alerts'),
                       isSelected: _selectedTab == 2,
                       onTap: () => setState(() => _selectedTab = 2),
                       theme: theme,
@@ -520,8 +522,8 @@ class _UsageTab extends StatelessWidget {
                     ),
                   )
                 else
-                  ...usageHistory
-                      .map((record) => _UsageItem(record: record, theme: theme)),
+                  ...usageHistory.map(
+                      (record) => _UsageItem(record: record, theme: theme)),
               ],
             ),
           ),
@@ -621,8 +623,8 @@ class _UsageBarChart extends StatelessWidget {
                   Text(
                     entry.value.toStringAsFixed(1),
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.65),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.65),
                     ),
                   ),
                   const SizedBox(height: 6),

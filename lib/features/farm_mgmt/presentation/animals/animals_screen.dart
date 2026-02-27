@@ -564,7 +564,8 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.analytics, color: theme.colorScheme.primary),
+                          Icon(Icons.analytics,
+                              color: theme.colorScheme.primary),
                           const SizedBox(width: 8),
                           Text(
                             'Production Logging',
@@ -578,7 +579,8 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
                       Text(
                         'Track milk production, egg collection, weight gains, and other productivity metrics.',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.7),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -811,7 +813,8 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
       if (!mounted) return;
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Updated ${animal.name.value} health to $status')),
+        SnackBar(
+            content: Text('Updated ${animal.name.value} health to $status')),
       );
     } catch (_) {
       if (!mounted) return;
@@ -821,7 +824,8 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
     }
   }
 
-  Future<_AnimalHealthData> _loadAnimalHealthData(List<AnimalEntity> animals) async {
+  Future<_AnimalHealthData> _loadAnimalHealthData(
+      List<AnimalEntity> animals) async {
     final total = animals.length;
     if (total == 0) {
       return const _AnimalHealthData(
@@ -838,7 +842,8 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
       final currentAnimals = await SyncData().getAnimals();
       final statusByAnimalId = <int, String>{
         for (final animal in currentAnimals)
-          if (animal.id != null && (animal.healthStatus ?? '').trim().isNotEmpty)
+          if (animal.id != null &&
+              (animal.healthStatus ?? '').trim().isNotEmpty)
             animal.id!: animal.healthStatus!.trim(),
       };
 
@@ -947,7 +952,9 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
     final text = raw?.trim().toLowerCase();
     if (text == null || text.isEmpty) return null;
     if (text.contains('critical')) return 'Critical';
-    if (text.contains('risk') || text.contains('sick') || text.contains('ill')) {
+    if (text.contains('risk') ||
+        text.contains('sick') ||
+        text.contains('ill')) {
       return 'At Risk';
     }
     if (text.contains('monitor') || text.contains('recover')) {
@@ -1370,6 +1377,7 @@ class _AnimalCard extends StatelessWidget {
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
+        isThreeLine: true,
         leading: Stack(
           children: [
             CircleAvatar(
@@ -1417,22 +1425,29 @@ class _AnimalCard extends StatelessWidget {
           ],
         ),
         trailing: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            PopupMenuButton<String>(
-              tooltip: 'Set health status',
-              onSelected: onHealthStatusSelected,
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'Healthy', child: Text('Healthy')),
-                PopupMenuItem(value: 'Monitoring', child: Text('Monitoring')),
-                PopupMenuItem(value: 'At Risk', child: Text('At Risk')),
-                PopupMenuItem(value: 'Critical', child: Text('Critical')),
-              ],
-              icon: Icon(
-                Icons.tune,
-                size: 18,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            Theme(
+              data: Theme.of(context).copyWith(
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: PopupMenuButton<String>(
+                tooltip: 'Set health status',
+                onSelected: onHealthStatusSelected,
+                padding: EdgeInsets.zero,
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'Healthy', child: Text('Healthy')),
+                  PopupMenuItem(value: 'Monitoring', child: Text('Monitoring')),
+                  PopupMenuItem(value: 'At Risk', child: Text('At Risk')),
+                  PopupMenuItem(value: 'Critical', child: Text('Critical')),
+                ],
+                icon: Icon(
+                  Icons.tune,
+                  size: 18,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
               ),
             ),
             Text(
