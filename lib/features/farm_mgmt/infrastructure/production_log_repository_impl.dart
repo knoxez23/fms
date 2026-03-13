@@ -63,7 +63,12 @@ class ProductionLogRepositoryImpl implements ProductionLogRepository {
       }
     }
     final db = await _dbHelper.database;
-    await db.delete('production_logs', where: 'id = ?', whereArgs: [parsed]);
+    final activeUserId = await _localSessionService.getActiveUserId();
+    await db.delete(
+      'production_logs',
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [parsed] : [parsed, activeUserId],
+    );
   }
 
   @override

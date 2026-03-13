@@ -466,18 +466,24 @@ class LocalData {
 
   static Future<int> updateAnimal(Animal animal) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     final row = await _attachActiveUserId(animal.toMap());
     return await db.update(
       'animals',
       row,
-      where: 'id = ?',
-      whereArgs: [animal.id],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [animal.id] : [animal.id, activeUserId],
     );
   }
 
   static Future<int> deleteAnimal(int id) async {
     final db = await _dbHelper.database;
-    return await db.delete('animals', where: 'id = ?', whereArgs: [id]);
+    final activeUserId = await _getActiveUserId();
+    return await db.delete(
+      'animals',
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [id] : [id, activeUserId],
+    );
   }
 
   // Crop CRUD operations
@@ -516,18 +522,24 @@ class LocalData {
 
   static Future<int> updateCrop(Crop crop) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     final row = await _attachActiveUserId(crop.toMap());
     return await db.update(
       'crops',
       row,
-      where: 'id = ?',
-      whereArgs: [crop.id],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [crop.id] : [crop.id, activeUserId],
     );
   }
 
   static Future<int> deleteCrop(int id) async {
     final db = await _dbHelper.database;
-    return await db.delete('crops', where: 'id = ?', whereArgs: [id]);
+    final activeUserId = await _getActiveUserId();
+    return await db.delete(
+      'crops',
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [id] : [id, activeUserId],
+    );
   }
 
   // Task CRUD operations
@@ -874,19 +886,25 @@ class LocalData {
 
   static Future<int> updateFeedingSchedule(FeedingSchedule schedule) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     final row = await _attachActiveUserId(schedule.toMap());
     return await db.update(
       'feeding_schedules',
       row,
-      where: 'id = ?',
-      whereArgs: [schedule.id],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs:
+          activeUserId == null ? [schedule.id] : [schedule.id, activeUserId],
     );
   }
 
   static Future<int> deleteFeedingSchedule(int id) async {
     final db = await _dbHelper.database;
-    return await db
-        .delete('feeding_schedules', where: 'id = ?', whereArgs: [id]);
+    final activeUserId = await _getActiveUserId();
+    return await db.delete(
+      'feeding_schedules',
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [id] : [id, activeUserId],
+    );
   }
 
   // Feeding Log CRUD operations
@@ -924,18 +942,24 @@ class LocalData {
 
   static Future<int> updateFeedingLog(FeedingLog log) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     final row = await _attachActiveUserId(log.toMap());
     return await db.update(
       'feeding_logs',
       row,
-      where: 'id = ?',
-      whereArgs: [log.id],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [log.id] : [log.id, activeUserId],
     );
   }
 
   static Future<int> deleteFeedingLog(int id) async {
     final db = await _dbHelper.database;
-    return await db.delete('feeding_logs', where: 'id = ?', whereArgs: [id]);
+    final activeUserId = await _getActiveUserId();
+    return await db.delete(
+      'feeding_logs',
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [id] : [id, activeUserId],
+    );
   }
 
   // Animal Health Record CRUD operations
@@ -979,21 +1003,23 @@ class LocalData {
 
   static Future<int> updateAnimalHealthRecord(AnimalHealthRecord record) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     final row = await _attachActiveUserId(record.toMap());
     return await db.update(
       'animal_health_records',
       row,
-      where: 'id = ?',
-      whereArgs: [record.id],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [record.id] : [record.id, activeUserId],
     );
   }
 
   static Future<int> deleteAnimalHealthRecord(int id) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     return await db.delete(
       'animal_health_records',
-      where: 'id = ?',
-      whereArgs: [id],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [id] : [id, activeUserId],
     );
   }
 
