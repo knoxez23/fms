@@ -4,9 +4,11 @@ import 'package:pamoja_twalima/core/services/farm_setup_service.dart';
 import 'package:pamoja_twalima/features/auth/application/auth_usecases.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/application/animal_usecases.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/application/crop_usecases.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/application/feeding_usecases.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/application/task_usecases.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/animal_entity.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/crop_entity.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/feeding_schedule_entity.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/task_entity.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/value_objects/value_objects.dart';
 import 'package:pamoja_twalima/features/inventory/domain/entities/inventory_item.dart';
@@ -442,13 +444,23 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
     try {
       for (final preset in _selectedAnimals) {
         final scale = _animalScales[preset] ?? _FarmScale.small;
-        await getIt<AddAnimal>().execute(
+        final createdAnimal = await getIt<AddAnimal>().execute(
           AnimalEntity(
             name: AnimalName('${preset.defaultName} (${scale.label})'),
             type: AnimalType(preset.animalType),
             breed: preset.breedHint,
           ),
         );
+        final animalId = int.tryParse(createdAnimal.id ?? '');
+        if (animalId != null) {
+          for (final schedule in _feedingTemplatesFor(
+            animalId: animalId,
+            preset: preset,
+            scale: scale,
+          )) {
+            await getIt<AddFeedingSchedule>().execute(schedule);
+          }
+        }
         await getIt<AddTask>().execute(
           TaskEntity(
             title: TaskTitle('Set feeding plan for ${preset.title}'),
@@ -507,19 +519,9 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
             sourceEventId: preset.title.toLowerCase(),
           ),
         );
-        await getIt<AddTask>().execute(
-          TaskEntity(
-            title: TaskTitle(mode == _CropSetupMode.planted
-                ? 'Prepare harvest path for ${preset.title}'
-                : 'Confirm input stock for ${preset.title}'),
-            description: mode == _CropSetupMode.planted
-                ? 'Prepare stock, labor, and market handoff for the next ${preset.title.toLowerCase()} harvest cycle.'
-                : 'Make sure seed, fertilizer, and protection inputs are available before field work starts.',
-            dueDate: DateTime.now().add(const Duration(days: 7)),
-            sourceEventType: 'setup',
-            sourceEventId: '${preset.title.toLowerCase()}_${mode.name}',
-          ),
-        );
+        for (final task in _cropChecklistFor(preset, mode)) {
+          await getIt<AddTask>().execute(task);
+        }
       }
 
       for (final material in _selectedMaterials) {
@@ -575,6 +577,116 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
     }
 
     return score.clamp(1, 12);
+  }
+
+  List<FeedingScheduleEntity> _feedingTemplatesFor({
+    required int animalId,
+    required _AnimalPreset preset,
+    required _FarmScale scale,
+  }) {
+    final primaryFeed = preset.starterMaterials.isNotEmpty
+        ? preset.starterMaterials.first
+        : 'Feed Mix';
+    final secondaryFeed = preset.starterMaterials.length > 1
+        ? preset.starterMaterials[1]
+        : primaryFeed;
+    final baseQuantity = switch (preset.animalType) {
+      'cow' => 8.0,
+      'goat' => 2.0,
+      'chicken' => 0.12,
+      'pig' => 1.8,
+      _ => 1.0,
+    };
+    final multiplier = switch (scale) {
+      _FarmScale.small => 1.0,
+      _FarmScale.medium => 2.5,
+      _FarmScale.large => 4.0,
+    };
+
+    return [
+      FeedingScheduleEntity(
+        animalId: animalId,
+        feedType: primaryFeed,
+        quantity: double.parse((baseQuantity * multiplier).toStringAsFixed(2)),
+        unit: preset.animalType == 'chicken' ? 'kg' : 'kg',
+        timeOfDay: 'Morning',
+        frequency: 'Daily',
+        startDate: DateTime.now(),
+        notes: 'Auto-created from farm setup',
+      ),
+      FeedingScheduleEntity(
+        animalId: animalId,
+        feedType: secondaryFeed,
+        quantity: double.parse(
+            ((baseQuantity * multiplier) * 0.7).toStringAsFixed(2)),
+        unit: 'kg',
+        timeOfDay: 'Evening',
+        frequency: 'Daily',
+        startDate: DateTime.now(),
+        notes: 'Auto-created from farm setup',
+      ),
+    ];
+  }
+
+  List<TaskEntity> _cropChecklistFor(
+    _CropPreset preset,
+    _CropSetupMode mode,
+  ) {
+    final cropName = preset.title;
+    if (mode == _CropSetupMode.planted) {
+      return [
+        TaskEntity(
+          title: TaskTitle('7-day $cropName field check'),
+          description:
+              'Review moisture, pests, and nutrient needs for current $cropName crop.',
+          dueDate: DateTime.now().add(const Duration(days: 7)),
+          sourceEventType: 'setup',
+          sourceEventId: '${cropName.toLowerCase()}_7d',
+        ),
+        TaskEntity(
+          title: TaskTitle('14-day $cropName progress review'),
+          description:
+              'Check crop health, expected yield direction, and missing field tasks.',
+          dueDate: DateTime.now().add(const Duration(days: 14)),
+          sourceEventType: 'setup',
+          sourceEventId: '${cropName.toLowerCase()}_14d',
+        ),
+        TaskEntity(
+          title: TaskTitle('30-day $cropName market prep'),
+          description:
+              'Review likely harvest path, stock handling, and buyer readiness for $cropName.',
+          dueDate: DateTime.now().add(const Duration(days: 30)),
+          sourceEventType: 'setup',
+          sourceEventId: '${cropName.toLowerCase()}_30d',
+        ),
+      ];
+    }
+
+    return [
+      TaskEntity(
+        title: TaskTitle('7-day $cropName input check'),
+        description:
+            'Confirm seed, fertilizer, and protection inputs before starting $cropName field work.',
+        dueDate: DateTime.now().add(const Duration(days: 7)),
+        sourceEventType: 'setup',
+        sourceEventId: '${cropName.toLowerCase()}_7d',
+      ),
+      TaskEntity(
+        title: TaskTitle('14-day $cropName planting readiness'),
+        description: 'Confirm field, labor, and planting date for $cropName.',
+        dueDate: DateTime.now().add(const Duration(days: 14)),
+        sourceEventType: 'setup',
+        sourceEventId: '${cropName.toLowerCase()}_14d',
+      ),
+      TaskEntity(
+        title: TaskTitle('30-day $cropName early growth review'),
+        description:
+            'Plan the first monitoring cycle and expected early-stage tasks for $cropName.',
+        dueDate: DateTime.now().add(const Duration(days: 30)),
+        sourceEventType: 'setup',
+        sourceEventId: '${cropName.toLowerCase()}_30d',
+      ),
+    ];
   }
 }
 
