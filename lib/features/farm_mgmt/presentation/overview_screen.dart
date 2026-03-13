@@ -56,7 +56,8 @@ class _OverviewScreenState extends State<OverviewScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+                  Icon(Icons.error_outline,
+                      size: 64, color: Colors.red.shade300),
                   const SizedBox(height: 16),
                   Text(message),
                   const SizedBox(height: 16),
@@ -173,8 +174,19 @@ class _OverviewScreenState extends State<OverviewScreen>
                       },
                     ),
                     const SizedBox(height: 8),
-                    _ProductionTrendCard(values: feed.productionTrend, theme: theme),
+                    _ProductionTrendCard(
+                        values: feed.productionTrend, theme: theme),
                   ],
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              sliver: SliverToBoxAdapter(
+                child: _FeedingGuideCard(
+                  theme: theme,
+                  feedingPreview: feed.feedingPreview,
+                  feedReadinessGaps: feed.feedReadinessGaps,
                 ),
               ),
             ),
@@ -221,15 +233,20 @@ class _OverviewScreenState extends State<OverviewScreen>
                           sourceEventType: task.sourceEventType,
                           sourceEventId: task.sourceEventId,
                         );
-                        context.read<TasksBloc>().add(TasksEvent.update(task: updated));
-                        context.read<OverviewBloc>().add(const OverviewEvent.load());
+                        context
+                            .read<TasksBloc>()
+                            .add(TasksEvent.update(task: updated));
+                        context
+                            .read<OverviewBloc>()
+                            .add(const OverviewEvent.load());
                       },
                       onTap: () {
                         context.read<FarmNavCubit>().select(3);
                       },
                     );
                   },
-                  childCount: upcomingTasks.isEmpty ? 1 : upcomingTasks.take(4).length,
+                  childCount:
+                      upcomingTasks.isEmpty ? 1 : upcomingTasks.take(4).length,
                 ),
               ),
             ),
@@ -297,6 +314,7 @@ class _OverviewScreenState extends State<OverviewScreen>
   Future<_OverviewFeedData> _loadFeedData() async {
     final salesRows = await LocalData.getRecentSales(limit: 4);
     final productionRows = await LocalData.getProductionTrend(days: 7);
+    final farmSummary = await LocalData.getFarmSummary();
 
     final sales = salesRows.map((row) {
       final saleDate = DateTime.tryParse((row['sale_date'] ?? '').toString());
@@ -315,6 +333,9 @@ class _OverviewScreenState extends State<OverviewScreen>
     return _OverviewFeedData(
       sales: sales,
       productionTrend: trend,
+      feedingPreview: (farmSummary['todaysFeedingPreview'] ?? '').toString(),
+      feedReadinessGaps:
+          (farmSummary['feedReadinessGaps'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -349,10 +370,14 @@ class _OverviewSaleItem {
 class _OverviewFeedData {
   final List<_OverviewSaleItem> sales;
   final List<double> productionTrend;
+  final String feedingPreview;
+  final int feedReadinessGaps;
 
   const _OverviewFeedData({
     this.sales = const [],
     this.productionTrend = const [],
+    this.feedingPreview = '',
+    this.feedReadinessGaps = 0,
   });
 }
 
@@ -396,7 +421,8 @@ class _ProductionTrendCard extends StatelessWidget {
               children: List.generate(values.length, (index) {
                 final value = values[index];
                 final ratio = (value / maxValue).clamp(0.05, 1.0);
-                final day = now.subtract(Duration(days: values.length - 1 - index));
+                final day =
+                    now.subtract(Duration(days: values.length - 1 - index));
 
                 return Expanded(
                   child: Padding(
@@ -405,7 +431,8 @@ class _ProductionTrendCard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Text(
-                          value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1),
+                          value.toStringAsFixed(
+                              value == value.roundToDouble() ? 0 : 1),
                           style: theme.textTheme.labelSmall?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -424,7 +451,8 @@ class _ProductionTrendCard extends StatelessWidget {
                         Text(
                           _weekday(day.weekday),
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
                           ),
                         ),
                       ],
@@ -455,6 +483,69 @@ class _ProductionTrendCard extends StatelessWidget {
       default:
         return '-';
     }
+  }
+}
+
+class _FeedingGuideCard extends StatelessWidget {
+  final ThemeData theme;
+  final String feedingPreview;
+  final int feedReadinessGaps;
+
+  const _FeedingGuideCard({
+    required this.theme,
+    required this.feedingPreview,
+    required this.feedReadinessGaps,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final detail = feedingPreview.isNotEmpty
+        ? feedingPreview
+        : 'No active ration labels yet. Create or refine feeding schedules to show practical daily feeding guidance.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.dividerColor.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.local_dining_outlined, color: Colors.teal.shade700),
+              const SizedBox(width: 8),
+              Text(
+                'Today\'s Feeding Guide',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            detail,
+            style: theme.textTheme.bodyMedium,
+          ),
+          if (feedReadinessGaps > 0) ...[
+            const SizedBox(height: 10),
+            Text(
+              '$feedReadinessGaps feed item${feedReadinessGaps == 1 ? '' : 's'} still need restocking.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

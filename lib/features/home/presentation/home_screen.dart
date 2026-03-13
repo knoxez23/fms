@@ -293,6 +293,26 @@ class _HomeViewState extends State<HomeView>
 
                   SliverToBoxAdapter(
                     child: SectionHeader(
+                      title: 'Today\'s Blockers',
+                      icon: Icons.rule_folder_outlined,
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _TodayBlockersSection(
+                        theme: theme,
+                        summary: summary,
+                        onOpenFarm: () => widget.onNavigateTab?.call(1),
+                        onOpenInventory: () => widget.onNavigateTab?.call(2),
+                      ),
+                    ),
+                  ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+                  SliverToBoxAdapter(
+                    child: SectionHeader(
                       title: 'Smart Focus',
                       icon: Icons.auto_awesome,
                     ),
@@ -647,6 +667,193 @@ class _SetupMomentumSection extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _TodayBlockersSection extends StatelessWidget {
+  final ThemeData theme;
+  final Map<String, dynamic> summary;
+  final VoidCallback onOpenFarm;
+  final VoidCallback onOpenInventory;
+
+  const _TodayBlockersSection({
+    required this.theme,
+    required this.summary,
+    required this.onOpenFarm,
+    required this.onOpenInventory,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final feedGaps = (summary['feedReadinessGaps'] as num?)?.toInt() ?? 0;
+    final cropInputGaps = (summary['cropInputGaps'] as num?)?.toInt() ?? 0;
+    final lowStockItems = (summary['lowStockItems'] as num?)?.toInt() ?? 0;
+    final productionReviews =
+        (summary['productionReviewsNext7Days'] as num?)?.toInt() ?? 0;
+    final harvestReadyCrops =
+        (summary['harvestReadyCrops'] as num?)?.toInt() ?? 0;
+
+    final blockers = <_TodayBlockerItem>[
+      if (feedGaps > 0)
+        _TodayBlockerItem(
+          label: '$feedGaps feed gap${feedGaps == 1 ? '' : 's'}',
+          detail: 'Restock feed before rations slip.',
+          color: Colors.teal,
+          icon: Icons.local_dining_outlined,
+          onTap: onOpenInventory,
+        ),
+      if (cropInputGaps > 0)
+        _TodayBlockerItem(
+          label:
+              '$cropInputGaps crop input gap${cropInputGaps == 1 ? '' : 's'}',
+          detail: 'Seeds or inputs are still missing.',
+          color: Colors.green,
+          icon: Icons.grass_outlined,
+          onTap: onOpenInventory,
+        ),
+      if (productionReviews > 0)
+        _TodayBlockerItem(
+          label:
+              '$productionReviews production review${productionReviews == 1 ? '' : 's'}',
+          detail: 'Output and feed efficiency need attention.',
+          color: Colors.indigo,
+          icon: Icons.insights_outlined,
+          onTap: onOpenFarm,
+        ),
+      if (harvestReadyCrops > 0)
+        _TodayBlockerItem(
+          label:
+              '$harvestReadyCrops harvest-ready crop${harvestReadyCrops == 1 ? '' : 's'}',
+          detail: 'Move crop to stock or market soon.',
+          color: Colors.orange,
+          icon: Icons.agriculture_outlined,
+          onTap: onOpenFarm,
+        ),
+      if (lowStockItems > 0)
+        _TodayBlockerItem(
+          label:
+              '$lowStockItems low-stock item${lowStockItems == 1 ? '' : 's'}',
+          detail: 'Inventory needs a quick check.',
+          color: Colors.redAccent,
+          icon: Icons.inventory_2_outlined,
+          onTap: onOpenInventory,
+        ),
+    ];
+
+    if (blockers.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.teal.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.teal.withValues(alpha: 0.18)),
+        ),
+        child: Text(
+          'No urgent blockers right now. Focus on today’s production and record-keeping rhythm.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: blockers
+          .map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _TodayBlockerCard(theme: theme, item: item),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _TodayBlockerItem {
+  final String label;
+  final String detail;
+  final Color color;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _TodayBlockerItem({
+    required this.label,
+    required this.detail,
+    required this.color,
+    required this.icon,
+    required this.onTap,
+  });
+}
+
+class _TodayBlockerCard extends StatelessWidget {
+  final ThemeData theme;
+  final _TodayBlockerItem item;
+
+  const _TodayBlockerCard({
+    required this.theme,
+    required this.item,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: item.onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: item.color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: item.color.withValues(alpha: 0.18)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: item.color.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(item.icon, color: item.color),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.label,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      item.detail,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.68),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 14,
+                color: item.color,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
