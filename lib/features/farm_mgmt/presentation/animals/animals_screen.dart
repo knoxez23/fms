@@ -6,6 +6,7 @@ import 'package:pamoja_twalima/core/domain/events/domain_event_bus.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/animations/animated_card.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/services/local_session_service.dart';
 import 'package:pamoja_twalima/data/database/database_helper.dart';
 import 'package:pamoja_twalima/data/models/animal.dart';
 import 'package:pamoja_twalima/data/models/animal_health_record.dart';
@@ -30,6 +31,7 @@ class AnimalsScreen extends StatefulWidget {
 
 class _AnimalsScreenState extends State<AnimalsScreen> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
+  final LocalSessionService _localSessionService = LocalSessionService();
   String _selectedFilter = 'All';
   int _selectedTab = 0;
 
@@ -863,12 +865,15 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
       }
 
       final db = await _dbHelper.database;
+      final activeUserId = await _localSessionService.getActiveUserId();
       final pregnantRows = await db.rawQuery(
         '''
         SELECT COUNT(DISTINCT dam_animal_id) AS count
         FROM breeding_records
         WHERE LOWER(COALESCE(status, '')) != 'completed'
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
         ''',
+        activeUserId == null ? null : [activeUserId],
       );
       final pregnantCount = Sqflite.firstIntValue(pregnantRows) ?? 0;
 
@@ -978,6 +983,7 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
 
   Future<_ProductionMetrics> _loadProductionMetrics() async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
 
     Future<double> sumForType(String type, int dayOffset) async {
       final rows = await db.rawQuery(
@@ -986,8 +992,11 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
         FROM production_logs
         WHERE LOWER(COALESCE(production_type, '')) = ?
           AND DATE(date_produced) = DATE('now', ?)
+          ${activeUserId == null ? '' : 'AND user_id = ?'}
         ''',
-        [type.toLowerCase(), '$dayOffset day'],
+        activeUserId == null
+            ? [type.toLowerCase(), '$dayOffset day']
+            : [type.toLowerCase(), '$dayOffset day', activeUserId],
       );
       return (rows.first['total'] as num?)?.toDouble() ?? 0.0;
     }
@@ -998,8 +1007,11 @@ class _AnimalsScreenState extends State<AnimalsScreen> {
         SELECT COALESCE(SUM(quantity), 0) AS total
         FROM feeding_logs
         WHERE DATE(fed_at) = DATE('now', ?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
         ''',
-        ['$dayOffset day'],
+        activeUserId == null
+            ? ['$dayOffset day']
+            : ['$dayOffset day', activeUserId],
       );
       return (rows.first['total'] as num?)?.toDouble() ?? 0.0;
     }

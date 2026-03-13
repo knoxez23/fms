@@ -1,4 +1,5 @@
 import 'package:injectable/injectable.dart';
+import 'package:pamoja_twalima/core/services/local_session_service.dart';
 import 'package:pamoja_twalima/data/database/database_helper.dart';
 import '../domain/entities/breeding_record_entity.dart';
 import '../domain/repositories/breeding_repository.dart';
@@ -6,10 +7,12 @@ import '../domain/repositories/breeding_repository.dart';
 @LazySingleton(as: BreedingRepository)
 class BreedingRepositoryImpl implements BreedingRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper();
+  final LocalSessionService _localSessionService = LocalSessionService();
 
   @override
   Future<BreedingRecordEntity> addRecord(BreedingRecordEntity record) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final id = await db.insert('breeding_records', {
       'dam_animal_id': int.tryParse(record.damAnimalId),
       'sire_animal_id': int.tryParse(record.sireAnimalId ?? ''),
@@ -20,6 +23,7 @@ class BreedingRepositoryImpl implements BreedingRepository {
       'success': record.success == null ? null : (record.success! ? 1 : 0),
       'vet': record.vet,
       'notes': record.notes,
+      'user_id': activeUserId,
     });
 
     return BreedingRecordEntity(
@@ -39,15 +43,26 @@ class BreedingRepositoryImpl implements BreedingRepository {
   @override
   Future<void> deleteRecord(String id) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final parsed = int.tryParse(id);
     if (parsed == null) return;
-    await db.delete('breeding_records', where: 'id = ?', whereArgs: [parsed]);
+    await db.delete(
+      'breeding_records',
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [parsed] : [parsed, activeUserId],
+    );
   }
 
   @override
   Future<List<BreedingRecordEntity>> getRecords() async {
     final db = await _dbHelper.database;
-    final rows = await db.query('breeding_records', orderBy: 'mating_date DESC');
+    final activeUserId = await _localSessionService.getActiveUserId();
+    final rows = await db.query(
+      'breeding_records',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
+      orderBy: 'mating_date DESC',
+    );
 
     return rows.map((row) {
       return BreedingRecordEntity(

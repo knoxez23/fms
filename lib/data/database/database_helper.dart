@@ -55,7 +55,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'pamoja_twalima.db');
     return await openDatabase(
       path,
-      version: 21,
+      version: 22,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -379,8 +379,10 @@ class DatabaseHelper {
         success INTEGER,
         vet TEXT,
         notes TEXT,
+        user_id INTEGER,
         FOREIGN KEY (dam_animal_id) REFERENCES animals (id),
-        FOREIGN KEY (sire_animal_id) REFERENCES animals (id)
+        FOREIGN KEY (sire_animal_id) REFERENCES animals (id),
+        FOREIGN KEY (user_id) REFERENCES users (id)
       )
     ''');
   }
@@ -626,6 +628,15 @@ class DatabaseHelper {
       try {
         await db
             .execute('ALTER TABLE task_sync_queue ADD COLUMN user_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+    }
+
+    if (oldVersion < 22) {
+      try {
+        await db
+            .execute('ALTER TABLE breeding_records ADD COLUMN user_id INTEGER');
       } catch (e) {
         // Column may already exist
       }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/core/services/local_session_service.dart';
 import 'package:pamoja_twalima/core/services/local_notification_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pamoja_twalima/core/di/injection.dart';
@@ -40,6 +41,7 @@ class AnimalFeedingCalendarScreen extends StatefulWidget {
 class _AnimalFeedingCalendarScreenState
     extends State<AnimalFeedingCalendarScreen> {
   final SyncData _syncData = SyncData();
+  final LocalSessionService _localSessionService = LocalSessionService();
   late final FeedingBloc _feedingBloc;
   DateTime _selectedDate = DateTime.now();
   String _selectedView = 'Daily';
@@ -658,11 +660,16 @@ class _AnimalFeedingCalendarScreenState
 
   Future<List<_FeedInventoryOption>> _loadFeedInventoryOptions() async {
     final db = await DatabaseHelper().database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final rows = await db.query(
       'inventory',
       columns: ['id', 'item_name', 'unit'],
-      where: 'LOWER(category) LIKE ? OR LOWER(item_name) LIKE ?',
-      whereArgs: ['%feed%', '%feed%'],
+      where: activeUserId == null
+          ? '(LOWER(category) LIKE ? OR LOWER(item_name) LIKE ?)'
+          : '(LOWER(category) LIKE ? OR LOWER(item_name) LIKE ?) AND user_id = ?',
+      whereArgs: activeUserId == null
+          ? ['%feed%', '%feed%']
+          : ['%feed%', '%feed%', activeUserId],
       orderBy: 'item_name ASC',
       limit: 200,
     );
@@ -1158,11 +1165,13 @@ class _AnimalFeedingCalendarScreenState
     if (inventoryId == null || !mounted) return;
 
     final db = await DatabaseHelper().database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final rows = await db.query(
       'inventory',
       columns: ['item_name', 'unit_price', 'unit'],
-      where: 'id = ?',
-      whereArgs: [inventoryId],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs:
+          activeUserId == null ? [inventoryId] : [inventoryId, activeUserId],
       limit: 1,
     );
     if (rows.isEmpty || !mounted) return;
@@ -1261,10 +1270,15 @@ class _AnimalFeedingCalendarScreenState
 
   Future<void> _showFeedInventory() async {
     final db = await DatabaseHelper().database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final rows = await db.query(
       'inventory',
-      where: 'LOWER(category) LIKE ? OR LOWER(item_name) LIKE ?',
-      whereArgs: ['%feed%', '%feed%'],
+      where: activeUserId == null
+          ? '(LOWER(category) LIKE ? OR LOWER(item_name) LIKE ?)'
+          : '(LOWER(category) LIKE ? OR LOWER(item_name) LIKE ?) AND user_id = ?',
+      whereArgs: activeUserId == null
+          ? ['%feed%', '%feed%']
+          : ['%feed%', '%feed%', activeUserId],
       orderBy: 'item_name ASC',
       limit: 100,
     );
