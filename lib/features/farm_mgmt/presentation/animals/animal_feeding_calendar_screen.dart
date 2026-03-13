@@ -896,6 +896,17 @@ class _AnimalFeedingCalendarScreenState
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Feeding schedule created')),
     );
+    await _syncData.completeTasksWhere(
+      sourceEventType: 'setup',
+      sourceEventId: selectedAnimal.id,
+      titleContains: const [
+        'feeding plan',
+        'feed efficiency',
+        'record small count',
+        'record medium count',
+        'record large count',
+      ],
+    );
   }
 
   Future<void> _editFeedingSchedule(int scheduleId) async {
@@ -1223,6 +1234,14 @@ class _AnimalFeedingCalendarScreenState
     );
     if (!mounted) return;
     final selectedAnimalName = _getAnimalNameById(animalId, animals);
+    final selectedAnimal = animals.firstWhere(
+      (a) => int.tryParse(a.id ?? '') == animalId,
+      orElse: () => AnimalEntity(
+        id: animalId.toString(),
+        name: AnimalName(selectedAnimalName),
+        type: AnimalType('other'),
+      ),
+    );
     _feedingBloc.add(const FeedingEvent.load());
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Feeding log recorded')),
@@ -1240,6 +1259,14 @@ class _AnimalFeedingCalendarScreenState
       unit: unit,
       animalName: selectedAnimalName,
       feedType: feedTypeController.text.trim(),
+    );
+    await _syncData.completeTasksWhere(
+      sourceEventType: 'setup',
+      sourceEventId: selectedAnimal.id,
+      titleContains: const [
+        'feeding plan',
+        'feed efficiency',
+      ],
     );
   }
 
