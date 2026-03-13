@@ -311,6 +311,10 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
     );
 
     await getIt<InventoryRepository>().addItem(item);
+    await _resolveCropTasks(
+      crop,
+      titleHints: const ['harvest', 'market prep'],
+    );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Harvest stock added to inventory')),
@@ -334,6 +338,10 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
 
     if (result is! ProductEntity) return;
     await getIt<MarketplaceRepository>().addProduct(result);
+    await _resolveCropTasks(
+      crop,
+      titleHints: const ['market prep', 'harvest', 'sale'],
+    );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Marketplace draft created from crop')),

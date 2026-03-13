@@ -649,6 +649,7 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
       final sale = _buildQuickSaleDraft(entity, animalName);
       try {
         await getIt<AddSale>().execute(sale);
+        await _resolveSaleReadinessTasks(entity);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Quick sale draft saved successfully.')),
@@ -681,6 +682,7 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
 
     try {
       await getIt<AddSale>().execute(sale);
+      await _resolveSaleReadinessTasks(entity);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sale draft saved successfully.')),
@@ -712,6 +714,18 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
       animal: animalName,
       notes:
           'Quick draft created from production log on ${_formatDate(entity.recordedAt)}.',
+    );
+  }
+
+  Future<void> _resolveSaleReadinessTasks(ProductionLogEntity entity) async {
+    await _syncData.completeTasksWhere(
+      sourceEventType: 'production',
+      sourceEventId: entity.animalId,
+    );
+    await _syncData.completeTasksWhere(
+      sourceEventType: 'setup',
+      sourceEventId: entity.animalId,
+      titleContains: const ['sales readiness', 'market timing'],
     );
   }
 
