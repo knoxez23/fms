@@ -14,6 +14,7 @@ class SellProductScreen extends StatefulWidget {
   final String? initialPrice;
   final String? initialQuantity;
   final String? initialUnit;
+  final String? automationMessage;
 
   const SellProductScreen({
     super.key,
@@ -24,6 +25,7 @@ class SellProductScreen extends StatefulWidget {
     this.initialPrice,
     this.initialQuantity,
     this.initialUnit,
+    this.automationMessage,
   });
 
   @override
@@ -227,12 +229,42 @@ class _SellProductScreenState extends State<SellProductScreen> {
       child: Form(
         key: _formKey,
         child: Column(
-          children: [
-            // Product Images
-            _AnimatedCard(
-              index: 0,
-              theme: theme,
-              child: Padding(
+              children: [
+                if (widget.automationMessage != null &&
+                    widget.automationMessage!.trim().isNotEmpty) ...[
+                  _AnimatedCard(
+                    index: 0,
+                    theme: theme,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            LucideIcons.sparkles,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              widget.automationMessage!.trim(),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                // Product Images
+                _AnimatedCard(
+                  index: 1,
+                  theme: theme,
+                  child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,7 +286,7 @@ class _SellProductScreenState extends State<SellProductScreen> {
 
             // Basic Information
             _AnimatedCard(
-              index: 1,
+              index: 2,
               theme: theme,
               child: Padding(
                 padding: const EdgeInsets.all(16),

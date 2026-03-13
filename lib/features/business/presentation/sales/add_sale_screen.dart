@@ -15,6 +15,7 @@ class AddSaleScreen extends StatefulWidget {
   final String? initialUnit;
   final String? initialAnimal;
   final String? initialNotes;
+  final String? automationMessage;
 
   const AddSaleScreen({
     super.key,
@@ -24,6 +25,7 @@ class AddSaleScreen extends StatefulWidget {
     this.initialUnit,
     this.initialAnimal,
     this.initialNotes,
+    this.automationMessage,
   });
 
   @override
@@ -151,9 +153,39 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
           key: _formKey,
           child: Column(
             children: [
+              if (widget.automationMessage != null &&
+                  widget.automationMessage!.trim().isNotEmpty) ...[
+                _AnimatedCard(
+                  index: 0,
+                  theme: theme,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.auto_awesome_outlined,
+                          color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            widget.automationMessage!.trim(),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               // Sale Information
               _AnimatedCard(
-                index: 0,
+                index: 1,
                 theme: theme,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -277,7 +309,7 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
 
               // Pricing Information
               _AnimatedCard(
-                index: 1,
+                index: 2,
                 theme: theme,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -331,7 +363,7 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
 
               // Customer & Date
               _AnimatedCard(
-                index: 2,
+                index: 3,
                 theme: theme,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -443,7 +475,7 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
 
               // Additional Information
               _AnimatedCard(
-                index: 3,
+                index: 4,
                 theme: theme,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -515,7 +547,7 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
 
               // Sale Summary
               _AnimatedCard(
-                index: 4,
+                index: 5,
                 theme: theme,
                 child: Padding(
                   padding: const EdgeInsets.all(16),

@@ -533,17 +533,19 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
       await _suggestSaleDraft(entity, selected.name.value);
       final sourceId = selected.id;
       if (sourceId != null && sourceId.isNotEmpty) {
-        await _syncData.completeTasksWhere(
-          sourceEventType: 'setup',
-          sourceEventId: sourceId,
-          titleContains: const [
-            'production review',
-            'feed efficiency',
-            'sales readiness',
-            'growth review',
-            'market timing',
-          ],
-        );
+        await _syncData.completeTaskRules([
+          TaskResolutionRule(
+            sourceEventType: 'setup',
+            sourceEventId: sourceId,
+            titleContains: const [
+              'production review',
+              'feed efficiency',
+              'sales readiness',
+              'growth review',
+              'market timing',
+            ],
+          ),
+        ]);
       }
     }
   }
@@ -674,6 +676,8 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
           initialAnimal: animalName,
           initialNotes:
               'Draft created from production log on ${_formatDate(entity.recordedAt)}.',
+          automationMessage:
+              'Prefilled from a ${entity.productType.toLowerCase()} production log for $animalName. Confirm pricing and customer details only if you need changes.',
         ),
       ),
     );
@@ -718,15 +722,17 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
   }
 
   Future<void> _resolveSaleReadinessTasks(ProductionLogEntity entity) async {
-    await _syncData.completeTasksWhere(
-      sourceEventType: 'production',
-      sourceEventId: entity.animalId,
-    );
-    await _syncData.completeTasksWhere(
-      sourceEventType: 'setup',
-      sourceEventId: entity.animalId,
-      titleContains: const ['sales readiness', 'market timing'],
-    );
+    await _syncData.completeTaskRules([
+      TaskResolutionRule(
+        sourceEventType: 'production',
+        sourceEventId: entity.animalId,
+      ),
+      TaskResolutionRule(
+        sourceEventType: 'setup',
+        sourceEventId: entity.animalId,
+        titleContains: const ['sales readiness', 'market timing'],
+      ),
+    ]);
   }
 
   String _saleTypeForProduct(String productType) {

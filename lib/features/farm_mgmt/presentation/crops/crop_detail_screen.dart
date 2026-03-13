@@ -332,6 +332,8 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
           initialUnit: 'kg',
           initialDescription:
               '${crop.name} harvested from this farm and prepared for direct sale. The listing can be adjusted with grade, delivery terms, and pricing before buyers see it.',
+          automationMessage:
+              'Prefilled from the ${crop.name} crop workflow. Review quantity, pricing, and delivery terms before publishing.',
         ),
       ),
     );
@@ -432,19 +434,21 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
     List<String> titleHints = const [],
   }) async {
     final sourceId = crop.id.isEmpty ? crop.name.toLowerCase() : crop.id;
-    await SyncData().completeTasksWhere(
-      sourceEventType: 'setup',
-      sourceEventId: sourceId,
-      titleContains: titleHints,
-    );
-    await SyncData().completeTasksWhere(
-      sourceEventType: 'crop',
-      sourceEventId: sourceId,
-    );
-    await SyncData().completeTasksWhere(
-      sourceEventType: 'harvest',
-      sourceEventId: sourceId,
-    );
+    await SyncData().completeTaskRules([
+      TaskResolutionRule(
+        sourceEventType: 'setup',
+        sourceEventId: sourceId,
+        titleContains: titleHints,
+      ),
+      TaskResolutionRule(
+        sourceEventType: 'crop',
+        sourceEventId: sourceId,
+      ),
+      TaskResolutionRule(
+        sourceEventType: 'harvest',
+        sourceEventId: sourceId,
+      ),
+    ]);
   }
 }
 

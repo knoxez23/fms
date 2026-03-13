@@ -976,16 +976,18 @@ class _HealthTab extends StatelessWidget {
             treatedAt: treatedAt,
           ),
         );
-    await SyncData().completeTasksWhere(
-      sourceEventType: 'animal',
-      sourceEventId: animal.id,
-      titleContains: const [
-        'health',
-        'vaccin',
-        'treatment',
-        'check',
-      ],
-    );
+    await SyncData().completeTaskRules([
+      TaskResolutionRule(
+        sourceEventType: 'animal',
+        sourceEventId: animal.id,
+        titleContains: const [
+          'health',
+          'vaccin',
+          'treatment',
+          'check',
+        ],
+      ),
+    ]);
   }
 
   String _formatDate(DateTime? value) {

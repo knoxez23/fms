@@ -16,6 +16,18 @@ import '../models/feeding_log.dart';
 import '../models/animal_health_record.dart';
 import '../../features/home/domain/entities/dashboard_data.dart';
 
+class TaskResolutionRule {
+  final String? sourceEventType;
+  final String? sourceEventId;
+  final List<String> titleContains;
+
+  const TaskResolutionRule({
+    this.sourceEventType,
+    this.sourceEventId,
+    this.titleContains = const [],
+  });
+}
+
 @lazySingleton
 class SyncData {
   static final SyncData _instance = SyncData._internal();
@@ -313,6 +325,18 @@ class SyncData {
       completed++;
     }
 
+    return completed;
+  }
+
+  Future<int> completeTaskRules(Iterable<TaskResolutionRule> rules) async {
+    var completed = 0;
+    for (final rule in rules) {
+      completed += await completeTasksWhere(
+        sourceEventType: rule.sourceEventType,
+        sourceEventId: rule.sourceEventId,
+        titleContains: rule.titleContains,
+      );
+    }
     return completed;
   }
 

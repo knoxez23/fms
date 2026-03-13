@@ -896,17 +896,19 @@ class _AnimalFeedingCalendarScreenState
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Feeding schedule created')),
     );
-    await _syncData.completeTasksWhere(
-      sourceEventType: 'setup',
-      sourceEventId: selectedAnimal.id,
-      titleContains: const [
-        'feeding plan',
-        'feed efficiency',
-        'record small count',
-        'record medium count',
-        'record large count',
-      ],
-    );
+    await _syncData.completeTaskRules([
+      TaskResolutionRule(
+        sourceEventType: 'setup',
+        sourceEventId: selectedAnimal.id,
+        titleContains: const [
+          'feeding plan',
+          'feed efficiency',
+          'record small count',
+          'record medium count',
+          'record large count',
+        ],
+      ),
+    ]);
   }
 
   Future<void> _editFeedingSchedule(int scheduleId) async {
@@ -1260,14 +1262,16 @@ class _AnimalFeedingCalendarScreenState
       animalName: selectedAnimalName,
       feedType: feedTypeController.text.trim(),
     );
-    await _syncData.completeTasksWhere(
-      sourceEventType: 'setup',
-      sourceEventId: selectedAnimal.id,
-      titleContains: const [
-        'feeding plan',
-        'feed efficiency',
-      ],
-    );
+    await _syncData.completeTaskRules([
+      TaskResolutionRule(
+        sourceEventType: 'setup',
+        sourceEventId: selectedAnimal.id,
+        titleContains: const [
+          'feeding plan',
+          'feed efficiency',
+        ],
+      ),
+    ]);
   }
 
   Future<String?> _validateFeedInventoryBeforeLog({
