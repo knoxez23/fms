@@ -1,8 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/data/network/api_service.dart';
+import 'package:pamoja_twalima/data/repositories/sync_data.dart';
 import 'package:pamoja_twalima/data/services/contact_directory_service.dart';
 import 'package:pamoja_twalima/features/business/presentation/contacts/contacts_screen.dart';
+
+class InventoryDraftResult {
+  final Map<String, dynamic> item;
+  final List<TaskResolutionRule> taskResolutionRules;
+
+  const InventoryDraftResult({
+    required this.item,
+    this.taskResolutionRules = const [],
+  });
+}
 
 class AddInventoryScreen extends StatefulWidget {
   final String? initialName;
@@ -13,6 +24,8 @@ class AddInventoryScreen extends StatefulWidget {
   final String? initialSupplier;
   final String? initialCost;
   final String? initialNotes;
+  final String? automationMessage;
+  final List<TaskResolutionRule> resolutionRules;
 
   const AddInventoryScreen({
     super.key,
@@ -24,6 +37,8 @@ class AddInventoryScreen extends StatefulWidget {
     this.initialSupplier,
     this.initialCost,
     this.initialNotes,
+    this.automationMessage,
+    this.resolutionRules = const [],
   });
 
   @override
@@ -174,8 +189,38 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
           key: _formKey,
           child: Column(
             children: [
+              if (widget.automationMessage != null &&
+                  widget.automationMessage!.trim().isNotEmpty) ...[
+                _AnimatedCard(
+                  index: 0,
+                  theme: theme,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.inventory_2_outlined,
+                          color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            widget.automationMessage!.trim(),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               _AnimatedCard(
-                index: 0,
+                index: 1,
                 theme: theme,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -233,7 +278,7 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
               ),
               const SizedBox(height: 16),
               _AnimatedCard(
-                index: 1,
+                index: 2,
                 theme: theme,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -326,7 +371,7 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
               ),
               const SizedBox(height: 16),
               _AnimatedCard(
-                index: 2,
+                index: 3,
                 theme: theme,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -411,7 +456,7 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
               ),
               const SizedBox(height: 16),
               _AnimatedCard(
-                index: 3,
+                index: 4,
                 theme: theme,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -441,7 +486,7 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
               ),
               const SizedBox(height: 24),
               _AnimatedCard(
-                index: 4,
+                index: 5,
                 theme: theme,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -536,7 +581,13 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
       };
 
       // Return to parent screen
-      Navigator.pop(context, newItem);
+      Navigator.pop(
+        context,
+        InventoryDraftResult(
+          item: newItem,
+          taskResolutionRules: widget.resolutionRules,
+        ),
+      );
     }
   }
 

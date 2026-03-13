@@ -616,9 +616,14 @@ class _InventoryViewState extends State<InventoryView>
   }
 
   void _handleAddResult(dynamic result) {
-    if (result != null && result is Map<String, dynamic>) {
+    final itemData = switch (result) {
+      InventoryDraftResult draft => draft.item,
+      Map<String, dynamic> data => data,
+      _ => null,
+    };
+    if (itemData != null) {
       try {
-        final entity = _mapToEntity(result);
+        final entity = _mapToEntity(itemData);
 
         context.read<InventoryBloc>().add(
               InventoryEvent.addItem(

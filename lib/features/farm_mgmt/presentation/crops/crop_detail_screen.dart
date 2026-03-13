@@ -280,7 +280,7 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
   }
 
   Future<void> _openHarvestStockDraft(_CropDetailView crop) async {
-    final result = await Navigator.push(
+    final result = await Navigator.push<Object?>(
       context,
       MaterialPageRoute(
         builder: (_) => AddInventoryScreen(
@@ -290,31 +290,50 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
           initialMinStock: '0',
           initialNotes:
               'Harvest stock drafted from ${crop.name} crop${crop.harvestDate == 'Not set' ? '' : ' scheduled for ${crop.harvestDate}'}',
+          automationMessage:
+              'Prefilled from the ${crop.name} harvest workflow. Confirm final stock quantity, unit, and value before saving.',
+          resolutionRules: [
+            TaskResolutionRule(
+              sourceEventType: 'setup',
+              sourceEventId: crop.id.isEmpty ? crop.name.toLowerCase() : crop.id,
+              titleContains: const ['harvest', 'market prep'],
+            ),
+            TaskResolutionRule(
+              sourceEventType: 'crop',
+              sourceEventId: crop.id.isEmpty ? crop.name.toLowerCase() : crop.id,
+            ),
+            TaskResolutionRule(
+              sourceEventType: 'harvest',
+              sourceEventId: crop.id.isEmpty ? crop.name.toLowerCase() : crop.id,
+            ),
+          ],
         ),
       ),
     );
 
-    if (result is! Map<String, dynamic>) return;
+    final draft = switch (result) {
+      InventoryDraftResult inventoryDraft => inventoryDraft,
+      Map<String, dynamic> item => InventoryDraftResult(item: item),
+      _ => null,
+    };
+    if (draft == null) return;
 
     final item = InventoryItem(
-      itemName: (result['itemName'] ?? '').toString(),
-      category: (result['category'] ?? 'Crops').toString(),
-      quantity: ((result['quantity'] as num?) ?? 0).toDouble(),
-      unit: (result['unit'] ?? 'kg').toString(),
-      minStock: (result['minStock'] as int?) ?? 0,
-      supplier: result['supplier']?.toString(),
-      supplierId: result['supplierId']?.toString(),
-      unitPrice: (result['unitPrice'] as num?)?.toDouble(),
-      totalValue: (result['totalValue'] as num?)?.toDouble(),
-      lastRestock: result['lastRestock'] as DateTime?,
+      itemName: (draft.item['itemName'] ?? '').toString(),
+      category: (draft.item['category'] ?? 'Crops').toString(),
+      quantity: ((draft.item['quantity'] as num?) ?? 0).toDouble(),
+      unit: (draft.item['unit'] ?? 'kg').toString(),
+      minStock: (draft.item['minStock'] as int?) ?? 0,
+      supplier: draft.item['supplier']?.toString(),
+      supplierId: draft.item['supplierId']?.toString(),
+      unitPrice: (draft.item['unitPrice'] as num?)?.toDouble(),
+      totalValue: (draft.item['totalValue'] as num?)?.toDouble(),
+      lastRestock: draft.item['lastRestock'] as DateTime?,
       isSynced: false,
     );
 
     await getIt<InventoryRepository>().addItem(item);
-    await _resolveCropTasks(
-      crop,
-      titleHints: const ['harvest', 'market prep'],
-    );
+    await SyncData().completeTaskRules(draft.taskResolutionRules);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Harvest stock added to inventory')),
