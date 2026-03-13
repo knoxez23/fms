@@ -3,7 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/reusable_widgets.dart';
+import 'package:pamoja_twalima/data/repositories/local_data.dart';
 import 'package:pamoja_twalima/features/business/presentation/contacts/contacts_screen.dart';
+import 'package:pamoja_twalima/features/business/presentation/expenses/add_expense_screen.dart';
 import 'add_sale_screen.dart';
 import 'sale_detail_screen.dart';
 import 'package:pamoja_twalima/core/di/injection.dart';
@@ -34,6 +36,7 @@ class SalesView extends StatefulWidget {
 class _SalesViewState extends State<SalesView> {
   String _selectedFilter = 'All';
   String _selectedPeriod = 'This Month';
+  int _financeRefreshTick = 0;
 
   final List<String> _filters = [
     'All',
@@ -91,14 +94,14 @@ class _SalesViewState extends State<SalesView> {
         final paidSales = periodSales
             .where((sale) => sale.paymentStatus.toLowerCase() == 'paid')
             .length;
-        final pendingSales =
-            periodSales.where((sale) => sale.isPending).length;
+        final pendingSales = periodSales.where((sale) => sale.isPending).length;
         final avgOrder = periodSales.isEmpty
             ? 0.0
             : totalRevenue / periodSales.length.toDouble();
 
         return AppScaffold(
           backgroundColor: theme.colorScheme.surface,
+          includeDrawer: false,
           appBar: ModernAppBar(
             title: context.tr('sales'),
             variant: AppBarVariant.home,
@@ -248,6 +251,31 @@ class _SalesViewState extends State<SalesView> {
                   ),
                 ),
               ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: SectionHeader(
+                    title: 'Cashflow',
+                    icon: Icons.account_balance_wallet_outlined,
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverToBoxAdapter(
+                  child: FutureBuilder<_BusinessFinanceData>(
+                    future: _loadFinanceData(_financeRefreshTick),
+                    builder: (context, snapshot) {
+                      final finance =
+                          snapshot.data ?? const _BusinessFinanceData.empty();
+                      return _BusinessFinancePanel(
+                        theme: theme,
+                        finance: finance,
+                      );
+                    },
+                  ),
+                ),
+              ),
 
               // Sales List
               SliverPadding(
@@ -291,23 +319,85 @@ class _SalesViewState extends State<SalesView> {
             padding: const EdgeInsets.only(bottom: 90),
             child: FloatingActionButton(
               heroTag: 'addSaleFAB',
-              onPressed: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddSaleScreen()),
-                );
-
-                if (result == null || result is! SaleEntity) return;
-                if (!context.mounted) return;
-
-                context.read<SalesBloc>().add(SalesEvent.addSale(sale: result));
-              },
+              onPressed: _openAddActions,
               backgroundColor: theme.colorScheme.primary,
               child: const Icon(Icons.add, color: Colors.white),
             ),
           ),
         );
       },
+    );
+  }
+
+  Future<void> _openAddActions() async {
+    final selection = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.receipt_long),
+                  ),
+                  title: const Text('Record Sale'),
+                  subtitle:
+                      const Text('Add revenue from sold produce or livestock'),
+                  onTap: () => Navigator.of(sheetContext).pop('sale'),
+                ),
+                ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.money_off_csred_outlined),
+                  ),
+                  title: const Text('Add Expense'),
+                  subtitle: const Text(
+                      'Track feed, labor, transport, vet, and other costs'),
+                  onTap: () => Navigator.of(sheetContext).pop('expense'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted || selection == null) return;
+    if (selection == 'sale') {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AddSaleScreen()),
+      );
+
+      if (result == null || result is! SaleEntity || !mounted) return;
+      context.read<SalesBloc>().add(SalesEvent.addSale(sale: result));
+      setState(() => _financeRefreshTick++);
+      return;
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AddExpenseScreen()),
+    );
+    if (result == true && mounted) {
+      setState(() => _financeRefreshTick++);
+    }
+  }
+
+  Future<_BusinessFinanceData> _loadFinanceData(int _) async {
+    final results = await Future.wait([
+      LocalData.getFarmSummary(),
+      LocalData.getRecentExpenses(limit: 4),
+      LocalData.getRevenueByType(),
+      LocalData.getExpensesByCategory(),
+    ]);
+    return _BusinessFinanceData(
+      summary: results[0] as Map<String, dynamic>,
+      expenses: results[1] as List<Map<String, dynamic>>,
+      revenueByType: results[2] as List<Map<String, dynamic>>,
+      expensesByCategory: results[3] as List<Map<String, dynamic>>,
     );
   }
 
@@ -333,6 +423,341 @@ class _SalesViewState extends State<SalesView> {
       default:
         return true;
     }
+  }
+}
+
+class _BusinessFinanceData {
+  final Map<String, dynamic> summary;
+  final List<Map<String, dynamic>> expenses;
+  final List<Map<String, dynamic>> revenueByType;
+  final List<Map<String, dynamic>> expensesByCategory;
+
+  const _BusinessFinanceData({
+    required this.summary,
+    required this.expenses,
+    required this.revenueByType,
+    required this.expensesByCategory,
+  });
+
+  const _BusinessFinanceData.empty()
+      : summary = const {},
+        expenses = const [],
+        revenueByType = const [],
+        expensesByCategory = const [];
+}
+
+class _BusinessFinancePanel extends StatelessWidget {
+  final ThemeData theme;
+  final _BusinessFinanceData finance;
+
+  const _BusinessFinancePanel({
+    required this.theme,
+    required this.finance,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = finance.summary;
+    final netFlow = ((summary['monthlyNetCashFlow'] as num?) ?? 0).toDouble();
+    final expenses = finance.expenses;
+    final revenueByType = finance.revenueByType.take(3).toList();
+    final expensesByCategory = finance.expensesByCategory.take(3).toList();
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [AppColors.subtleShadow],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _FinanceMetricTile(
+                  theme: theme,
+                  label: 'Income',
+                  value:
+                      'KSh ${((summary['monthlySales'] as num?) ?? 0).toStringAsFixed(0)}',
+                  color: Colors.green,
+                  icon: Icons.trending_up,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _FinanceMetricTile(
+                  theme: theme,
+                  label: 'Expenses',
+                  value:
+                      'KSh ${((summary['monthlyExpenses'] as num?) ?? 0).toStringAsFixed(0)}',
+                  color: Colors.redAccent,
+                  icon: Icons.trending_down,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: (netFlow >= 0 ? Colors.teal : Colors.deepOrange)
+                  .withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  netFlow >= 0
+                      ? Icons.account_balance_wallet_outlined
+                      : Icons.warning_amber_rounded,
+                  color: netFlow >= 0 ? Colors.teal : Colors.deepOrange,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Monthly net flow',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Text(
+                  'KSh ${netFlow.toStringAsFixed(0)}',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: netFlow >= 0 ? Colors.teal : Colors.deepOrange,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Unit economics',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _BreakdownCard(
+                  theme: theme,
+                  title: 'Revenue by line',
+                  emptyLabel: 'No sales yet',
+                  accent: Colors.green,
+                  rows: revenueByType,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _BreakdownCard(
+                  theme: theme,
+                  title: 'Costs by category',
+                  emptyLabel: 'No expenses yet',
+                  accent: Colors.redAccent,
+                  rows: expensesByCategory,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Recent expenses',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (expenses.isEmpty)
+            Text(
+              'No expenses recorded yet. Start with feed, vet, labor, or transport.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+              ),
+            )
+          else
+            ...expenses.map(
+              (expense) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.money_off_csred_outlined,
+                        color: Colors.redAccent,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            (expense['item_name'] ?? 'Expense').toString(),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            '${expense['category'] ?? 'Other'} • ${_dateLabel(expense['expense_date']?.toString())}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.65),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      'KSh ${((expense['amount'] as num?) ?? 0).toStringAsFixed(0)}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _dateLabel(String? value) {
+    final date = value == null ? null : DateTime.tryParse(value);
+    if (date == null) return 'No date';
+    return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+class _BreakdownCard extends StatelessWidget {
+  final ThemeData theme;
+  final String title;
+  final String emptyLabel;
+  final Color accent;
+  final List<Map<String, dynamic>> rows;
+
+  const _BreakdownCard({
+    required this.theme,
+    required this.title,
+    required this.emptyLabel,
+    required this.accent,
+    required this.rows,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (rows.isEmpty)
+            Text(
+              emptyLabel,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+              ),
+            )
+          else
+            ...rows.map(
+              (row) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        (row['label'] ?? 'Other').toString(),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'KSh ${((row['total'] as num?) ?? 0).toStringAsFixed(0)}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: accent,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FinanceMetricTile extends StatelessWidget {
+  final ThemeData theme;
+  final String label;
+  final String value;
+  final Color color;
+  final IconData icon;
+
+  const _FinanceMetricTile({
+    required this.theme,
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

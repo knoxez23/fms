@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'package:pamoja_twalima/core/services/local_session_service.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:pamoja_twalima/features/home/domain/entities/dashboard_data.dart';
 import '../database/database_helper.dart';
 import '../models/animal.dart';
 import '../models/crop.dart';
@@ -10,6 +12,21 @@ import '../models/animal_health_record.dart';
 
 class LocalData {
   static final DatabaseHelper _dbHelper = DatabaseHelper();
+  static final LocalSessionService _localSessionService = LocalSessionService();
+
+  static Future<Map<String, dynamic>> _attachActiveUserId(
+    Map<String, dynamic> row,
+  ) async {
+    if (row.containsKey('user_id') && row['user_id'] != null) {
+      return row;
+    }
+    final activeUserId = await _localSessionService.getActiveUserId();
+    if (activeUserId == null) return row;
+    return {
+      ...row,
+      'user_id': activeUserId,
+    };
+  }
 
   static Future<Map<String, dynamic>> getFarmSummary() async {
     final db = await _dbHelper.database;
@@ -53,6 +70,20 @@ class LocalData {
     final monthlySales =
         (monthlySalesResult.first['total'] as num?)?.toDouble() ?? 0.0;
 
+    final expensesTodayResult = await db.rawQuery(
+      'SELECT SUM(amount) as total FROM expenses WHERE DATE(expense_date) = ?',
+      [today],
+    );
+    final expensesToday =
+        (expensesTodayResult.first['total'] as num?)?.toDouble() ?? 0.0;
+
+    final monthlyExpensesResult = await db.rawQuery(
+      'SELECT SUM(amount) as total FROM expenses WHERE DATE(expense_date) >= ?',
+      [firstDayOfMonth],
+    );
+    final monthlyExpenses =
+        (monthlyExpensesResult.first['total'] as num?)?.toDouble() ?? 0.0;
+
     final lowStockResult = await db.rawQuery(
       'SELECT COUNT(*) as count FROM inventory WHERE min_stock > 0 AND quantity <= min_stock',
     );
@@ -81,11 +112,177 @@ class LocalData {
       "pendingTasks": pendingTasksCount,
       "salesToday": salesToday,
       "monthlySales": monthlySales,
+      "expensesToday": expensesToday,
+      "monthlyExpenses": monthlyExpenses,
+      "netCashFlowToday": salesToday - expensesToday,
+      "monthlyNetCashFlow": monthlySales - monthlyExpenses,
       "lowStockItems": lowStockItems,
       "milkToday": milkToday,
       "eggsToday": eggsToday,
       "productionValueToday": productionValueToday,
     };
+  }
+
+  static Future<List<OperationalInsight>> getOperationalInsights({
+    int limit = 5,
+  }) async {
+    final db = await _dbHelper.database;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final todayIso = today.toIso8601String().split('T').first;
+    final nextWeekIso =
+        today.add(const Duration(days: 7)).toIso8601String().split('T').first;
+
+    final overdueTasksResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM tasks
+      WHERE status != ?
+        AND due_date IS NOT NULL
+        AND DATE(due_date) < DATE(?)
+      ''',
+      ['completed', todayIso],
+    );
+    final overdueTasks = Sqflite.firstIntValue(overdueTasksResult) ?? 0;
+
+    final dueTodayTasksResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM tasks
+      WHERE status != ?
+        AND due_date IS NOT NULL
+        AND DATE(due_date) = DATE(?)
+      ''',
+      ['completed', todayIso],
+    );
+    final dueTodayTasks = Sqflite.firstIntValue(dueTodayTasksResult) ?? 0;
+
+    final lowStockResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM inventory
+      WHERE min_stock > 0 AND quantity <= min_stock
+      ''',
+    );
+    final lowStockCount = Sqflite.firstIntValue(lowStockResult) ?? 0;
+
+    final harvestSoonResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM crops
+      WHERE expected_harvest_date IS NOT NULL
+        AND LOWER(COALESCE(status, '')) != 'harvested'
+        AND DATE(expected_harvest_date) <= DATE(?)
+      ''',
+      [nextWeekIso],
+    );
+    final harvestSoonCount = Sqflite.firstIntValue(harvestSoonResult) ?? 0;
+
+    final unpaidSalesResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM sales
+      WHERE LOWER(COALESCE(payment_status, 'pending')) != 'paid'
+      ''',
+    );
+    final unpaidSalesCount = Sqflite.firstIntValue(unpaidSalesResult) ?? 0;
+
+    final activeFeedingSchedulesResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM feeding_schedules
+      WHERE completed = 0
+        AND (start_date IS NULL OR DATE(start_date) <= DATE(?))
+        AND (end_date IS NULL OR DATE(end_date) >= DATE(?))
+      ''',
+      [todayIso, todayIso],
+    );
+    final activeFeedingSchedules =
+        Sqflite.firstIntValue(activeFeedingSchedulesResult) ?? 0;
+
+    final insights = <OperationalInsight>[
+      if (overdueTasks > 0)
+        OperationalInsight(
+          id: 'overdue_tasks',
+          title: '$overdueTasks overdue task${overdueTasks == 1 ? '' : 's'}',
+          description:
+              'Clear delayed farm work first so records, feeding, and harvest operations stay accurate.',
+          severity: OperationalInsightSeverity.critical,
+          action: OperationalInsightAction.tasks,
+          actionLabel: 'Review tasks',
+        ),
+      if (lowStockCount > 0)
+        OperationalInsight(
+          id: 'low_stock',
+          title:
+              '$lowStockCount low-stock item${lowStockCount == 1 ? '' : 's'}',
+          description:
+              'Restocking early prevents missed feeding, treatment, and field operations.',
+          severity: OperationalInsightSeverity.critical,
+          action: OperationalInsightAction.inventory,
+          actionLabel: 'Open inventory',
+        ),
+      if (harvestSoonCount > 0)
+        OperationalInsight(
+          id: 'harvest_window',
+          title:
+              '$harvestSoonCount crop${harvestSoonCount == 1 ? '' : 's'} nearing harvest',
+          description:
+              'Prepare labor, buyers, and storage before the harvest window closes.',
+          severity: OperationalInsightSeverity.warning,
+          action: OperationalInsightAction.farm,
+          actionLabel: 'Check farm',
+        ),
+      if (unpaidSalesCount > 0)
+        OperationalInsight(
+          id: 'pending_collections',
+          title:
+              '$unpaidSalesCount sale${unpaidSalesCount == 1 ? '' : 's'} awaiting payment',
+          description:
+              'Track collections consistently so finance data can support pricing, inventory, and future lending.',
+          severity: OperationalInsightSeverity.warning,
+          action: OperationalInsightAction.business,
+          actionLabel: 'Open business',
+        ),
+      if (dueTodayTasks > 0 && overdueTasks == 0)
+        OperationalInsight(
+          id: 'due_today',
+          title:
+              '$dueTodayTasks task${dueTodayTasks == 1 ? '' : 's'} due today',
+          description:
+              'Completing scheduled work on time improves automation accuracy across the app.',
+          severity: OperationalInsightSeverity.info,
+          action: OperationalInsightAction.tasks,
+          actionLabel: 'View schedule',
+        ),
+      if (activeFeedingSchedules > 0)
+        OperationalInsight(
+          id: 'active_feeding',
+          title:
+              '$activeFeedingSchedules active feeding plan${activeFeedingSchedules == 1 ? '' : 's'}',
+          description:
+              'Use feeding plans as the operational baseline so stock usage and animal records stay linked.',
+          severity: OperationalInsightSeverity.info,
+          action: OperationalInsightAction.farm,
+          actionLabel: 'Open animals',
+        ),
+    ];
+
+    if (insights.isEmpty) {
+      insights.add(
+        const OperationalInsight(
+          id: 'stable',
+          title: 'No urgent farm blockers',
+          description:
+              'The next step is improving automation quality with more connected sales, feeding, and cost records.',
+          severity: OperationalInsightSeverity.info,
+          action: OperationalInsightAction.farm,
+          actionLabel: 'Review farm',
+        ),
+      );
+    }
+
+    return insights.take(limit).toList();
   }
 
   static Future<List<Map<String, dynamic>>> getUpcomingTasks({
@@ -119,6 +316,31 @@ class LocalData {
       orderBy: 'sale_date DESC',
       limit: limit,
     );
+  }
+
+  static Future<List<Map<String, dynamic>>> getRecentExpenses({
+    int limit = 5,
+  }) async {
+    final db = await _dbHelper.database;
+    return db.query(
+      'expenses',
+      columns: [
+        'id',
+        'category',
+        'item_name',
+        'amount',
+        'expense_date',
+        'vendor_name',
+        'payment_method',
+      ],
+      orderBy: 'expense_date DESC',
+      limit: limit,
+    );
+  }
+
+  static Future<int> insertExpense(Map<String, dynamic> expense) async {
+    final db = await _dbHelper.database;
+    return db.insert('expenses', await _attachActiveUserId(expense));
   }
 
   static Future<List<Map<String, dynamic>>> getProductionTrend({
@@ -176,12 +398,13 @@ class LocalData {
 
   static Future<int> insertAnimal(Animal animal) async {
     final db = await _dbHelper.database;
-    return await db.insert('animals', animal.toMap());
+    return await db.insert(
+        'animals', await _attachActiveUserId(animal.toMap()));
   }
 
   static Future<int> upsertAnimal(Animal animal) async {
     final db = await _dbHelper.database;
-    final map = animal.toMap();
+    final map = await _attachActiveUserId(animal.toMap());
     if (animal.id == null) {
       return await db.insert('animals', map);
     }
@@ -194,9 +417,10 @@ class LocalData {
 
   static Future<int> updateAnimal(Animal animal) async {
     final db = await _dbHelper.database;
+    final row = await _attachActiveUserId(animal.toMap());
     return await db.update(
       'animals',
-      animal.toMap(),
+      row,
       where: 'id = ?',
       whereArgs: [animal.id],
     );
@@ -216,15 +440,15 @@ class LocalData {
 
   static Future<int> insertCrop(Crop crop) async {
     final db = await _dbHelper.database;
-    return await db.insert('crops', crop.toMap());
+    return await db.insert('crops', await _attachActiveUserId(crop.toMap()));
   }
 
   static Future<int> upsertCrop(Crop crop) async {
     final db = await _dbHelper.database;
-    final map = {
+    final map = await _attachActiveUserId({
       'id': crop.id,
       ...crop.toMap(),
-    };
+    });
     if (crop.id == null) {
       map.remove('id');
       return await db.insert('crops', map);
@@ -238,9 +462,10 @@ class LocalData {
 
   static Future<int> updateCrop(Crop crop) async {
     final db = await _dbHelper.database;
+    final row = await _attachActiveUserId(crop.toMap());
     return await db.update(
       'crops',
-      crop.toMap(),
+      row,
       where: 'id = ?',
       whereArgs: [crop.id],
     );
@@ -260,15 +485,19 @@ class LocalData {
 
   static Future<int> insertTask(Task task) async {
     final db = await _dbHelper.database;
-    final map = task.toMap()
-      ..['is_synced'] = task.isSynced == null ? 0 : (task.isSynced! ? 1 : 0);
+    final map = await _attachActiveUserId(
+      task.toMap()
+        ..['is_synced'] = task.isSynced == null ? 0 : (task.isSynced! ? 1 : 0),
+    );
     return await db.insert('tasks', map);
   }
 
   static Future<int> upsertTask(Task task) async {
     final db = await _dbHelper.database;
-    final map = task.toMap()
-      ..['is_synced'] = task.isSynced == null ? 1 : (task.isSynced! ? 1 : 0);
+    final map = await _attachActiveUserId(
+      task.toMap()
+        ..['is_synced'] = task.isSynced == null ? 1 : (task.isSynced! ? 1 : 0),
+    );
     if (task.id == null) {
       return await db.insert('tasks', map);
     }
@@ -292,9 +521,12 @@ class LocalData {
         existing.isNotEmpty ? (existing.first['is_synced'] ?? 0) : 0;
     final nextSynced =
         task.isSynced == null ? isSynced : (task.isSynced! ? 1 : 0);
+    final row = await _attachActiveUserId(
+      task.toMap()..['is_synced'] = nextSynced,
+    );
     return await db.update(
       'tasks',
-      task.toMap()..['is_synced'] = nextSynced,
+      row,
       where: 'id = ?',
       whereArgs: [task.id],
     );
@@ -351,7 +583,8 @@ class LocalData {
 
   static Future<int> deletePendingTaskDelete(int id) async {
     final db = await _dbHelper.database;
-    return db.delete('task_delete_sync_queue', where: 'id = ?', whereArgs: [id]);
+    return db
+        .delete('task_delete_sync_queue', where: 'id = ?', whereArgs: [id]);
   }
 
   static Future<int> deletePendingTaskDeleteByServerId(int taskServerId) async {
@@ -380,10 +613,7 @@ class LocalData {
       'task_delete_sync_queue',
       columns: ['task_server_id'],
     );
-    return rows
-        .map((row) => row['task_server_id'])
-        .whereType<int>()
-        .toSet();
+    return rows.map((row) => row['task_server_id']).whereType<int>().toSet();
   }
 
   static Future<void> queueTaskAction({
@@ -497,18 +727,26 @@ class LocalData {
   // Feeding Schedule CRUD operations
   static Future<List<FeedingSchedule>> getFeedingSchedules() async {
     final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query('feeding_schedules');
+    final activeUserId = await _localSessionService.getActiveUserId();
+    final List<Map<String, dynamic>> maps = await db.query(
+      'feeding_schedules',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
+    );
     return List.generate(maps.length, (i) => FeedingSchedule.fromMap(maps[i]));
   }
 
   static Future<int> insertFeedingSchedule(FeedingSchedule schedule) async {
     final db = await _dbHelper.database;
-    return await db.insert('feeding_schedules', schedule.toMap());
+    return await db.insert(
+      'feeding_schedules',
+      await _attachActiveUserId(schedule.toMap()),
+    );
   }
 
   static Future<int> upsertFeedingSchedule(FeedingSchedule schedule) async {
     final db = await _dbHelper.database;
-    final map = schedule.toMap();
+    final map = await _attachActiveUserId(schedule.toMap());
     if (schedule.id == null) {
       return await db.insert('feeding_schedules', map);
     }
@@ -521,9 +759,10 @@ class LocalData {
 
   static Future<int> updateFeedingSchedule(FeedingSchedule schedule) async {
     final db = await _dbHelper.database;
+    final row = await _attachActiveUserId(schedule.toMap());
     return await db.update(
       'feeding_schedules',
-      schedule.toMap(),
+      row,
       where: 'id = ?',
       whereArgs: [schedule.id],
     );
@@ -538,18 +777,26 @@ class LocalData {
   // Feeding Log CRUD operations
   static Future<List<FeedingLog>> getFeedingLogs() async {
     final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query('feeding_logs');
+    final activeUserId = await _localSessionService.getActiveUserId();
+    final List<Map<String, dynamic>> maps = await db.query(
+      'feeding_logs',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
+    );
     return List.generate(maps.length, (i) => FeedingLog.fromMap(maps[i]));
   }
 
   static Future<int> insertFeedingLog(FeedingLog log) async {
     final db = await _dbHelper.database;
-    return await db.insert('feeding_logs', log.toMap());
+    return await db.insert(
+      'feeding_logs',
+      await _attachActiveUserId(log.toMap()),
+    );
   }
 
   static Future<int> upsertFeedingLog(FeedingLog log) async {
     final db = await _dbHelper.database;
-    final map = log.toMap();
+    final map = await _attachActiveUserId(log.toMap());
     if (log.id == null) {
       return await db.insert('feeding_logs', map);
     }
@@ -562,9 +809,10 @@ class LocalData {
 
   static Future<int> updateFeedingLog(FeedingLog log) async {
     final db = await _dbHelper.database;
+    final row = await _attachActiveUserId(log.toMap());
     return await db.update(
       'feeding_logs',
-      log.toMap(),
+      row,
       where: 'id = ?',
       whereArgs: [log.id],
     );
@@ -590,7 +838,7 @@ class LocalData {
 
   static Future<int> insertAnimalHealthRecord(AnimalHealthRecord record) async {
     final db = await _dbHelper.database;
-    final map = record.toMap();
+    final map = await _attachActiveUserId(record.toMap());
     if (map['id'] == null) {
       map.remove('id');
     }
@@ -599,7 +847,7 @@ class LocalData {
 
   static Future<int> upsertAnimalHealthRecord(AnimalHealthRecord record) async {
     final db = await _dbHelper.database;
-    final map = record.toMap();
+    final map = await _attachActiveUserId(record.toMap());
     if (record.id == null) {
       map.remove('id');
       return await db.insert('animal_health_records', map);
@@ -613,9 +861,10 @@ class LocalData {
 
   static Future<int> updateAnimalHealthRecord(AnimalHealthRecord record) async {
     final db = await _dbHelper.database;
+    final row = await _attachActiveUserId(record.toMap());
     return await db.update(
       'animal_health_records',
-      record.toMap(),
+      row,
       where: 'id = ?',
       whereArgs: [record.id],
     );
@@ -642,9 +891,10 @@ class LocalData {
     final db = await _dbHelper.database;
 
     // Ensure proper field mapping
-    final row = <String, dynamic>{
+    final row = await _attachActiveUserId(<String, dynamic>{
       'server_id': sale['server_id'] ?? sale['id'],
       'product_name': sale['product_name'],
+      'type': sale['type'] ?? 'Other',
       'quantity': sale['quantity'],
       'unit': sale['unit'],
       'price': sale['price'],
@@ -656,7 +906,7 @@ class LocalData {
       'payment_status': sale['payment_status'] ?? 'Pending',
       'notes': sale['notes'] ?? '',
       'user_id': sale['user_id'],
-    };
+    });
 
     // Validate required fields
     if ((row['product_name'] as String?)?.trim().isEmpty ?? true) {
@@ -676,9 +926,10 @@ class LocalData {
       return await insertSale(sale);
     }
 
-    final row = <String, dynamic>{
+    final row = await _attachActiveUserId(<String, dynamic>{
       'server_id': serverId,
       'product_name': sale['product_name'],
+      'type': sale['type'] ?? 'Other',
       'quantity': sale['quantity'],
       'unit': sale['unit'],
       'price': sale['price'],
@@ -689,7 +940,7 @@ class LocalData {
       'payment_status': sale['payment_status'] ?? 'Pending',
       'notes': sale['notes'] ?? '',
       'user_id': sale['user_id'],
-    };
+    });
 
     final existing = await db.query(
       'sales',
@@ -711,9 +962,10 @@ class LocalData {
   static Future<int> updateSale(int id, Map<String, dynamic> sale) async {
     final db = await _dbHelper.database;
 
-    final row = <String, dynamic>{
+    final row = await _attachActiveUserId(<String, dynamic>{
       'server_id': sale['server_id'] ?? sale['id'],
       'product_name': sale['product_name'],
+      'type': sale['type'] ?? 'Other',
       'quantity': sale['quantity'],
       'unit': sale['unit'],
       'price': sale['price'],
@@ -724,7 +976,7 @@ class LocalData {
       'payment_status': sale['payment_status'] ?? 'Pending',
       'notes': sale['notes'] ?? '',
       'user_id': sale['user_id'],
-    };
+    });
 
     return await db.update(
       'sales',
@@ -738,9 +990,10 @@ class LocalData {
       int id, Map<String, dynamic> sale) async {
     final db = await _dbHelper.database;
 
-    final row = <String, dynamic>{
+    final row = await _attachActiveUserId(<String, dynamic>{
       'server_id': sale['server_id'] ?? sale['id'],
       'product_name': sale['product_name'],
+      'type': sale['type'] ?? 'Other',
       'quantity': sale['quantity'],
       'unit': sale['unit'],
       'price': sale['price'],
@@ -751,7 +1004,7 @@ class LocalData {
       'payment_status': sale['payment_status'] ?? 'Pending',
       'notes': sale['notes'] ?? '',
       'user_id': sale['user_id'],
-    };
+    });
 
     return await db.update(
       'sales',
@@ -814,6 +1067,32 @@ class LocalData {
 
     if (rows.isEmpty) return null;
     return rows.first['id'] as int?;
+  }
+
+  static Future<List<Map<String, dynamic>>> getRevenueByType() async {
+    final db = await _dbHelper.database;
+    return db.rawQuery('''
+      SELECT
+        COALESCE(NULLIF(type, ''), 'Other') AS label,
+        COUNT(*) AS entry_count,
+        SUM(COALESCE(total_amount, 0)) AS total
+      FROM sales
+      GROUP BY COALESCE(NULLIF(type, ''), 'Other')
+      ORDER BY total DESC, label ASC
+    ''');
+  }
+
+  static Future<List<Map<String, dynamic>>> getExpensesByCategory() async {
+    final db = await _dbHelper.database;
+    return db.rawQuery('''
+      SELECT
+        COALESCE(NULLIF(category, ''), 'Other') AS label,
+        COUNT(*) AS entry_count,
+        SUM(COALESCE(amount, 0)) AS total
+      FROM expenses
+      GROUP BY COALESCE(NULLIF(category, ''), 'Other')
+      ORDER BY total DESC, label ASC
+    ''');
   }
 
   // Pending sales (offline sync queue)

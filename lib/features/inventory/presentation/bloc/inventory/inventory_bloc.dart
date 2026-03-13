@@ -101,6 +101,9 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
       );
 
       final updated = InventoryItem(
+        // Keep valuation consistent whenever quantity or unit price changes.
+        // If caller explicitly provided totalValue, prefer it.
+        // Otherwise recalculate from effective quantity * effective unit price.
         id: current.id,
         itemName: event.itemName ?? current.itemName,
         category: event.category ?? current.category,
@@ -110,7 +113,11 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
         supplier: event.supplier ?? current.supplier,
         supplierId: event.supplierId ?? current.supplierId,
         unitPrice: event.unitPrice ?? current.unitPrice,
-        totalValue: event.totalValue ?? current.totalValue,
+        totalValue: event.totalValue ??
+            ((event.unitPrice ?? current.unitPrice) != null
+                ? (event.quantity ?? current.quantity) *
+                    ((event.unitPrice ?? current.unitPrice)!)
+                : current.totalValue),
         expiryDate: current.expiryDate,
         lastRestock: event.lastRestock ?? current.lastRestock,
         isSynced: false,
@@ -181,7 +188,8 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
     try {
       await _resolveConflictKeepLocal.execute(event.id.toString());
       add(const InventoryEvent.loadInventory());
-      _logger.i('Inventory conflict resolved with local version: ID ${event.id}');
+      _logger
+          .i('Inventory conflict resolved with local version: ID ${event.id}');
     } catch (e) {
       _logger.e('Failed to resolve conflict (keep local)', error: e);
       emit(const InventoryState.error(message: 'Failed to resolve conflict'));
@@ -195,7 +203,8 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
     try {
       await _resolveConflictUseServer.execute(event.id.toString());
       add(const InventoryEvent.loadInventory());
-      _logger.i('Inventory conflict resolved with server version: ID ${event.id}');
+      _logger
+          .i('Inventory conflict resolved with server version: ID ${event.id}');
     } catch (e) {
       _logger.e('Failed to resolve conflict (use server)', error: e);
       emit(const InventoryState.error(message: 'Failed to resolve conflict'));

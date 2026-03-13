@@ -8,7 +8,9 @@ import 'core/di/injection.dart';
 import 'core/presentation/settings/app_localizations.dart';
 import 'core/services/crash_reporting_service.dart';
 import 'core/services/local_notification_service.dart';
+import 'core/presentation/navigation/main_shell_navigation.dart';
 import 'core/presentation/settings/app_settings_controller.dart';
+import 'core/presentation/widgets/app_drawer.dart';
 import 'features/auth/application/auth_usecases.dart';
 import 'features/farm_mgmt/application/domain_event_subscribers.dart';
 import 'package:pamoja_twalima/features/business/presentation/sales/sales_screen.dart';
@@ -280,8 +282,10 @@ class _MainShellState extends State<MainShell> {
         );
       },
       child: Scaffold(
+        key: MainShellNavigation.scaffoldKey,
         extendBody: true,
         backgroundColor: theme.scaffoldBackgroundColor,
+        drawer: const AppDrawer(),
         body: IndexedStack(
           index: _currentIndex,
           children: _pages,

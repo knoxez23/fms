@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 import 'package:injectable/injectable.dart';
+import 'package:pamoja_twalima/core/services/local_session_service.dart';
 import '../../core/network/token_manager.dart';
 
 class ApiException implements Exception {
@@ -25,6 +26,7 @@ class ApiService {
 
   late Dio _dio;
   final TokenManager _tokenManager = TokenManager();
+  final LocalSessionService _localSessionService = LocalSessionService();
   final Logger _logger = Logger();
 
   ApiService._internal() {
@@ -50,8 +52,9 @@ class ApiService {
         final status = e.response?.statusCode;
 
         if (status == 401) {
-          _logger.w('401 Unauthorized - clearing tokens');
+          _logger.w('401 Unauthorized - clearing tokens and local session');
           await _tokenManager.clearTokens();
+          await _localSessionService.clearSessionData();
         }
 
         if (status != null && status >= 500) {

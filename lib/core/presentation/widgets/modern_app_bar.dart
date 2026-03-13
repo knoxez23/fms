@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pamoja_twalima/core/presentation/navigation/main_shell_navigation.dart';
 
 enum AppBarVariant {
   standard, // Regular with back button
@@ -130,7 +131,11 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
                     ? Colors.white
                     : (isDark ? Colors.white : Colors.black87),
               ),
-              onPressed: () => Scaffold.of(context).openDrawer(),
+              onPressed: () {
+                if (!MainShellNavigation.openDrawer()) {
+                  Scaffold.of(context).openDrawer();
+                }
+              },
             );
           },
         );

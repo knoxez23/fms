@@ -17,6 +17,7 @@ class FeedingScheduleResource extends JsonResource
         return [
             'id' => $this->id,
             'animal_id' => $this->animal_id,
+            'inventory_id' => $this->inventory_id,
             'feed_type' => $this->feed_type,
             'quantity' => $this->quantity,
             'unit' => $this->unit,
@@ -31,4 +32,3 @@ class FeedingScheduleResource extends JsonResource
         ];
     }
 }
-

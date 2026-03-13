@@ -53,6 +53,7 @@ class _FarmMgmtView extends StatelessWidget {
       builder: (context, state) {
         return AppScaffold(
           backgroundColor: theme.colorScheme.surface,
+          includeDrawer: false,
           appBar: ModernAppBar(
             title: context.tr('farm_management'),
             variant: AppBarVariant.home,

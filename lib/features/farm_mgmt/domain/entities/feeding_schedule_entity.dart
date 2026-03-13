@@ -1,6 +1,7 @@
 class FeedingScheduleEntity {
   final int? id;
   final int animalId;
+  final int? inventoryId;
   final String feedType;
   final double quantity;
   final String unit;
@@ -14,6 +15,7 @@ class FeedingScheduleEntity {
   FeedingScheduleEntity({
     this.id,
     required this.animalId,
+    this.inventoryId,
     required this.feedType,
     required this.quantity,
     required this.unit,

@@ -1,6 +1,8 @@
 class FeedingSchedule {
   final int? id;
   final int animalId;
+  final int? inventoryId;
+  final int? userId;
   final String feedType;
   final double quantity;
   final String unit;
@@ -14,6 +16,8 @@ class FeedingSchedule {
   FeedingSchedule({
     this.id,
     required this.animalId,
+    this.inventoryId,
+    this.userId,
     required this.feedType,
     required this.quantity,
     required this.unit,
@@ -29,6 +33,8 @@ class FeedingSchedule {
     return {
       'id': id,
       'animal_id': animalId,
+      'inventory_id': inventoryId,
+      'user_id': userId,
       'feed_type': feedType,
       'quantity': quantity,
       'unit': unit,
@@ -45,6 +51,8 @@ class FeedingSchedule {
     return FeedingSchedule(
       id: map['id'],
       animalId: map['animal_id'],
+      inventoryId: map['inventory_id'],
+      userId: map['user_id'],
       feedType: map['feed_type'],
       quantity: map['quantity'],
       unit: map['unit'],

@@ -9,6 +9,7 @@ import 'package:pamoja_twalima/core/di/injection.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/tasks/add_task_screen.dart';
 import 'package:pamoja_twalima/features/weather/domain/entities/weather_entities.dart';
 import 'package:pamoja_twalima/features/home/presentation/bloc/home/home_bloc.dart';
+import 'package:pamoja_twalima/features/home/domain/entities/dashboard_data.dart';
 
 class HomeScreen extends StatelessWidget {
   final ValueChanged<int>? onNavigateTab;
@@ -38,6 +39,7 @@ class _HomeViewState extends State<HomeView>
   // Cache data to prevent rebuilds
   Map<String, dynamic>? _cachedSummary;
   WeatherSnapshot? _weatherSnapshot;
+  List<OperationalInsight> _insights = const [];
   bool _isLoading = true;
   bool _hasError = false;
 
@@ -70,6 +72,7 @@ class _HomeViewState extends State<HomeView>
             setState(() {
               _cachedSummary = data.summary;
               _weatherSnapshot = data.weatherSnapshot;
+              _insights = data.insights;
               _isLoading = false;
               _hasError = false;
             });
@@ -88,11 +91,12 @@ class _HomeViewState extends State<HomeView>
           if (_isLoading) {
             return AppScaffold(
               backgroundColor: theme.colorScheme.surface,
-            appBar: HomeAppBar(
-              title: context.tr('app_name'),
-              notificationCount: 0,
-              onNotificationTap: () => _openNotifications(const {}),
-            ),
+              includeDrawer: false,
+              appBar: HomeAppBar(
+                title: context.tr('app_name'),
+                notificationCount: 0,
+                onNotificationTap: () => _openNotifications(const {}),
+              ),
               body: const Center(child: CircularProgressIndicator()),
             );
           }
@@ -100,11 +104,13 @@ class _HomeViewState extends State<HomeView>
           if (_hasError) {
             return AppScaffold(
               backgroundColor: theme.colorScheme.surface,
-            appBar: HomeAppBar(
-              title: context.tr('app_name'),
-              notificationCount: 1,
-              onNotificationTap: () => _openNotifications(const {'error': true}),
-            ),
+              includeDrawer: false,
+              appBar: HomeAppBar(
+                title: context.tr('app_name'),
+                notificationCount: 1,
+                onNotificationTap: () =>
+                    _openNotifications(const {'error': true}),
+              ),
               body: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -131,6 +137,7 @@ class _HomeViewState extends State<HomeView>
 
           return AppScaffold(
             backgroundColor: theme.colorScheme.surface,
+            includeDrawer: false,
             appBar: HomeAppBar(
               title: context.tr('app_name'),
               notificationCount: notificationCount,
@@ -274,6 +281,25 @@ class _HomeViewState extends State<HomeView>
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
+                  SliverToBoxAdapter(
+                    child: SectionHeader(
+                      title: 'Smart Focus',
+                      icon: Icons.auto_awesome,
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _OperationalInsightsSection(
+                        theme: theme,
+                        insights: _insights,
+                        onInsightTap: _handleInsightTap,
+                      ),
+                    ),
+                  ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
                   // Critical Alerts
                   SliverToBoxAdapter(
                     child: SectionHeader(
@@ -307,7 +333,8 @@ class _HomeViewState extends State<HomeView>
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: _QuickActions(
                         theme: theme,
-                        onNavigateTab: (index) => widget.onNavigateTab?.call(index),
+                        onNavigateTab: (index) =>
+                            widget.onNavigateTab?.call(index),
                         onAddTask: () {
                           Navigator.push(
                             context,
@@ -453,6 +480,172 @@ class _HomeViewState extends State<HomeView>
           ),
         );
       },
+    );
+  }
+
+  void _handleInsightTap(OperationalInsight insight) {
+    switch (insight.action) {
+      case OperationalInsightAction.farm:
+        widget.onNavigateTab?.call(1);
+        break;
+      case OperationalInsightAction.tasks:
+        widget.onNavigateTab?.call(1);
+        break;
+      case OperationalInsightAction.inventory:
+        widget.onNavigateTab?.call(2);
+        break;
+      case OperationalInsightAction.business:
+        widget.onNavigateTab?.call(3);
+        break;
+    }
+  }
+}
+
+class _OperationalInsightsSection extends StatelessWidget {
+  final ThemeData theme;
+  final List<OperationalInsight> insights;
+  final ValueChanged<OperationalInsight> onInsightTap;
+
+  const _OperationalInsightsSection({
+    required this.theme,
+    required this.insights,
+    required this.onInsightTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: insights
+          .map(
+            (insight) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _OperationalInsightCard(
+                theme: theme,
+                insight: insight,
+                onTap: () => onInsightTap(insight),
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _OperationalInsightCard extends StatelessWidget {
+  final ThemeData theme;
+  final OperationalInsight insight;
+  final VoidCallback onTap;
+
+  const _OperationalInsightCard({
+    required this.theme,
+    required this.insight,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final config = switch (insight.severity) {
+      OperationalInsightSeverity.critical => (
+          icon: Icons.priority_high,
+          color: Colors.red,
+          label: 'Critical',
+        ),
+      OperationalInsightSeverity.warning => (
+          icon: Icons.warning_amber_rounded,
+          color: Colors.orange,
+          label: 'Watch',
+        ),
+      OperationalInsightSeverity.info => (
+          icon: Icons.lightbulb_outline,
+          color: AppColors.primary,
+          label: 'Next',
+        ),
+    };
+
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: config.color.withValues(alpha: 0.25),
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: config.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(config.icon, color: config.color),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            insight.title,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: config.color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            config.label,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: config.color,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      insight.description,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.72),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      insight.actionLabel,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: config.color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -789,9 +982,9 @@ class _FinancialOverview extends StatelessWidget {
             children: [
               Expanded(
                 child: _FinancialMetric(
-                  label: context.tr('todays_sales'),
+                  label: 'Monthly income',
                   value:
-                      'KSh ${((summary['salesToday'] as num?) ?? 0).toStringAsFixed(0)}',
+                      'KSh ${((summary['monthlySales'] as num?) ?? 0).toStringAsFixed(0)}',
                   icon: Icons.trending_up,
                   color: Colors.green,
                   theme: theme,
@@ -800,11 +993,11 @@ class _FinancialOverview extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: _FinancialMetric(
-                  label: context.tr('this_month'),
+                  label: 'Monthly expenses',
                   value:
-                      'KSh ${((summary['monthlySales'] as num?) ?? 0).toStringAsFixed(0)}',
-                  icon: Icons.calendar_today,
-                  color: Colors.blue,
+                      'KSh ${((summary['monthlyExpenses'] as num?) ?? 0).toStringAsFixed(0)}',
+                  icon: Icons.trending_down,
+                  color: Colors.redAccent,
                   theme: theme,
                 ),
               ),
@@ -814,7 +1007,10 @@ class _FinancialOverview extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.deepPurple.withValues(alpha: 0.1),
+              color: (((summary['monthlyNetCashFlow'] as num?) ?? 0) >= 0
+                      ? Colors.teal
+                      : Colors.deepOrange)
+                  .withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -822,10 +1018,19 @@ class _FinancialOverview extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.analytics, color: Colors.deepPurple, size: 20),
+                    Icon(
+                      (((summary['monthlyNetCashFlow'] as num?) ?? 0) >= 0)
+                          ? Icons.account_balance_wallet
+                          : Icons.warning_amber_rounded,
+                      color:
+                          (((summary['monthlyNetCashFlow'] as num?) ?? 0) >= 0)
+                              ? Colors.teal
+                              : Colors.deepOrange,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Text(
-                      context.tr('production_value_today'),
+                      'Monthly net flow',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.7),
@@ -834,10 +1039,12 @@ class _FinancialOverview extends StatelessWidget {
                   ],
                 ),
                 Text(
-                  'KSh ${((summary['productionValueToday'] as num?) ?? 0).toStringAsFixed(0)}',
+                  'KSh ${((summary['monthlyNetCashFlow'] as num?) ?? 0).toStringAsFixed(0)}',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.deepPurple,
+                    color: (((summary['monthlyNetCashFlow'] as num?) ?? 0) >= 0)
+                        ? Colors.teal
+                        : Colors.deepOrange,
                   ),
                 ),
               ],
@@ -845,7 +1052,11 @@ class _FinancialOverview extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Production: '
+            'Today: '
+            'KSh ${((summary['salesToday'] as num?) ?? 0).toStringAsFixed(0)} sales • '
+            'KSh ${((summary['expensesToday'] as num?) ?? 0).toStringAsFixed(0)} expenses • '
+            'KSh ${((summary['netCashFlowToday'] as num?) ?? 0).toStringAsFixed(0)} net'
+            '\nProduction: '
             '${((summary['milkToday'] as num?) ?? 0).toStringAsFixed(1)}L milk • '
             '${((summary['eggsToday'] as num?) ?? 0).toStringAsFixed(0)} eggs',
             style: theme.textTheme.bodySmall?.copyWith(

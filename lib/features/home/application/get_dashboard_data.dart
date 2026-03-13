@@ -14,10 +14,16 @@ class GetDashboardData {
   Future<DashboardData> execute() async {
     final results = await Future.wait([
       _farmSummaryRepository.getFarmSummary(),
+      _farmSummaryRepository.getOperationalInsights(),
       _getWeather.execute(),
     ]);
     final summary = results[0] as Map<String, dynamic>;
-    final weather = results[1] as WeatherSnapshot;
-    return DashboardData(summary: summary, weatherSnapshot: weather);
+    final insights = results[1] as List<OperationalInsight>;
+    final weather = results[2] as WeatherSnapshot;
+    return DashboardData(
+      summary: summary,
+      weatherSnapshot: weather,
+      insights: insights,
+    );
   }
 }

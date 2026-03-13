@@ -16,6 +16,7 @@ class StoreFeedingLogRequest extends FormRequest
         return [
             'animal_id' => 'required|integer|exists:animals,id',
             'schedule_id' => 'nullable|integer|exists:feeding_schedules,id',
+            'inventory_id' => 'nullable|integer|exists:inventories,id',
             'feed_type' => 'required|string|max:255',
             'quantity' => 'required|numeric|min:0',
             'unit' => 'required|string|max:50',
@@ -25,4 +26,3 @@ class StoreFeedingLogRequest extends FormRequest
         ];
     }
 }
-

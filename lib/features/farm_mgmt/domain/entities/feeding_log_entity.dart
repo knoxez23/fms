@@ -2,6 +2,7 @@ class FeedingLogEntity {
   final int? id;
   final int animalId;
   final int? scheduleId;
+  final int? inventoryId;
   final String feedType;
   final double quantity;
   final String unit;
@@ -13,6 +14,7 @@ class FeedingLogEntity {
     this.id,
     required this.animalId,
     this.scheduleId,
+    this.inventoryId,
     required this.feedType,
     required this.quantity,
     required this.unit,

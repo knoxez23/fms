@@ -9,12 +9,25 @@ import 'package:pamoja_twalima/data/models/feeding_schedule.dart';
 import 'package:pamoja_twalima/data/models/feeding_log.dart';
 import 'package:pamoja_twalima/data/models/task.dart';
 import 'package:pamoja_twalima/data/database/database_helper.dart';
+import 'package:pamoja_twalima/data/repositories/local_data.dart';
 import 'package:pamoja_twalima/data/repositories/sync_data.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/bloc/feeding/feeding_bloc.dart';
 // Feeding entities are provided via the farm_mgmt domain entities barrel.
 import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/entities.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/value_objects/value_objects.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+class _FeedInventoryOption {
+  final int id;
+  final String itemName;
+  final String unit;
+
+  const _FeedInventoryOption({
+    required this.id,
+    required this.itemName,
+    required this.unit,
+  });
+}
 
 class AnimalFeedingCalendarScreen extends StatefulWidget {
   const AnimalFeedingCalendarScreen({super.key});
@@ -70,117 +83,116 @@ class _AnimalFeedingCalendarScreenState
         );
       },
       builder: (context, state) {
-          if (state is FeedingLoading || state is FeedingInitial) {
-            return AppScaffold(
-              backgroundColor: theme.colorScheme.surface,
-              includeDrawer: false,
-              appBar: const ModernAppBar(
-                title: 'Feeding Calendar',
-                variant: AppBarVariant.standard,
-              ),
-              body: const Center(child: CircularProgressIndicator()),
-            );
-          }
-
-          final loaded = state.maybeWhen(
-            loaded: (schedules, logs, animals) => (schedules, logs, animals),
-            orElse: () => (
-              <FeedingScheduleEntity>[],
-              <FeedingLogEntity>[],
-              <AnimalEntity>[]
-            ),
-          );
-
-          final schedules = loaded.$1;
-          final logs = loaded.$2;
-          final animals = loaded.$3;
-
-          final filteredSchedules = _getFilteredSchedules(schedules, animals);
-          final todaysFeedings = _getTodaysFeedings(schedules);
-
+        if (state is FeedingLoading || state is FeedingInitial) {
           return AppScaffold(
             backgroundColor: theme.colorScheme.surface,
             includeDrawer: false,
-            appBar: ModernAppBar(
+            appBar: const ModernAppBar(
               title: 'Feeding Calendar',
               variant: AppBarVariant.standard,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.add_alarm),
-                  onPressed: _addFeedingSchedule,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.inventory),
-                  onPressed: _showFeedInventory,
-                ),
-              ],
             ),
-            body: Column(
-              children: [
-                // Calendar Header & Filters
-                _buildCalendarHeader(theme),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
 
-                // Today's Summary
-                _buildTodaysSummary(theme, todaysFeedings, schedules),
+        final loaded = state.maybeWhen(
+          loaded: (schedules, logs, animals) => (schedules, logs, animals),
+          orElse: () => (
+            <FeedingScheduleEntity>[],
+            <FeedingLogEntity>[],
+            <AnimalEntity>[]
+          ),
+        );
 
-                // Main Content
-                Expanded(
-                  child: DefaultTabController(
-                    length: 2,
-                    child: Column(
-                      children: [
-                        // Tabs
-                        Container(
-                          decoration: BoxDecoration(
-                            color: theme.cardTheme.color,
-                            border: Border(
-                              bottom: BorderSide(
-                                color:
-                                    theme.dividerColor.withValues(alpha: 0.3),
-                              ),
+        final schedules = loaded.$1;
+        final logs = loaded.$2;
+        final animals = loaded.$3;
+
+        final filteredSchedules = _getFilteredSchedules(schedules, animals);
+        final todaysFeedings = _getTodaysFeedings(schedules);
+
+        return AppScaffold(
+          backgroundColor: theme.colorScheme.surface,
+          includeDrawer: false,
+          appBar: ModernAppBar(
+            title: 'Feeding Calendar',
+            variant: AppBarVariant.standard,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.add_alarm),
+                onPressed: _addFeedingSchedule,
+              ),
+              IconButton(
+                icon: const Icon(Icons.inventory),
+                onPressed: _showFeedInventory,
+              ),
+            ],
+          ),
+          body: Column(
+            children: [
+              // Calendar Header & Filters
+              _buildCalendarHeader(theme),
+
+              // Today's Summary
+              _buildTodaysSummary(theme, todaysFeedings, schedules),
+
+              // Main Content
+              Expanded(
+                child: DefaultTabController(
+                  length: 2,
+                  child: Column(
+                    children: [
+                      // Tabs
+                      Container(
+                        decoration: BoxDecoration(
+                          color: theme.cardTheme.color,
+                          border: Border(
+                            bottom: BorderSide(
+                              color: theme.dividerColor.withValues(alpha: 0.3),
                             ),
                           ),
-                          child: TabBar(
-                            labelColor: theme.colorScheme.primary,
-                            unselectedLabelColor: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.6),
-                            indicatorColor: theme.colorScheme.primary,
-                            tabs: const [
-                              Tab(text: 'Schedule'),
-                              Tab(text: 'History'),
-                            ],
-                          ),
                         ),
-
-                        // Tab Content
-                        Expanded(
-                          child: TabBarView(
-                            children: [
-                              // Schedule Tab
-                              _buildScheduleTab(
-                                theme,
-                                filteredSchedules,
-                                animals,
-                              ),
-
-                              // History Tab
-                              _buildHistoryTab(theme, logs, animals),
-                            ],
-                          ),
+                        child: TabBar(
+                          labelColor: theme.colorScheme.primary,
+                          unselectedLabelColor: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.6),
+                          indicatorColor: theme.colorScheme.primary,
+                          tabs: const [
+                            Tab(text: 'Schedule'),
+                            Tab(text: 'History'),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+
+                      // Tab Content
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            // Schedule Tab
+                            _buildScheduleTab(
+                              theme,
+                              filteredSchedules,
+                              animals,
+                            ),
+
+                            // History Tab
+                            _buildHistoryTab(theme, logs, animals),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-            floatingActionButton: FloatingActionButton(
-              heroTag: 'logFeedingFAB',
-              onPressed: _logFeeding,
-              backgroundColor: theme.colorScheme.primary,
-              child: const Icon(Icons.restaurant, color: Colors.white),
-            ),
-          );
+              ),
+            ],
+          ),
+          floatingActionButton: FloatingActionButton(
+            heroTag: 'logFeedingFAB',
+            onPressed: _logFeeding,
+            backgroundColor: theme.colorScheme.primary,
+            child: const Icon(Icons.restaurant, color: Colors.white),
+          ),
+        );
       },
     );
   }
@@ -644,6 +656,29 @@ class _AnimalFeedingCalendarScreenState
     _feedingBloc.add(FeedingEvent.toggleComplete(scheduleId: scheduleId));
   }
 
+  Future<List<_FeedInventoryOption>> _loadFeedInventoryOptions() async {
+    final db = await DatabaseHelper().database;
+    final rows = await db.query(
+      'inventory',
+      columns: ['id', 'item_name', 'unit'],
+      where: 'LOWER(category) LIKE ? OR LOWER(item_name) LIKE ?',
+      whereArgs: ['%feed%', '%feed%'],
+      orderBy: 'item_name ASC',
+      limit: 200,
+    );
+
+    return rows
+        .where((row) => row['id'] != null)
+        .map(
+          (row) => _FeedInventoryOption(
+            id: row['id'] as int,
+            itemName: (row['item_name'] ?? 'Feed').toString(),
+            unit: (row['unit'] ?? 'kg').toString(),
+          ),
+        )
+        .toList();
+  }
+
   Future<void> _addFeedingSchedule() async {
     final state = _feedingBloc.state;
     final animals = state.maybeWhen(
@@ -652,13 +687,17 @@ class _AnimalFeedingCalendarScreenState
     );
     if (animals.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add animals first before scheduling feed')),
+        const SnackBar(
+            content: Text('Add animals first before scheduling feed')),
       );
       return;
     }
 
     final formKey = GlobalKey<FormState>();
+    final feedOptions = await _loadFeedInventoryOptions();
+    if (!mounted) return;
     int animalId = int.tryParse(animals.first.id ?? '') ?? 0;
+    int? selectedInventoryId;
     final feedTypeController = TextEditingController(text: 'General Feed');
     final quantityController = TextEditingController(text: '2');
     String unit = 'kg';
@@ -687,6 +726,31 @@ class _AnimalFeedingCalendarScreenState
                     .toList(),
                 onChanged: (v) => animalId = v ?? animalId,
                 decoration: const InputDecoration(labelText: 'Animal'),
+              ),
+              DropdownButtonFormField<int?>(
+                initialValue: selectedInventoryId,
+                items: [
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Custom feed (not linked)'),
+                  ),
+                  ...feedOptions.map(
+                    (item) => DropdownMenuItem<int?>(
+                      value: item.id,
+                      child: Text(item.itemName),
+                    ),
+                  ),
+                ],
+                onChanged: (v) {
+                  selectedInventoryId = v;
+                  final selected = feedOptions.where((f) => f.id == v).toList();
+                  if (selected.isNotEmpty) {
+                    feedTypeController.text = selected.first.itemName;
+                    unit = selected.first.unit;
+                  }
+                },
+                decoration:
+                    const InputDecoration(labelText: 'Feed inventory item'),
               ),
               TextFormField(
                 controller: feedTypeController,
@@ -728,7 +792,8 @@ class _AnimalFeedingCalendarScreenState
                 initialValue: frequency,
                 items: const [
                   DropdownMenuItem(value: 'Daily', child: Text('Daily')),
-                  DropdownMenuItem(value: 'Twice daily', child: Text('Twice daily')),
+                  DropdownMenuItem(
+                      value: 'Twice daily', child: Text('Twice daily')),
                   DropdownMenuItem(value: 'Weekly', child: Text('Weekly')),
                 ],
                 onChanged: (v) => frequency = v ?? frequency,
@@ -757,6 +822,7 @@ class _AnimalFeedingCalendarScreenState
     final scheduleId = await _syncData.insertFeedingSchedule(
       FeedingSchedule(
         animalId: animalId,
+        inventoryId: selectedInventoryId,
         feedType: feedTypeController.text.trim(),
         quantity: double.parse(quantityController.text.trim()),
         unit: unit,
@@ -777,7 +843,8 @@ class _AnimalFeedingCalendarScreenState
 
     await _syncData.insertTask(
       Task(
-        title: 'Feeding: ${feedTypeController.text.trim()} (${selectedAnimal.name.value})',
+        title:
+            'Feeding: ${feedTypeController.text.trim()} (${selectedAnimal.name.value})',
         description:
             'Scheduled $timeOfDay feeding (${quantityController.text.trim()} $unit, $frequency).',
         dueDate: DateTime.now().toIso8601String(),
@@ -805,6 +872,9 @@ class _AnimalFeedingCalendarScreenState
     final schedule = existing.first;
 
     final formKey = GlobalKey<FormState>();
+    final feedOptions = await _loadFeedInventoryOptions();
+    if (!mounted) return;
+    int? selectedInventoryId = schedule.inventoryId;
     final feedTypeController = TextEditingController(text: schedule.feedType);
     final quantityController =
         TextEditingController(text: schedule.quantity.toStringAsFixed(2));
@@ -826,6 +896,31 @@ class _AnimalFeedingCalendarScreenState
                 decoration: const InputDecoration(labelText: 'Feed Type'),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Required' : null,
+              ),
+              DropdownButtonFormField<int?>(
+                initialValue: selectedInventoryId,
+                items: [
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Custom feed (not linked)'),
+                  ),
+                  ...feedOptions.map(
+                    (item) => DropdownMenuItem<int?>(
+                      value: item.id,
+                      child: Text(item.itemName),
+                    ),
+                  ),
+                ],
+                onChanged: (v) {
+                  selectedInventoryId = v;
+                  final selected = feedOptions.where((f) => f.id == v).toList();
+                  if (selected.isNotEmpty) {
+                    feedTypeController.text = selected.first.itemName;
+                    unit = selected.first.unit;
+                  }
+                },
+                decoration:
+                    const InputDecoration(labelText: 'Feed inventory item'),
               ),
               TextFormField(
                 controller: quantityController,
@@ -890,6 +985,7 @@ class _AnimalFeedingCalendarScreenState
       FeedingSchedule(
         id: schedule.id,
         animalId: schedule.animalId,
+        inventoryId: selectedInventoryId,
         feedType: feedTypeController.text.trim(),
         quantity: double.parse(quantityController.text.trim()),
         unit: unit,
@@ -917,7 +1013,10 @@ class _AnimalFeedingCalendarScreenState
     if (animals.isEmpty) return;
 
     final formKey = GlobalKey<FormState>();
+    final feedOptions = await _loadFeedInventoryOptions();
+    if (!mounted) return;
     int animalId = int.tryParse(animals.first.id ?? '') ?? 0;
+    int? selectedInventoryId;
     final feedTypeController = TextEditingController(text: 'General Feed');
     final quantityController = TextEditingController(text: '1');
     final notesController = TextEditingController();
@@ -945,6 +1044,31 @@ class _AnimalFeedingCalendarScreenState
                     .toList(),
                 onChanged: (v) => animalId = v ?? animalId,
                 decoration: const InputDecoration(labelText: 'Animal'),
+              ),
+              DropdownButtonFormField<int?>(
+                initialValue: selectedInventoryId,
+                items: [
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Custom feed (not linked)'),
+                  ),
+                  ...feedOptions.map(
+                    (item) => DropdownMenuItem<int?>(
+                      value: item.id,
+                      child: Text(item.itemName),
+                    ),
+                  ),
+                ],
+                onChanged: (v) {
+                  selectedInventoryId = v;
+                  final selected = feedOptions.where((f) => f.id == v).toList();
+                  if (selected.isNotEmpty) {
+                    feedTypeController.text = selected.first.itemName;
+                    unit = selected.first.unit;
+                  }
+                },
+                decoration:
+                    const InputDecoration(labelText: 'Feed inventory item'),
               ),
               TextFormField(
                 controller: feedTypeController,
@@ -998,6 +1122,7 @@ class _AnimalFeedingCalendarScreenState
       FeedingLog(
         animalId: animalId,
         scheduleId: null,
+        inventoryId: selectedInventoryId,
         feedType: feedTypeController.text.trim(),
         quantity: double.parse(quantityController.text.trim()),
         unit: unit,
@@ -1009,9 +1134,128 @@ class _AnimalFeedingCalendarScreenState
       ),
     );
     if (!mounted) return;
+    final selectedAnimalName = _getAnimalNameById(animalId, animals);
     _feedingBloc.add(const FeedingEvent.load());
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Feeding log recorded')),
+    );
+    await _maybeCreateFeedExpense(
+      inventoryId: selectedInventoryId,
+      quantity: double.parse(quantityController.text.trim()),
+      unit: unit,
+      animalName: selectedAnimalName,
+      feedType: feedTypeController.text.trim(),
+    );
+  }
+
+  Future<void> _maybeCreateFeedExpense({
+    required int? inventoryId,
+    required double quantity,
+    required String unit,
+    required String animalName,
+    required String feedType,
+  }) async {
+    if (inventoryId == null || !mounted) return;
+
+    final db = await DatabaseHelper().database;
+    final rows = await db.query(
+      'inventory',
+      columns: ['item_name', 'unit_price', 'unit'],
+      where: 'id = ?',
+      whereArgs: [inventoryId],
+      limit: 1,
+    );
+    if (rows.isEmpty || !mounted) return;
+
+    final row = rows.first;
+    final unitPrice = (row['unit_price'] as num?)?.toDouble();
+    if (unitPrice == null || unitPrice <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Set a unit price on the feed inventory item to auto-capture feeding costs.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final itemName = (row['item_name'] ?? feedType).toString();
+    final inventoryUnit = (row['unit'] ?? unit).toString();
+    final estimatedAmount = quantity * unitPrice;
+
+    final shouldCreate = await showModalBottomSheet<bool>(
+      context: context,
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Record feed cost?',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$animalName was fed $quantity $unit of $itemName.',
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Using the inventory price of KSh ${unitPrice.toStringAsFixed(0)} per $inventoryUnit, the estimated cost is KSh ${estimatedAmount.toStringAsFixed(0)}.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(false),
+                        child: const Text('Later'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(true),
+                        child: const Text('Record Cost'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (shouldCreate != true || !mounted) return;
+
+    await LocalData.insertExpense({
+      'category': 'Feed',
+      'item_name': itemName,
+      'amount': estimatedAmount,
+      'expense_date': DateTime.now().toIso8601String(),
+      'payment_method': 'Auto from feeding log',
+      'notes':
+          'Auto-created from feeding log for $animalName: $quantity $unit of $feedType.',
+    });
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Feed cost recorded: KSh ${estimatedAmount.toStringAsFixed(0)}',
+        ),
+      ),
     );
   }
 
@@ -1098,7 +1342,8 @@ class _AnimalFeedingCalendarScreenState
     final todaysSchedules = _getTodaysFeedings(schedules);
     for (final schedule in todaysSchedules) {
       if (schedule.completed) continue;
-      _feedingBloc.add(FeedingEvent.toggleComplete(scheduleId: schedule.id ?? 0));
+      _feedingBloc
+          .add(FeedingEvent.toggleComplete(scheduleId: schedule.id ?? 0));
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

@@ -1,4 +1,5 @@
 import 'package:injectable/injectable.dart';
+import 'package:pamoja_twalima/core/services/local_session_service.dart';
 import 'package:pamoja_twalima/data/database/database_helper.dart';
 import 'package:pamoja_twalima/data/network/api_service.dart';
 import 'package:pamoja_twalima/data/services/connectivity_service.dart';
@@ -11,6 +12,7 @@ import '../domain/value_objects/value_objects.dart';
 class ProductionLogRepositoryImpl implements ProductionLogRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   final ConnectivityService _connectivityService = ConnectivityService();
+  final LocalSessionService _localSessionService = LocalSessionService();
   ApiService? _apiService;
 
   ApiService get _api => _apiService ??= ApiService();
@@ -98,6 +100,7 @@ class ProductionLogRepositoryImpl implements ProductionLogRepository {
         'date_produced': log.recordedAt.toIso8601String(),
         'quality_rating': _qualityToRating(log.quality),
         'notes': log.notes,
+        'user_id': await _localSessionService.getActiveUserId(),
       },
       where: 'id = ?',
       whereArgs: [parsed],
@@ -110,7 +113,8 @@ class ProductionLogRepositoryImpl implements ProductionLogRepository {
       try {
         final response = await _api.get('/animal-production-logs');
         final rows = List<Map<String, dynamic>>.from(
-          (response.data as List).map((e) => Map<String, dynamic>.from(e as Map)),
+          (response.data as List)
+              .map((e) => Map<String, dynamic>.from(e as Map)),
         );
         for (final row in rows) {
           await _upsertRemoteAsLocal(row);
@@ -121,7 +125,13 @@ class ProductionLogRepositoryImpl implements ProductionLogRepository {
     }
 
     final db = await _dbHelper.database;
-    final rows = await db.query('production_logs', orderBy: 'date_produced DESC');
+    final activeUserId = await _localSessionService.getActiveUserId();
+    final rows = await db.query(
+      'production_logs',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
+      orderBy: 'date_produced DESC',
+    );
 
     return rows.map((row) {
       final rating = row['quality_rating'] as int?;
@@ -131,8 +141,9 @@ class ProductionLogRepositoryImpl implements ProductionLogRepository {
         productType: (row['production_type'] ?? 'Unknown').toString(),
         quantity: Quantity((row['quantity'] as num?)?.toDouble() ?? 0.1),
         unit: MeasurementUnit((row['unit'] ?? 'units').toString()),
-        recordedAt: DateTime.tryParse((row['date_produced'] ?? '').toString()) ??
-            DateTime.now(),
+        recordedAt:
+            DateTime.tryParse((row['date_produced'] ?? '').toString()) ??
+                DateTime.now(),
         quality: _ratingToQuality(rating),
         notes: row['notes']?.toString(),
       );
@@ -141,6 +152,7 @@ class ProductionLogRepositoryImpl implements ProductionLogRepository {
 
   Future<ProductionLogEntity> _insertLocal(ProductionLogEntity log) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final id = await db.insert('production_logs', {
       'animal_id': int.tryParse(log.animalId),
       'production_type': log.productType,
@@ -149,6 +161,7 @@ class ProductionLogRepositoryImpl implements ProductionLogRepository {
       'date_produced': log.recordedAt.toIso8601String(),
       'quality_rating': _qualityToRating(log.quality),
       'notes': log.notes,
+      'user_id': activeUserId,
     });
     return ProductionLogEntity(
       id: id.toString(),
@@ -167,21 +180,24 @@ class ProductionLogRepositoryImpl implements ProductionLogRepository {
     ProductionLogEntity? fallback,
   }) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final serverId = int.tryParse((row['id'] ?? '').toString());
     final producedAt = DateTime.tryParse(
       (row['produced_at'] ?? row['date_produced'] ?? '').toString(),
     );
     final localRow = {
       'id': serverId,
-      'animal_id':
-          row['animal_id'] ?? int.tryParse((fallback?.animalId ?? '').toString()),
-      'production_type': row['type'] ?? row['production_type'] ?? fallback?.productType,
+      'animal_id': row['animal_id'] ??
+          int.tryParse((fallback?.animalId ?? '').toString()),
+      'production_type':
+          row['type'] ?? row['production_type'] ?? fallback?.productType,
       'quantity': row['quantity'] ?? fallback?.quantity.value,
       'unit': row['unit'] ?? fallback?.unit.value,
       'date_produced': (producedAt ?? fallback?.recordedAt ?? DateTime.now())
           .toIso8601String(),
       'quality_rating': _qualityToRating(fallback?.quality),
       'notes': row['notes'] ?? fallback?.notes,
+      'user_id': row['user_id'] ?? activeUserId,
     };
     localRow.removeWhere((key, value) => value == null);
 
@@ -191,8 +207,7 @@ class ProductionLogRepositoryImpl implements ProductionLogRepository {
         id: insertedId.toString(),
         animalId: (localRow['animal_id'] ?? '').toString(),
         productType: (localRow['production_type'] ?? 'Unknown').toString(),
-        quantity:
-            Quantity((localRow['quantity'] as num?)?.toDouble() ?? 0.0),
+        quantity: Quantity((localRow['quantity'] as num?)?.toDouble() ?? 0.0),
         unit: MeasurementUnit((localRow['unit'] ?? 'units').toString()),
         recordedAt: DateTime.parse(localRow['date_produced'].toString()),
         quality: fallback?.quality,

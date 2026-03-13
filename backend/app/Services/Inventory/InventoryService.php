@@ -37,6 +37,7 @@ class InventoryService
                 ->first();
 
             if ($existing) {
+                $validated = $this->normalizeValuation($validated, $existing);
                 $existing->update($validated);
                 $this->auditService->record(
                     userId: $userId,
@@ -52,6 +53,8 @@ class InventoryService
                 return ['inventory' => $existing, 'status' => 200];
             }
         }
+
+        $validated = $this->normalizeValuation($validated);
 
         $inventory = Inventory::create(array_merge($validated, [
             'user_id' => $userId,
@@ -79,6 +82,7 @@ class InventoryService
         $inventory = Inventory::where('id', $inventoryId)
             ->where('user_id', $userId)
             ->firstOrFail();
+        $validated = $this->normalizeValuation($validated, $inventory);
 
         $inventory->update($validated);
 
@@ -163,6 +167,31 @@ class InventoryService
             $validated['supplier'] = $supplier->name;
         }
 
+        return $validated;
+    }
+
+    private function normalizeValuation(array $validated, ?Inventory $existing = null): array
+    {
+        unset($validated['total_value']);
+
+        $hasQuantity = array_key_exists('quantity', $validated);
+        $hasUnitPrice = array_key_exists('unit_price', $validated);
+        if (! $hasQuantity && ! $hasUnitPrice) {
+            return $validated;
+        }
+
+        $quantity = isset($validated['quantity'])
+            ? (float) $validated['quantity']
+            : ($existing?->quantity);
+        $unitPrice = isset($validated['unit_price'])
+            ? (float) $validated['unit_price']
+            : ($existing?->unit_price);
+
+        if ($quantity === null || $unitPrice === null) {
+            return $validated;
+        }
+
+        $validated['total_value'] = round($quantity * $unitPrice, 2);
         return $validated;
     }
 }

@@ -15,11 +15,47 @@ class DatabaseHelper {
     return _database!;
   }
 
+  Future<void> clearLocalSessionData() async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.execute('PRAGMA foreign_keys = OFF');
+
+      const tables = [
+        'feeding_logs',
+        'feeding_schedules',
+        'production_logs',
+        'animal_health_records',
+        'breeding_records',
+        'task_sync_queue',
+        'task_delete_sync_queue',
+        'inventory_sync_queue',
+        'inventory_delete_tombstones',
+        'pending_sales',
+        'marketplace_inquiries',
+        'sales',
+        'expenses',
+        'tasks',
+        'inventory',
+        'crops',
+        'animals',
+        'weather_cache',
+        'market_prices_cache',
+        'users',
+      ];
+
+      for (final table in tables) {
+        await txn.delete(table);
+      }
+
+      await txn.execute('PRAGMA foreign_keys = ON');
+    });
+  }
+
   Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), 'pamoja_twalima.db');
     return await openDatabase(
       path,
-      version: 15,
+      version: 19,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -124,6 +160,7 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         server_id INTEGER,
         product_name TEXT NOT NULL,
+        type TEXT,
         quantity REAL,
         unit TEXT,
         price REAL,
@@ -138,11 +175,28 @@ class DatabaseHelper {
       )
     ''');
 
+    // Expenses table
+    await db.execute('''
+      CREATE TABLE expenses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category TEXT NOT NULL,
+        item_name TEXT NOT NULL,
+        amount REAL NOT NULL,
+        expense_date TEXT DEFAULT CURRENT_TIMESTAMP,
+        vendor_name TEXT,
+        payment_method TEXT,
+        notes TEXT,
+        user_id INTEGER,
+        FOREIGN KEY (user_id) REFERENCES users (id)
+      )
+    ''');
+
     // Feeding schedules table
     await db.execute('''
       CREATE TABLE feeding_schedules (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         animal_id INTEGER,
+        inventory_id INTEGER,
         feed_type TEXT NOT NULL,
         quantity REAL,
         unit TEXT,
@@ -152,7 +206,10 @@ class DatabaseHelper {
         end_date TEXT,
         notes TEXT,
         completed INTEGER DEFAULT 0,
-        FOREIGN KEY (animal_id) REFERENCES animals (id)
+        user_id INTEGER,
+        FOREIGN KEY (animal_id) REFERENCES animals (id),
+        FOREIGN KEY (inventory_id) REFERENCES inventory (id),
+        FOREIGN KEY (user_id) REFERENCES users (id)
       )
     ''');
 
@@ -162,14 +219,18 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         animal_id INTEGER,
         schedule_id INTEGER,
+        inventory_id INTEGER,
         feed_type TEXT,
         quantity REAL,
         unit TEXT,
         fed_at TEXT DEFAULT CURRENT_TIMESTAMP,
         fed_by TEXT,
         notes TEXT,
+        user_id INTEGER,
         FOREIGN KEY (animal_id) REFERENCES animals (id),
-        FOREIGN KEY (schedule_id) REFERENCES feeding_schedules (id)
+        FOREIGN KEY (schedule_id) REFERENCES feeding_schedules (id),
+        FOREIGN KEY (inventory_id) REFERENCES inventory (id),
+        FOREIGN KEY (user_id) REFERENCES users (id)
       )
     ''');
 
@@ -184,7 +245,9 @@ class DatabaseHelper {
         date_produced TEXT DEFAULT CURRENT_TIMESTAMP,
         quality_rating INTEGER,
         notes TEXT,
-        FOREIGN KEY (animal_id) REFERENCES animals (id)
+        user_id INTEGER,
+        FOREIGN KEY (animal_id) REFERENCES animals (id),
+        FOREIGN KEY (user_id) REFERENCES users (id)
       )
     ''');
 
@@ -465,6 +528,55 @@ class DatabaseHelper {
       }
     }
 
+    if (oldVersion < 17) {
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT NOT NULL,
+            item_name TEXT NOT NULL,
+            amount REAL NOT NULL,
+            expense_date TEXT DEFAULT CURRENT_TIMESTAMP,
+            vendor_name TEXT,
+            payment_method TEXT,
+            notes TEXT,
+            user_id INTEGER,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+          )
+        ''');
+      } catch (e) {
+        // Table may already exist
+      }
+    }
+
+    if (oldVersion < 18) {
+      try {
+        await db.execute('ALTER TABLE sales ADD COLUMN type TEXT');
+      } catch (e) {
+        // Column may already exist
+      }
+    }
+
+    if (oldVersion < 19) {
+      try {
+        await db.execute(
+            'ALTER TABLE feeding_schedules ADD COLUMN user_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+      try {
+        await db.execute('ALTER TABLE feeding_logs ADD COLUMN user_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+      try {
+        await db
+            .execute('ALTER TABLE production_logs ADD COLUMN user_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+    }
+
     if (oldVersion < 13) {
       try {
         await db.execute(
@@ -506,7 +618,8 @@ class DatabaseHelper {
 
     if (oldVersion < 15) {
       try {
-        await db.execute('ALTER TABLE inventory ADD COLUMN supplier_id INTEGER');
+        await db
+            .execute('ALTER TABLE inventory ADD COLUMN supplier_id INTEGER');
       } catch (e) {
         // Column may already exist
       }
@@ -516,7 +629,23 @@ class DatabaseHelper {
         // Column may already exist
       }
       try {
-        await db.execute('ALTER TABLE tasks ADD COLUMN staff_member_id INTEGER');
+        await db
+            .execute('ALTER TABLE tasks ADD COLUMN staff_member_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+    }
+
+    if (oldVersion < 16) {
+      try {
+        await db.execute(
+            'ALTER TABLE feeding_schedules ADD COLUMN inventory_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+      try {
+        await db.execute(
+            'ALTER TABLE feeding_logs ADD COLUMN inventory_id INTEGER');
       } catch (e) {
         // Column may already exist
       }

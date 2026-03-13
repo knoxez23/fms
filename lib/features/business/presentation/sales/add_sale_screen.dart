@@ -9,7 +9,22 @@ import 'package:pamoja_twalima/features/business/presentation/contacts/contacts_
 import 'package:pamoja_twalima/features/business/domain/value_objects/value_objects.dart';
 
 class AddSaleScreen extends StatefulWidget {
-  const AddSaleScreen({super.key});
+  final String? initialType;
+  final String? initialProductName;
+  final double? initialQuantity;
+  final String? initialUnit;
+  final String? initialAnimal;
+  final String? initialNotes;
+
+  const AddSaleScreen({
+    super.key,
+    this.initialType,
+    this.initialProductName,
+    this.initialQuantity,
+    this.initialUnit,
+    this.initialAnimal,
+    this.initialNotes,
+  });
 
   @override
   State<AddSaleScreen> createState() => _AddSaleScreenState();
@@ -64,16 +79,35 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
     _saleDate = DateTime.now();
     _dateController.text = _formatDate(_saleDate!);
 
-    final defaultProduct = _products[_selectedType]!.first;
+    final initialType = widget.initialType;
+    if (initialType != null && _productTypes.contains(initialType)) {
+      _selectedType = initialType;
+    }
+
+    final defaultProduct =
+        widget.initialProductName ?? _products[_selectedType]!.first;
     _productController.text = defaultProduct;
+    _selectedUnit =
+        widget.initialUnit ?? (_units[_selectedType]?.first ?? _selectedUnit);
+    _selectedAnimal = widget.initialAnimal ?? _selectedAnimal;
+    if (widget.initialQuantity != null) {
+      _quantityController.text = widget.initialQuantity!.toStringAsFixed(
+        widget.initialQuantity == widget.initialQuantity!.roundToDouble()
+            ? 0
+            : 1,
+      );
+    }
+    if (widget.initialNotes != null && widget.initialNotes!.trim().isNotEmpty) {
+      _notesController.text = widget.initialNotes!.trim();
+    }
     _updateTotalAmount();
     _loadCustomers();
   }
 
   Future<void> _loadCustomers() async {
     try {
-      final rows =
-          await ContactDirectoryService(ApiService()).list(ContactType.customer);
+      final rows = await ContactDirectoryService(ApiService())
+          .list(ContactType.customer);
       if (!mounted) return;
       setState(() {
         final entries = rows
@@ -313,7 +347,8 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
                       const SizedBox(height: 16),
                       Autocomplete<String>(
                         optionsBuilder: (textEditingValue) {
-                          final query = textEditingValue.text.trim().toLowerCase();
+                          final query =
+                              textEditingValue.text.trim().toLowerCase();
                           final options = <String>[
                             ..._customerNames,
                             'Walk-in Customer',
@@ -323,7 +358,8 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
                             (item) => item.toLowerCase().contains(query),
                           );
                         },
-                        fieldViewBuilder: (context, controller, focusNode, onSubmit) {
+                        fieldViewBuilder:
+                            (context, controller, focusNode, onSubmit) {
                           if (controller.text != _customerController.text) {
                             controller.text = _customerController.text;
                           }
@@ -342,7 +378,8 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
                               }
                               return null;
                             },
-                            onChanged: (value) => _customerController.text = value,
+                            onChanged: (value) =>
+                                _customerController.text = value,
                             onFieldSubmitted: (_) => onSubmit(),
                           );
                         },
@@ -355,7 +392,8 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
                         children: [
                           OutlinedButton.icon(
                             onPressed: () {
-                              setState(() => _customerController.text = 'Walk-in Customer');
+                              setState(() => _customerController.text =
+                                  'Walk-in Customer');
                             },
                             icon: const Icon(Icons.storefront_outlined),
                             label: const Text('Walk-in'),

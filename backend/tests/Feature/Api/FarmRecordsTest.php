@@ -7,6 +7,7 @@ use App\Models\AnimalWeight;
 use App\Models\Crop;
 use App\Models\FeedingLog;
 use App\Models\FeedingSchedule;
+use App\Models\Inventory;
 use App\Models\Sale;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -136,6 +137,96 @@ test('feeding endpoints enforce animal ownership', function () {
         'Authorization' => "Bearer {$this->token}",
     ]);
     $list->assertStatus(200)->assertJsonCount(1);
+});
+
+test('feeding log linked to inventory deducts stock and restores on delete', function () {
+    $animal = Animal::create([
+        'name' => 'Stock Cow',
+        'type' => 'cattle',
+        'user_id' => $this->user->id,
+    ]);
+
+    $inventory = Inventory::create([
+        'item_name' => 'Maize Germ',
+        'category' => 'Animal Feed',
+        'quantity' => 25,
+        'unit' => 'kg',
+        'min_stock' => 2,
+        'unit_price' => 80,
+        'total_value' => 2000,
+        'user_id' => $this->user->id,
+        'is_synced' => true,
+    ]);
+
+    $headers = ['Authorization' => "Bearer {$this->token}"];
+
+    $created = $this->postJson('/api/v1/feeding-logs', [
+        'animal_id' => $animal->id,
+        'inventory_id' => $inventory->id,
+        'feed_type' => 'Maize Germ',
+        'quantity' => 5,
+        'unit' => 'kg',
+        'fed_at' => now()->toIso8601String(),
+    ], $headers);
+
+    $created->assertStatus(201)
+        ->assertJsonPath('inventory_id', $inventory->id);
+
+    $this->assertDatabaseHas('inventories', [
+        'id' => $inventory->id,
+        'quantity' => 20,
+        'total_value' => 1600,
+    ]);
+
+    $logId = (string) $created->json('id');
+    $this->deleteJson("/api/v1/feeding-logs/{$logId}", [], $headers)
+        ->assertStatus(204);
+
+    $this->assertDatabaseHas('inventories', [
+        'id' => $inventory->id,
+        'quantity' => 25,
+        'total_value' => 2000,
+    ]);
+});
+
+test('feeding log rejects consumption beyond available inventory', function () {
+    $animal = Animal::create([
+        'name' => 'Calf',
+        'type' => 'cattle',
+        'user_id' => $this->user->id,
+    ]);
+
+    $inventory = Inventory::create([
+        'item_name' => 'Starter Feed',
+        'category' => 'Animal Feed',
+        'quantity' => 3,
+        'unit' => 'kg',
+        'min_stock' => 1,
+        'unit_price' => 60,
+        'total_value' => 180,
+        'user_id' => $this->user->id,
+        'is_synced' => true,
+    ]);
+
+    $response = $this->postJson('/api/v1/feeding-logs', [
+        'animal_id' => $animal->id,
+        'inventory_id' => $inventory->id,
+        'feed_type' => 'Starter Feed',
+        'quantity' => 5,
+        'unit' => 'kg',
+        'fed_at' => now()->toIso8601String(),
+    ], [
+        'Authorization' => "Bearer {$this->token}",
+    ]);
+
+    $response->assertStatus(422)
+        ->assertJsonValidationErrors(['inventory_id']);
+
+    $this->assertDatabaseHas('inventories', [
+        'id' => $inventory->id,
+        'quantity' => 3,
+        'total_value' => 180,
+    ]);
 });
 
 test('animal record endpoints enforce ownership and persist', function () {

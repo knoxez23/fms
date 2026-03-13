@@ -6,6 +6,9 @@ import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
 import 'package:pamoja_twalima/data/models/task.dart';
 import 'package:pamoja_twalima/data/repositories/sync_data.dart';
+import 'package:pamoja_twalima/features/business/application/sales_usecases.dart';
+import 'package:pamoja_twalima/features/business/domain/entities/sale_entity.dart';
+import 'package:pamoja_twalima/features/business/presentation/sales/add_sale_screen.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/animal_entity.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/production_log_entity.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/value_objects/value_objects.dart';
@@ -525,6 +528,8 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Production logged successfully!')),
       );
+
+      await _suggestSaleDraft(entity, selected.name.value);
     }
   }
 
@@ -545,6 +550,124 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
         sourceEventId: entity.animalId,
       ),
     );
+  }
+
+  Future<void> _suggestSaleDraft(
+    ProductionLogEntity entity,
+    String animalName,
+  ) async {
+    final normalizedType = entity.productType.toLowerCase();
+    if (normalizedType != 'milk' && normalizedType != 'eggs') return;
+    if (!mounted) return;
+
+    final shouldCreate = await showModalBottomSheet<bool>(
+      context: context,
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        final estimatedPrice = _suggestedUnitPrice(entity.productType);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Create sale draft?',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${entity.quantity.value.toStringAsFixed(entity.quantity.value == entity.quantity.value.roundToDouble() ? 0 : 1)} '
+                  '${entity.unit.value} of ${entity.productType.toLowerCase()} was just logged for $animalName.',
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Open a prefilled sale form now and add the buyer and price. Suggested unit price: KSh ${estimatedPrice.toStringAsFixed(0)}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(false),
+                        child: const Text('Later'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(true),
+                        child: const Text('Create Draft'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (shouldCreate != true || !mounted) return;
+
+    final sale = await Navigator.push<SaleEntity>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddSaleScreen(
+          initialType: _saleTypeForProduct(entity.productType),
+          initialProductName: entity.productType,
+          initialQuantity: entity.quantity.value,
+          initialUnit: entity.unit.value,
+          initialAnimal: animalName,
+          initialNotes:
+              'Draft created from production log on ${_formatDate(entity.recordedAt)}.',
+        ),
+      ),
+    );
+
+    if (sale == null) return;
+
+    try {
+      await getIt<AddSale>().execute(sale);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sale draft saved successfully.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to save sale draft.')),
+      );
+    }
+  }
+
+  String _saleTypeForProduct(String productType) {
+    switch (productType.toLowerCase()) {
+      case 'milk':
+        return 'Dairy';
+      case 'eggs':
+        return 'Poultry';
+      default:
+        return 'Other';
+    }
+  }
+
+  double _suggestedUnitPrice(String productType) {
+    switch (productType.toLowerCase()) {
+      case 'milk':
+        return 55;
+      case 'eggs':
+        return 15;
+      default:
+        return 0;
+    }
   }
 
   void _viewAnalytics() {
@@ -610,7 +733,8 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
       loaded: (items) => items,
       orElse: () => <AnimalEntity>[],
     );
-    final rows = _mapLogsToView(context.read<ProductionLogCubit>().state.logs, animals)
+    final rows = _mapLogsToView(
+        context.read<ProductionLogCubit>().state.logs, animals)
       ..sort((a, b) {
         final ad = DateTime.tryParse('${a.date} ${a.time}') ?? DateTime(1970);
         final bd = DateTime.tryParse('${b.date} ${b.time}') ?? DateTime(1970);

@@ -234,7 +234,8 @@ class _InventoryViewState extends State<InventoryView>
                     children: [
                       const Icon(Icons.check_circle, color: Colors.white),
                       const SizedBox(width: 12),
-                      Text('${context.tr('synced_items_from_server')}: ${items.length}'),
+                      Text(
+                          '${context.tr('synced_items_from_server')}: ${items.length}'),
                     ],
                   ),
                   backgroundColor: Colors.green,
@@ -289,6 +290,7 @@ class _InventoryViewState extends State<InventoryView>
 
         return AppScaffold(
           backgroundColor: theme.colorScheme.surface,
+          includeDrawer: false,
           appBar: ModernAppBar(
             variant: AppBarVariant.home,
             title: context.tr('inventory'),
@@ -1410,9 +1412,10 @@ class _EditInventoryDialogState extends State<_EditInventoryDialog> {
               if (_supplierNames.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  initialValue: _supplierNames.contains(_supplierController.text)
-                      ? _supplierController.text
-                      : null,
+                  initialValue:
+                      _supplierNames.contains(_supplierController.text)
+                          ? _supplierController.text
+                          : null,
                   decoration: const InputDecoration(
                     labelText: 'Pick Existing Supplier',
                     border: OutlineInputBorder(),
@@ -1481,20 +1484,22 @@ class _EditInventoryDialogState extends State<_EditInventoryDialog> {
     final unitPrice = _unitPriceController.text.trim().isEmpty
         ? null
         : double.tryParse(_unitPriceController.text.trim());
+    final totalValue = unitPrice != null ? quantity * unitPrice : null;
 
     setState(() => _saving = true);
 
     widget.inventoryBloc.add(
-          InventoryEvent.updateItem(
-            id: int.parse(widget.item.id!),
-            quantity: quantity,
-            minStock: minStock,
-            supplier: _supplierController.text.trim(),
-            supplierId: _supplierIdByName[_supplierController.text.trim()] ??
-                _selectedSupplierId,
-            unitPrice: unitPrice,
-          ),
-        );
+      InventoryEvent.updateItem(
+        id: int.parse(widget.item.id!),
+        quantity: quantity,
+        minStock: minStock,
+        supplier: _supplierController.text.trim(),
+        supplierId: _supplierIdByName[_supplierController.text.trim()] ??
+            _selectedSupplierId,
+        unitPrice: unitPrice,
+        totalValue: totalValue,
+      ),
+    );
 
     if (!mounted) return;
     Navigator.pop(context);

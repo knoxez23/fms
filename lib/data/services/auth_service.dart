@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../network/api_service.dart';
 import '../models/user.dart';
 import '../../core/network/token_manager.dart';
+import '../../core/services/local_session_service.dart';
 import 'package:logger/logger.dart';
 
 @LazySingleton()
@@ -11,6 +12,7 @@ class AuthService {
   final TokenManager _tokenManager;
   final Logger _logger = Logger();
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final LocalSessionService _localSessionService = LocalSessionService();
 
   AuthService(this._api, this._tokenManager);
 
@@ -39,6 +41,11 @@ class AuthService {
       expiresAt: response.data['expires_at'],
     );
 
+    await _localSessionService.prepareForAuthenticatedUser(
+      userId: response.data['user']['id'] as int,
+      email: response.data['user']['email']?.toString(),
+    );
+
     await _storage.write(
         key: 'user_id', value: response.data['user']['id'].toString());
     await _storage.write(
@@ -61,6 +68,11 @@ class AuthService {
       expiresAt: response.data['expires_at'],
     );
 
+    await _localSessionService.prepareForAuthenticatedUser(
+      userId: response.data['user']['id'] as int,
+      email: response.data['user']['email']?.toString(),
+    );
+
     await _storage.write(
         key: 'user_id', value: response.data['user']['id'].toString());
     await _storage.write(
@@ -80,9 +92,7 @@ class AuthService {
       _logger.w('Logout API call failed', error: e);
     } finally {
       await _tokenManager.clearTokens();
-      await _storage.delete(key: 'user_id');
-      await _storage.delete(key: 'user_name');
-      await _storage.delete(key: 'user_email');
+      await _localSessionService.clearSessionData();
       _logger.i('User logged out');
     }
   }
@@ -110,6 +120,10 @@ class AuthService {
       await _storage.write(key: 'user_name', value: user.name);
       await _storage.write(key: 'user_email', value: user.email);
       if (user.id != null) {
+        await _localSessionService.prepareForAuthenticatedUser(
+          userId: user.id!,
+          email: user.email,
+        );
         await _storage.write(key: 'user_id', value: user.id.toString());
       }
       return user;

@@ -15,6 +15,7 @@ class UpdateFeedingScheduleRequest extends FormRequest
     {
         return [
             'animal_id' => 'sometimes|required|integer|exists:animals,id',
+            'inventory_id' => 'nullable|integer|exists:inventories,id',
             'feed_type' => 'sometimes|required|string|max:255',
             'quantity' => 'sometimes|required|numeric|min:0',
             'unit' => 'sometimes|required|string|max:50',
@@ -27,4 +28,3 @@ class UpdateFeedingScheduleRequest extends FormRequest
         ];
     }
 }
-

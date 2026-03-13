@@ -94,6 +94,11 @@ class LocalNotificationService {
     }
   }
 
+  Future<void> cancelAll() async {
+    await init();
+    await _plugin.cancelAll();
+  }
+
   tz.TZDateTime _nextInstance(int hour, int minute) {
     final now = tz.TZDateTime.now(tz.local);
     var scheduled =

@@ -4,8 +4,10 @@ namespace App\Services\Farm;
 
 use App\Models\Animal;
 use App\Models\FeedingSchedule;
+use App\Models\Inventory;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 
 class FeedingScheduleService
 {
@@ -21,6 +23,7 @@ class FeedingScheduleService
     public function createForUser(User $user, array $validated): FeedingSchedule
     {
         $this->findOwnedAnimal($user, (int) $validated['animal_id']);
+        $this->validateOwnedInventoryAndUnit($user, $validated);
         return FeedingSchedule::create($validated);
     }
 
@@ -40,6 +43,7 @@ class FeedingScheduleService
             $this->findOwnedAnimal($user, (int) $validated['animal_id']);
         }
 
+        $this->validateOwnedInventoryAndUnit($user, $validated, $feedingSchedule);
         $feedingSchedule->update($validated);
         return $feedingSchedule;
     }
@@ -54,5 +58,35 @@ class FeedingScheduleService
     private function findOwnedAnimal(User $user, int $animalId): Animal
     {
         return $user->animals()->where('id', $animalId)->firstOrFail();
+    }
+
+    private function validateOwnedInventoryAndUnit(
+        User $user,
+        array $validated,
+        ?FeedingSchedule $current = null
+    ): void {
+        $inventoryId = array_key_exists('inventory_id', $validated)
+            ? $validated['inventory_id']
+            : $current?->inventory_id;
+        if ($inventoryId === null || $inventoryId === '') {
+            return;
+        }
+
+        $inventory = Inventory::where('id', (int) $inventoryId)
+            ->where('user_id', $user->id)
+            ->firstOrFail();
+        $unit = array_key_exists('unit', $validated)
+            ? (string) $validated['unit']
+            : (string) ($current?->unit ?? '');
+
+        if (strtolower(trim($inventory->unit)) === strtolower(trim($unit))) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'unit' => [
+                "Unit mismatch. Inventory '{$inventory->item_name}' uses {$inventory->unit}.",
+            ],
+        ]);
     }
 }

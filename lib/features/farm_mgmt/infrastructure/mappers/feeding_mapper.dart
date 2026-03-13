@@ -8,16 +8,15 @@ class FeedingMapper {
     return FeedingScheduleEntity(
       id: model.id,
       animalId: model.animalId,
+      inventoryId: model.inventoryId,
       feedType: model.feedType,
       quantity: model.quantity,
       unit: model.unit,
       timeOfDay: model.timeOfDay,
       frequency: model.frequency,
-      startDate: model.startDate != null
-          ? DateTime.tryParse(model.startDate!)
-          : null,
-      endDate:
-          model.endDate != null ? DateTime.tryParse(model.endDate!) : null,
+      startDate:
+          model.startDate != null ? DateTime.tryParse(model.startDate!) : null,
+      endDate: model.endDate != null ? DateTime.tryParse(model.endDate!) : null,
       notes: model.notes,
       completed: model.completed,
     );
@@ -27,6 +26,7 @@ class FeedingMapper {
     return FeedingSchedule(
       id: entity.id,
       animalId: entity.animalId,
+      inventoryId: entity.inventoryId,
       feedType: entity.feedType,
       quantity: entity.quantity,
       unit: entity.unit,
@@ -44,6 +44,7 @@ class FeedingMapper {
       id: model.id,
       animalId: model.animalId,
       scheduleId: model.scheduleId,
+      inventoryId: model.inventoryId,
       feedType: model.feedType,
       quantity: model.quantity,
       unit: model.unit,
@@ -58,6 +59,7 @@ class FeedingMapper {
       id: entity.id,
       animalId: entity.animalId,
       scheduleId: entity.scheduleId,
+      inventoryId: entity.inventoryId,
       feedType: entity.feedType,
       quantity: entity.quantity,
       unit: entity.unit,

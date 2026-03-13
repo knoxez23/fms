@@ -12,6 +12,7 @@ class FeedingLog extends Model
     protected $fillable = [
         'animal_id',
         'schedule_id',
+        'inventory_id',
         'feed_type',
         'quantity',
         'unit',
@@ -33,5 +34,10 @@ class FeedingLog extends Model
     public function feedingSchedule()
     {
         return $this->belongsTo(FeedingSchedule::class, 'schedule_id');
+    }
+
+    public function inventory()
+    {
+        return $this->belongsTo(Inventory::class, 'inventory_id');
     }
 }

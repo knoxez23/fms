@@ -2,6 +2,8 @@ class FeedingLog {
   final int? id;
   final int animalId;
   final int? scheduleId;
+  final int? inventoryId;
+  final int? userId;
   final String feedType;
   final double quantity;
   final String unit;
@@ -13,6 +15,8 @@ class FeedingLog {
     this.id,
     required this.animalId,
     this.scheduleId,
+    this.inventoryId,
+    this.userId,
     required this.feedType,
     required this.quantity,
     required this.unit,
@@ -26,6 +30,8 @@ class FeedingLog {
       'id': id,
       'animal_id': animalId,
       'schedule_id': scheduleId,
+      'inventory_id': inventoryId,
+      'user_id': userId,
       'feed_type': feedType,
       'quantity': quantity,
       'unit': unit,
@@ -40,6 +46,8 @@ class FeedingLog {
       id: map['id'],
       animalId: map['animal_id'],
       scheduleId: map['schedule_id'],
+      inventoryId: map['inventory_id'],
+      userId: map['user_id'],
       feedType: map['feed_type'],
       quantity: map['quantity'],
       unit: map['unit'],

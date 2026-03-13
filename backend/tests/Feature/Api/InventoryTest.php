@@ -39,6 +39,28 @@ test('authenticated user can create inventory item', function () {
     ]);
 });
 
+test('inventory total value is derived on create and ignores client override', function () {
+    $response = $this->postJson('/api/v1/inventories', [
+        'item_name' => 'Dairy Meal',
+        'category' => 'Feed',
+        'quantity' => 12,
+        'unit' => 'kg',
+        'unit_price' => 100,
+        'total_value' => 1, // should be ignored server-side
+    ], [
+        'Authorization' => "Bearer {$this->token}",
+    ]);
+
+    $response->assertStatus(201)
+        ->assertJsonPath('total_value', 1200);
+
+    $this->assertDatabaseHas('inventories', [
+        'item_name' => 'Dairy Meal',
+        'user_id' => $this->user->id,
+        'total_value' => 1200,
+    ]);
+});
+
 test('inventory create is idempotent by client_uuid', function () {
     $payload = [
         'client_uuid' => '8b5a4e4f-6c74-4f5e-9c2e-01f69f73a9c2',
@@ -96,6 +118,32 @@ test('user can update their inventory item', function () {
     $this->assertDatabaseHas('inventories', [
         'id' => $inventory->id,
         'quantity' => 150,
+    ]);
+});
+
+test('inventory total value is re-derived on update when quantity or unit price changes', function () {
+    $inventory = Inventory::factory()->create([
+        'user_id' => $this->user->id,
+        'quantity' => 10,
+        'unit_price' => 50,
+        'total_value' => 500,
+    ]);
+
+    $response = $this->putJson("/api/v1/inventories/{$inventory->id}", [
+        'quantity' => 20,
+        'total_value' => 5, // should be ignored server-side
+    ], [
+        'Authorization' => "Bearer {$this->token}",
+    ]);
+
+    $response->assertStatus(200)
+        ->assertJsonPath('total_value', 1000);
+
+    $this->assertDatabaseHas('inventories', [
+        'id' => $inventory->id,
+        'quantity' => 20,
+        'unit_price' => 50,
+        'total_value' => 1000,
     ]);
 });
 

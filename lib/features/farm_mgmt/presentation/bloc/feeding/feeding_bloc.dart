@@ -66,6 +66,7 @@ class FeedingBloc extends Bloc<FeedingEvent, FeedingState> {
     final updated = FeedingScheduleEntity(
       id: schedule.id,
       animalId: schedule.animalId,
+      inventoryId: schedule.inventoryId,
       feedType: schedule.feedType,
       quantity: schedule.quantity,
       unit: schedule.unit,
@@ -84,6 +85,7 @@ class FeedingBloc extends Bloc<FeedingEvent, FeedingState> {
           FeedingLogEntity(
             animalId: schedule.animalId,
             scheduleId: schedule.id,
+            inventoryId: schedule.inventoryId,
             feedType: schedule.feedType,
             quantity: schedule.quantity,
             unit: schedule.unit,
@@ -121,6 +123,7 @@ class FeedingBloc extends Bloc<FeedingEvent, FeedingState> {
       final updated = FeedingScheduleEntity(
         id: schedule.id,
         animalId: schedule.animalId,
+        inventoryId: schedule.inventoryId,
         feedType: schedule.feedType,
         quantity: schedule.quantity,
         unit: schedule.unit,
@@ -136,6 +139,7 @@ class FeedingBloc extends Bloc<FeedingEvent, FeedingState> {
         FeedingLogEntity(
           animalId: schedule.animalId,
           scheduleId: schedule.id,
+          inventoryId: schedule.inventoryId,
           feedType: schedule.feedType,
           quantity: schedule.quantity,
           unit: schedule.unit,

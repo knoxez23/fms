@@ -12,6 +12,7 @@ import '../models/task.dart';
 import '../models/feeding_schedule.dart';
 import '../models/feeding_log.dart';
 import '../models/animal_health_record.dart';
+import '../../features/home/domain/entities/dashboard_data.dart';
 
 @lazySingleton
 class SyncData {
@@ -165,7 +166,8 @@ class SyncData {
         final response = await _apiService.get('/tasks');
         final List<dynamic> data = response.data;
         final tasks = data.map((json) => Task.fromMap(json)).toList();
-        final pendingDeleteIds = await LocalData.getPendingTaskDeleteServerIds();
+        final pendingDeleteIds =
+            await LocalData.getPendingTaskDeleteServerIds();
         final filtered =
             tasks.where((task) => !pendingDeleteIds.contains(task.id)).toList();
 
@@ -185,7 +187,8 @@ class SyncData {
 
         // Keep local-only unsynced edits/creates visible in UI while online.
         for (final local in localTasks) {
-          final isLocalOnly = local.id != null && !serverIds.contains(local.id!);
+          final isLocalOnly =
+              local.id != null && !serverIds.contains(local.id!);
           if (local.isSynced == false || isLocalOnly) {
             final exists = merged.any((task) => task.id == local.id);
             if (!exists) merged.add(local);
@@ -207,13 +210,14 @@ class SyncData {
     if (await _isOnline()) {
       try {
         final response = await _apiService.post('/tasks', data: payload);
-        final createdTask = Task.fromMap(response.data).copyWith(isSynced: true);
+        final createdTask =
+            Task.fromMap(response.data).copyWith(isSynced: true);
         return await LocalData.upsertTask(createdTask);
       } catch (e, st) {
         developer.log('insertTask API failed, storing locally: $e',
             error: e, stackTrace: st);
-        final localId =
-            await LocalData.insertTask(task.copyWith(isSynced: false, id: null));
+        final localId = await LocalData.insertTask(
+            task.copyWith(isSynced: false, id: null));
         await LocalData.queueTaskAction(
           localId: localId,
           action: 'create',
@@ -241,7 +245,8 @@ class SyncData {
       } catch (e, st) {
         developer.log('updateTask API failed, updating local only: $e',
             error: e, stackTrace: st);
-        final updated = await LocalData.updateTask(task.copyWith(isSynced: false));
+        final updated =
+            await LocalData.updateTask(task.copyWith(isSynced: false));
         final localId = task.id;
         if (localId != null) {
           await LocalData.queueTaskAction(
@@ -253,7 +258,8 @@ class SyncData {
         return updated;
       }
     } else {
-      final updated = await LocalData.updateTask(task.copyWith(isSynced: false));
+      final updated =
+          await LocalData.updateTask(task.copyWith(isSynced: false));
       final localId = task.id;
       if (localId != null) {
         await LocalData.queueTaskAction(
@@ -526,6 +532,10 @@ class SyncData {
     return summary;
   }
 
+  Future<List<OperationalInsight>> getOperationalInsights() async {
+    return LocalData.getOperationalInsights();
+  }
+
   // Sales operations
   Future<List<Map<String, dynamic>>> getSales() async {
     if (await _isOnline()) {
@@ -769,10 +779,7 @@ class SyncDataRepository {
       columns: ['server_id'],
       where: 'server_id IS NOT NULL',
     );
-    return rows
-        .map((row) => row['server_id'])
-        .whereType<int>()
-        .toSet();
+    return rows.map((row) => row['server_id']).whereType<int>().toSet();
   }
 
   Future<Set<String>> getInventoryDeleteTombstoneClientUuids() async {
