@@ -72,6 +72,7 @@ class _AnimalFeedingCalendarScreenState
     'bundles',
     'pieces',
   ];
+  static const String _rationLabelPrefix = 'measure_label:';
 
   @override
   void initState() {
@@ -723,6 +724,7 @@ class _AnimalFeedingCalendarScreenState
     int? selectedInventoryId;
     final feedTypeController = TextEditingController(text: 'General Feed');
     final quantityController = TextEditingController(text: '2');
+    final rationLabelController = TextEditingController();
     String unit = 'kg';
     String timeOfDay = 'Morning';
     String frequency = 'Daily';
@@ -790,6 +792,13 @@ class _AnimalFeedingCalendarScreenState
                     ? 'Enter valid quantity'
                     : null,
               ),
+              TextFormField(
+                controller: rationLabelController,
+                decoration: const InputDecoration(
+                  labelText: 'Ration label (optional)',
+                  hintText: 'e.g. 1 morning bucket, half sufuria',
+                ),
+              ),
               DropdownButtonFormField<String>(
                 initialValue: unit,
                 items: _feedUnitOptions
@@ -855,7 +864,9 @@ class _AnimalFeedingCalendarScreenState
         timeOfDay: timeOfDay,
         frequency: frequency,
         startDate: DateTime.now().toIso8601String(),
-        notes: null,
+        notes: _composeFeedingNotes(
+          rationLabel: rationLabelController.text.trim(),
+        ),
       ),
     );
 
@@ -904,6 +915,12 @@ class _AnimalFeedingCalendarScreenState
     final feedTypeController = TextEditingController(text: schedule.feedType);
     final quantityController =
         TextEditingController(text: schedule.quantity.toStringAsFixed(2));
+    final rationLabelController = TextEditingController(
+      text: _extractRationLabel(schedule.notes),
+    );
+    final notesController = TextEditingController(
+      text: _extractFreeformNotes(schedule.notes),
+    );
     String unit = schedule.unit;
     String timeOfDay = schedule.timeOfDay;
     String frequency = schedule.frequency ?? 'Daily';
@@ -955,6 +972,13 @@ class _AnimalFeedingCalendarScreenState
                 validator: (v) =>
                     ((double.tryParse(v ?? '') ?? 0) <= 0) ? 'Invalid' : null,
               ),
+              TextFormField(
+                controller: rationLabelController,
+                decoration: const InputDecoration(
+                  labelText: 'Ration label (optional)',
+                  hintText: 'e.g. 2 scoops, 1 evening bucket',
+                ),
+              ),
               DropdownButtonFormField<String>(
                 initialValue: unit,
                 items: _feedUnitOptions
@@ -990,6 +1014,11 @@ class _AnimalFeedingCalendarScreenState
                 onChanged: (v) => frequency = v ?? frequency,
                 decoration: const InputDecoration(labelText: 'Frequency'),
               ),
+              TextFormField(
+                controller: notesController,
+                decoration: const InputDecoration(labelText: 'Notes'),
+                maxLines: 2,
+              ),
             ],
           ),
         ),
@@ -1022,7 +1051,10 @@ class _AnimalFeedingCalendarScreenState
         frequency: frequency,
         startDate: schedule.startDate?.toIso8601String(),
         endDate: schedule.endDate?.toIso8601String(),
-        notes: schedule.notes,
+        notes: _composeFeedingNotes(
+          rationLabel: rationLabelController.text.trim(),
+          notes: notesController.text.trim(),
+        ),
         completed: schedule.completed,
       ),
     );
@@ -1048,6 +1080,7 @@ class _AnimalFeedingCalendarScreenState
     int? selectedInventoryId;
     final feedTypeController = TextEditingController(text: 'General Feed');
     final quantityController = TextEditingController(text: '1');
+    final rationLabelController = TextEditingController();
     final notesController = TextEditingController();
     String unit = 'kg';
 
@@ -1112,6 +1145,13 @@ class _AnimalFeedingCalendarScreenState
                 validator: (v) =>
                     ((double.tryParse(v ?? '') ?? 0) <= 0) ? 'Invalid' : null,
               ),
+              TextFormField(
+                controller: rationLabelController,
+                decoration: const InputDecoration(
+                  labelText: 'Ration label (optional)',
+                  hintText: 'e.g. 1 bucket, 2 cups, half sufuria',
+                ),
+              ),
               DropdownButtonFormField<String>(
                 initialValue: unit,
                 items: _feedUnitOptions
@@ -1175,9 +1215,10 @@ class _AnimalFeedingCalendarScreenState
         unit: unit,
         fedAt: DateTime.now().toIso8601String(),
         fedBy: 'User',
-        notes: notesController.text.trim().isEmpty
-            ? null
-            : notesController.text.trim(),
+        notes: _composeFeedingNotes(
+          rationLabel: rationLabelController.text.trim(),
+          notes: notesController.text.trim(),
+        ),
       ),
     );
     if (!mounted) return;
@@ -1431,6 +1472,40 @@ class _AnimalFeedingCalendarScreenState
         ),
       ),
     );
+  }
+
+  String? _composeFeedingNotes({
+    String? rationLabel,
+    String? notes,
+  }) {
+    final label = rationLabel?.trim() ?? '';
+    final extra = notes?.trim() ?? '';
+    if (label.isEmpty && extra.isEmpty) return null;
+    if (label.isEmpty) return extra;
+    if (extra.isEmpty) return '$_rationLabelPrefix$label';
+    return '$_rationLabelPrefix$label\n$extra';
+  }
+
+  String _extractRationLabel(String? notes) {
+    if (notes == null || notes.trim().isEmpty) return '';
+    for (final line in notes.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.toLowerCase().startsWith(_rationLabelPrefix)) {
+        return trimmed.substring(_rationLabelPrefix.length).trim();
+      }
+    }
+    return '';
+  }
+
+  String _extractFreeformNotes(String? notes) {
+    if (notes == null || notes.trim().isEmpty) return '';
+    return notes
+        .split('\n')
+        .where(
+          (line) => !line.trim().toLowerCase().startsWith(_rationLabelPrefix),
+        )
+        .join('\n')
+        .trim();
   }
 
   Future<void> _showFeedInventory() async {
@@ -1833,6 +1908,8 @@ class _FeedingScheduleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final animalName = getAnimalName(feeding.animalId);
     final timeString = _getTimeString(feeding.timeOfDay);
+    final rationLabel = _extractFeedingRationLabel(feeding.notes);
+    final plainNotes = _extractFeedingPlainNotes(feeding.notes);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1874,9 +1951,17 @@ class _FeedingScheduleCard extends StatelessWidget {
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
-                if (feeding.notes != null && feeding.notes!.isNotEmpty)
+                if (rationLabel.isNotEmpty)
                   Text(
-                    'Note: ${feeding.notes}',
+                    'Ration: $rationLabel',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.9),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                if (plainNotes.isNotEmpty)
+                  Text(
+                    'Note: $plainNotes',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.primary.withValues(alpha: 0.8),
                       fontStyle: FontStyle.italic,
@@ -1940,6 +2025,8 @@ class _FeedingHistoryCard extends StatelessWidget {
     final fedDate = history.fedAt.toLocal();
     final timeString =
         '${fedDate.hour}:${fedDate.minute.toString().padLeft(2, '0')}';
+    final rationLabel = _extractFeedingRationLabel(history.notes);
+    final plainNotes = _extractFeedingPlainNotes(history.notes);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -1983,12 +2070,29 @@ class _FeedingHistoryCard extends StatelessWidget {
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
+                if (rationLabel.isNotEmpty)
+                  Text(
+                    'Ration: $rationLabel',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.85),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 Text(
                   fedDate.toString().split(' ')[0],
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                   ),
                 ),
+                if (plainNotes.isNotEmpty)
+                  Text(
+                    'Note: $plainNotes',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -2046,6 +2150,28 @@ class _EmptyState extends StatelessWidget {
       ),
     );
   }
+}
+
+String _extractFeedingRationLabel(String? notes) {
+  if (notes == null || notes.trim().isEmpty) return '';
+  for (final line in notes.split('\n')) {
+    final trimmed = line.trim();
+    if (trimmed.toLowerCase().startsWith('measure_label:')) {
+      return trimmed.substring('measure_label:'.length).trim();
+    }
+  }
+  return '';
+}
+
+String _extractFeedingPlainNotes(String? notes) {
+  if (notes == null || notes.trim().isEmpty) return '';
+  return notes
+      .split('\n')
+      .where(
+        (line) => !line.trim().toLowerCase().startsWith('measure_label:'),
+      )
+      .join('\n')
+      .trim();
 }
 
 class _AnimatedCard extends StatefulWidget {
