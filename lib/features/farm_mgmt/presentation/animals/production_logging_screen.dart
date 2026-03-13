@@ -8,6 +8,7 @@ import 'package:pamoja_twalima/data/models/task.dart';
 import 'package:pamoja_twalima/data/repositories/sync_data.dart';
 import 'package:pamoja_twalima/features/business/application/sales_usecases.dart';
 import 'package:pamoja_twalima/features/business/domain/entities/sale_entity.dart';
+import 'package:pamoja_twalima/features/business/domain/value_objects/value_objects.dart';
 import 'package:pamoja_twalima/features/business/presentation/sales/add_sale_screen.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/animal_entity.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/production_log_entity.dart';
@@ -560,7 +561,7 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
     if (normalizedType != 'milk' && normalizedType != 'eggs') return;
     if (!mounted) return;
 
-    final shouldCreate = await showModalBottomSheet<bool>(
+    final draftAction = await showModalBottomSheet<String>(
       context: context,
       builder: (sheetContext) {
         final theme = Theme.of(sheetContext);
@@ -585,25 +586,38 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Open a prefilled sale form now and add the buyer and price. Suggested unit price: KSh ${estimatedPrice.toStringAsFixed(0)}',
+                  'Create a quick draft now or open a prefilled sale form. Suggested unit price: KSh ${estimatedPrice.toStringAsFixed(0)}',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
                 const SizedBox(height: 16),
-                Row(
+                Column(
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(false),
-                        child: const Text('Later'),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () =>
+                            Navigator.of(sheetContext).pop('quick'),
+                        child: const Text('Quick Draft'),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(true),
-                        child: const Text('Create Draft'),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () =>
+                            Navigator.of(sheetContext).pop('review'),
+                        child: const Text('Review First'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        onPressed: () =>
+                            Navigator.of(sheetContext).pop('later'),
+                        child: const Text('Later'),
                       ),
                     ),
                   ],
@@ -615,7 +629,24 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
       },
     );
 
-    if (shouldCreate != true || !mounted) return;
+    if (!mounted || draftAction == 'later' || draftAction == null) return;
+
+    if (draftAction == 'quick') {
+      final sale = _buildQuickSaleDraft(entity, animalName);
+      try {
+        await getIt<AddSale>().execute(sale);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Quick sale draft saved successfully.')),
+        );
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to save quick sale draft.')),
+        );
+      }
+      return;
+    }
 
     final sale = await Navigator.push<SaleEntity>(
       context,
@@ -646,6 +677,28 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
         const SnackBar(content: Text('Failed to save sale draft.')),
       );
     }
+  }
+
+  SaleEntity _buildQuickSaleDraft(
+    ProductionLogEntity entity,
+    String animalName,
+  ) {
+    final price = _suggestedUnitPrice(entity.productType);
+    final quantity = entity.quantity.value;
+    return SaleEntity(
+      productName: entity.productType,
+      quantity: BusinessQuantity(quantity),
+      unit: entity.unit.value,
+      pricePerUnit: Money(price),
+      totalAmount: Money(price * quantity),
+      customer: 'Walk-in Customer',
+      paymentStatus: 'Pending',
+      type: _saleTypeForProduct(entity.productType),
+      date: entity.recordedAt,
+      animal: animalName,
+      notes:
+          'Quick draft created from production log on ${_formatDate(entity.recordedAt)}.',
+    );
   }
 
   String _saleTypeForProduct(String productType) {

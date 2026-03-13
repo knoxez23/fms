@@ -7,6 +7,7 @@ import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/reusable_widgets.dart';
 import 'package:pamoja_twalima/core/di/injection.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/tasks/add_task_screen.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/presentation/animals/production_logging_screen.dart';
 import 'package:pamoja_twalima/features/weather/domain/entities/weather_entities.dart';
 import 'package:pamoja_twalima/features/home/presentation/bloc/home/home_bloc.dart';
 import 'package:pamoja_twalima/features/home/domain/entities/dashboard_data.dart';
@@ -159,6 +160,15 @@ class _HomeViewState extends State<HomeView>
                         onQuickAction: (label) {
                           if (label == 'Record Sale') {
                             widget.onNavigateTab?.call(3);
+                            return;
+                          }
+                          if (label == 'Log Production') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ProductionLoggingScreen(),
+                              ),
+                            ).then((_) => _refresh());
                             return;
                           }
                           Navigator.push(
@@ -968,7 +978,9 @@ class _HomeHeroCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               ElevatedButton.icon(
                 onPressed: () => onQuickAction('Record Sale'),
@@ -983,7 +995,19 @@ class _HomeHeroCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () => onQuickAction('Log Production'),
+                icon: const Icon(Icons.insights_outlined, size: 18),
+                label: const Text('Log Production'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.6)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+              ),
               OutlinedButton.icon(
                 onPressed: () => onQuickAction('Add Task'),
                 icon: const Icon(Icons.task_alt, size: 18),
