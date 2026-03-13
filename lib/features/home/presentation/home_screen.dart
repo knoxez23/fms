@@ -300,6 +300,26 @@ class _HomeViewState extends State<HomeView>
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
+                  SliverToBoxAdapter(
+                    child: SectionHeader(
+                      title: 'Setup Momentum',
+                      icon: Icons.playlist_add_check_circle_outlined,
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _SetupMomentumSection(
+                        theme: theme,
+                        summary: summary,
+                        onOpenFarm: () => widget.onNavigateTab?.call(1),
+                        onOpenInventory: () => widget.onNavigateTab?.call(2),
+                      ),
+                    ),
+                  ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
                   // Critical Alerts
                   SliverToBoxAdapter(
                     child: SectionHeader(
@@ -498,6 +518,168 @@ class _HomeViewState extends State<HomeView>
         widget.onNavigateTab?.call(3);
         break;
     }
+  }
+}
+
+class _SetupMomentumSection extends StatelessWidget {
+  final ThemeData theme;
+  final Map<String, dynamic> summary;
+  final VoidCallback onOpenFarm;
+  final VoidCallback onOpenInventory;
+
+  const _SetupMomentumSection({
+    required this.theme,
+    required this.summary,
+    required this.onOpenFarm,
+    required this.onOpenInventory,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final todaysFeedings = (summary['todaysFeedings'] as num?)?.toInt() ?? 0;
+    final setupTasks7 = (summary['setupTasksNext7Days'] as num?)?.toInt() ?? 0;
+    final setupTasks30 =
+        (summary['setupTasksNext30Days'] as num?)?.toInt() ?? 0;
+    final activeFieldCrops =
+        (summary['activeFieldCrops'] as num?)?.toInt() ?? 0;
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _SetupMomentumCard(
+                theme: theme,
+                title: 'Today\'s Feeding',
+                value: '$todaysFeedings',
+                subtitle: todaysFeedings == 0
+                    ? 'No active schedules yet'
+                    : 'Feeding sessions ready',
+                icon: Icons.local_dining_outlined,
+                color: Colors.teal,
+                onTap: onOpenFarm,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _SetupMomentumCard(
+                theme: theme,
+                title: 'Next 7 Days',
+                value: '$setupTasks7',
+                subtitle: 'Setup tasks due soon',
+                icon: Icons.event_available_outlined,
+                color: Colors.indigo,
+                onTap: onOpenFarm,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _SetupMomentumCard(
+                theme: theme,
+                title: 'Field Crops',
+                value: '$activeFieldCrops',
+                subtitle: activeFieldCrops == 0
+                    ? 'No crops marked active'
+                    : 'Crops already in motion',
+                icon: Icons.grass_outlined,
+                color: Colors.green,
+                onTap: onOpenFarm,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _SetupMomentumCard(
+                theme: theme,
+                title: '30-Day Plan',
+                value: '$setupTasks30',
+                subtitle: 'Operational checklist seeded',
+                icon: Icons.fact_check_outlined,
+                color: Colors.deepOrange,
+                onTap: onOpenInventory,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SetupMomentumCard extends StatelessWidget {
+  final ThemeData theme;
+  final String title;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SetupMomentumCard({
+    required this.theme,
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: color.withValues(alpha: 0.15)),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                value,
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.68),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

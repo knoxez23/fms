@@ -123,6 +123,64 @@ class LocalData {
         (productionTodayRows.first['eggs_total'] as num?)?.toDouble() ?? 0.0;
     final productionValueToday = (milkToday * 55.0) + (eggsToday * 15.0);
 
+    final todaysFeedingResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM feeding_schedules
+      WHERE completed = 0
+        AND LOWER(COALESCE(time_of_day, '')) IN ('morning', 'afternoon', 'evening')
+        AND (start_date IS NULL OR DATE(start_date) <= DATE(?))
+        AND (end_date IS NULL OR DATE(end_date) >= DATE(?))
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null ? [today, today] : [today, today, activeUserId],
+    );
+    final todaysFeedings = Sqflite.firstIntValue(todaysFeedingResult) ?? 0;
+
+    final setupTasks7dResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM tasks
+      WHERE status != ?
+        AND LOWER(COALESCE(source_event_type, '')) = 'setup'
+        AND due_date IS NOT NULL
+        AND DATE(due_date) <= DATE(?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null
+          ? ['completed', nextDateIso(7)]
+          : ['completed', nextDateIso(7), activeUserId],
+    );
+    final setupTasksNext7Days = Sqflite.firstIntValue(setupTasks7dResult) ?? 0;
+
+    final setupTasks30dResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM tasks
+      WHERE status != ?
+        AND LOWER(COALESCE(source_event_type, '')) = 'setup'
+        AND due_date IS NOT NULL
+        AND DATE(due_date) <= DATE(?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null
+          ? ['completed', nextDateIso(30)]
+          : ['completed', nextDateIso(30), activeUserId],
+    );
+    final setupTasksNext30Days =
+        Sqflite.firstIntValue(setupTasks30dResult) ?? 0;
+
+    final plantedCropsResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM crops
+      WHERE LOWER(COALESCE(status, '')) IN ('growing', 'planted')
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null ? null : [activeUserId],
+    );
+    final activeFieldCrops = Sqflite.firstIntValue(plantedCropsResult) ?? 0;
+
     return {
       "crops": cropCount,
       "livestock": animalCount,
@@ -138,7 +196,19 @@ class LocalData {
       "milkToday": milkToday,
       "eggsToday": eggsToday,
       "productionValueToday": productionValueToday,
+      "todaysFeedings": todaysFeedings,
+      "setupTasksNext7Days": setupTasksNext7Days,
+      "setupTasksNext30Days": setupTasksNext30Days,
+      "activeFieldCrops": activeFieldCrops,
     };
+  }
+
+  static String nextDateIso(int days) {
+    return DateTime.now()
+        .add(Duration(days: days))
+        .toIso8601String()
+        .split('T')
+        .first;
   }
 
   static Future<List<OperationalInsight>> getOperationalInsights({
