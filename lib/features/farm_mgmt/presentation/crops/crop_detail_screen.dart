@@ -14,6 +14,7 @@ import 'package:pamoja_twalima/features/inventory/domain/repositories/inventory_
 import 'package:pamoja_twalima/features/inventory/presentation/add_inventory_screen.dart';
 import 'package:pamoja_twalima/features/marketplace/domain/entities/product_entity.dart';
 import 'package:pamoja_twalima/features/marketplace/domain/repositories/marketplace_repository.dart';
+import 'package:pamoja_twalima/features/marketplace/domain/value_objects/value_objects.dart';
 import 'package:pamoja_twalima/features/marketplace/presentation/sell_product_screen.dart';
 
 class CropDetailScreen extends StatefulWidget {
@@ -139,6 +140,7 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
                   _HarvestAutomationStrip(
                     crop: crop,
                     theme: theme,
+                    onRunHarvestPipeline: () => _runHarvestPipeline(crop),
                     onCreateStockDraft: () => _openHarvestStockDraft(crop),
                     onCreateMarketplaceDraft: () => _openMarketplaceDraft(crop),
                     onCreateFollowUpTask: () =>
@@ -208,6 +210,61 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
       default:
         return Colors.grey;
     }
+  }
+
+  Future<void> _runHarvestPipeline(_CropDetailView crop) async {
+    final quantity = _suggestedHarvestQuantity(crop);
+    final unit = _suggestedHarvestUnit(crop);
+    final price = _suggestedMarketplacePrice(crop, unit);
+
+    await getIt<InventoryRepository>().addItem(
+      InventoryItem(
+        itemName: crop.name,
+        category: _inventoryCategoryFor(crop.name),
+        quantity: quantity,
+        unit: unit,
+        minStock: 0,
+        supplier: null,
+        supplierId: null,
+        unitPrice: price,
+        totalValue: quantity * price,
+        lastRestock: DateTime.now(),
+        isSynced: false,
+      ),
+    );
+
+    await getIt<MarketplaceRepository>().addProduct(
+      ProductEntity(
+        name: ProductName(crop.name),
+        category: _marketplaceCategoryFor(crop.name),
+        price: Price(price),
+        quantity: quantity,
+        unit: unit,
+      ),
+    );
+
+    await SyncData().insertTask(
+      Task(
+        title: 'Confirm ${crop.name} harvest quantity and buyer terms',
+        description:
+            'Auto-created harvest pipeline for ${crop.name.toLowerCase()}. Verify final graded quantity, packaging, delivery terms, and sale channel.',
+        dueDate: crop.expectedHarvest?.toIso8601String() ??
+            DateTime.now().add(const Duration(days: 2)).toIso8601String(),
+        category: 'Crops',
+        status: 'pending',
+        sourceEventType: 'harvest',
+        sourceEventId: crop.id.isEmpty ? crop.name.toLowerCase() : crop.id,
+      ),
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Harvest pipeline created: stock, marketplace draft, and follow-up task ready for ${crop.name}.',
+        ),
+      ),
+    );
   }
 
   Future<void> _openHarvestStockDraft(_CropDetailView crop) async {
@@ -290,11 +347,67 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
       const SnackBar(content: Text('Harvest follow-up task created')),
     );
   }
+
+  String _marketplaceCategoryFor(String cropName) {
+    const vegetables = {
+      'tomatoes',
+      'cabbages',
+      'kale',
+      'spinach',
+      'onions',
+    };
+    return vegetables.contains(cropName.toLowerCase()) ? 'Vegetables' : 'Crops';
+  }
+
+  String _inventoryCategoryFor(String cropName) {
+    return _marketplaceCategoryFor(cropName);
+  }
+
+  String _suggestedHarvestUnit(_CropDetailView crop) {
+    const pieceCrops = {'cabbages'};
+    return pieceCrops.contains(crop.name.toLowerCase()) ? 'pieces' : 'kg';
+  }
+
+  double _suggestedHarvestQuantity(_CropDetailView crop) {
+    final area = _parseArea(crop.area) ?? 1.0;
+    final baseByCrop = <String, double>{
+      'maize': 900,
+      'beans': 350,
+      'potatoes': 2800,
+      'onions': 1800,
+      'tomatoes': 2200,
+      'cabbages': 1200,
+      'kale': 700,
+      'spinach': 500,
+    };
+    final base = baseByCrop[crop.name.toLowerCase()] ?? 600;
+    return double.parse((base * area).toStringAsFixed(1));
+  }
+
+  double _suggestedMarketplacePrice(_CropDetailView crop, String unit) {
+    final priceByCrop = <String, double>{
+      'maize': 45,
+      'beans': 120,
+      'potatoes': 55,
+      'onions': 70,
+      'tomatoes': 80,
+      'cabbages': unit == 'pieces' ? 40 : 35,
+      'kale': 60,
+      'spinach': 70,
+    };
+    return priceByCrop[crop.name.toLowerCase()] ?? 50;
+  }
+
+  double? _parseArea(String areaText) {
+    final normalized = areaText.split(' ').first;
+    return double.tryParse(normalized);
+  }
 }
 
 class _HarvestAutomationStrip extends StatelessWidget {
   final _CropDetailView crop;
   final ThemeData theme;
+  final VoidCallback onRunHarvestPipeline;
   final VoidCallback onCreateStockDraft;
   final VoidCallback onCreateMarketplaceDraft;
   final VoidCallback onCreateFollowUpTask;
@@ -302,6 +415,7 @@ class _HarvestAutomationStrip extends StatelessWidget {
   const _HarvestAutomationStrip({
     required this.crop,
     required this.theme,
+    required this.onRunHarvestPipeline,
     required this.onCreateStockDraft,
     required this.onCreateMarketplaceDraft,
     required this.onCreateFollowUpTask,
@@ -346,6 +460,11 @@ class _HarvestAutomationStrip extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
+              FilledButton.icon(
+                onPressed: onRunHarvestPipeline,
+                icon: const Icon(Icons.auto_awesome_outlined),
+                label: const Text('Run Pipeline'),
+              ),
               FilledButton.tonalIcon(
                 onPressed: onCreateStockDraft,
                 icon: const Icon(Icons.inventory_2_outlined),
