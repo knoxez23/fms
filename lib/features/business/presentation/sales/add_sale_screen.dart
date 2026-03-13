@@ -7,6 +7,17 @@ import 'package:pamoja_twalima/data/services/contact_directory_service.dart';
 import 'package:pamoja_twalima/features/business/domain/entities/sale_entity.dart';
 import 'package:pamoja_twalima/features/business/presentation/contacts/contacts_screen.dart';
 import 'package:pamoja_twalima/features/business/domain/value_objects/value_objects.dart';
+import 'package:pamoja_twalima/data/repositories/sync_data.dart';
+
+class SaleDraftResult {
+  final SaleEntity sale;
+  final List<TaskResolutionRule> taskResolutionRules;
+
+  const SaleDraftResult({
+    required this.sale,
+    this.taskResolutionRules = const [],
+  });
+}
 
 class AddSaleScreen extends StatefulWidget {
   final String? initialType;
@@ -16,6 +27,7 @@ class AddSaleScreen extends StatefulWidget {
   final String? initialAnimal;
   final String? initialNotes;
   final String? automationMessage;
+  final List<TaskResolutionRule> resolutionRules;
 
   const AddSaleScreen({
     super.key,
@@ -26,6 +38,7 @@ class AddSaleScreen extends StatefulWidget {
     this.initialAnimal,
     this.initialNotes,
     this.automationMessage,
+    this.resolutionRules = const [],
   });
 
   @override
@@ -698,7 +711,13 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
       );
 
       // Return to parent screen
-      Navigator.pop(context, sale);
+      Navigator.pop(
+        context,
+        SaleDraftResult(
+          sale: sale,
+          taskResolutionRules: widget.resolutionRules,
+        ),
+      );
     }
   }
 

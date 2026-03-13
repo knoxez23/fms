@@ -371,8 +371,14 @@ class _SalesViewState extends State<SalesView> {
         MaterialPageRoute(builder: (_) => const AddSaleScreen()),
       );
 
-      if (result == null || result is! SaleEntity || !mounted) return;
-      context.read<SalesBloc>().add(SalesEvent.addSale(sale: result));
+      if (result == null || !mounted) return;
+      final sale = switch (result) {
+        SaleDraftResult draft => draft.sale,
+        SaleEntity saleEntity => saleEntity,
+        _ => null,
+      };
+      if (sale == null) return;
+      context.read<SalesBloc>().add(SalesEvent.addSale(sale: sale));
       setState(() => _financeRefreshTick++);
       return;
     }

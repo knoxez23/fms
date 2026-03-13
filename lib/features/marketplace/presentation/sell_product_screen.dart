@@ -3,8 +3,19 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/data/repositories/sync_data.dart';
 import 'package:pamoja_twalima/features/marketplace/domain/entities/product_entity.dart';
 import 'package:pamoja_twalima/features/marketplace/domain/value_objects/value_objects.dart';
+
+class MarketplaceDraftResult {
+  final ProductEntity product;
+  final List<TaskResolutionRule> taskResolutionRules;
+
+  const MarketplaceDraftResult({
+    required this.product,
+    this.taskResolutionRules = const [],
+  });
+}
 
 class SellProductScreen extends StatefulWidget {
   final String? initialName;
@@ -15,6 +26,7 @@ class SellProductScreen extends StatefulWidget {
   final String? initialQuantity;
   final String? initialUnit;
   final String? automationMessage;
+  final List<TaskResolutionRule> resolutionRules;
 
   const SellProductScreen({
     super.key,
@@ -26,6 +38,7 @@ class SellProductScreen extends StatefulWidget {
     this.initialQuantity,
     this.initialUnit,
     this.automationMessage,
+    this.resolutionRules = const [],
   });
 
   @override
@@ -1048,7 +1061,13 @@ class _SellProductScreenState extends State<SellProductScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Product published successfully!')),
     );
-    Navigator.pop(context, product);
+    Navigator.pop(
+      context,
+      MarketplaceDraftResult(
+        product: product,
+        taskResolutionRules: widget.resolutionRules,
+      ),
+    );
   }
 }
 

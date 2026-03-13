@@ -322,7 +322,7 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
   }
 
   Future<void> _openMarketplaceDraft(_CropDetailView crop) async {
-    final result = await Navigator.push(
+    final result = await Navigator.push<Object?>(
       context,
       MaterialPageRoute(
         builder: (_) => SellProductScreen(
@@ -334,16 +334,33 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
               '${crop.name} harvested from this farm and prepared for direct sale. The listing can be adjusted with grade, delivery terms, and pricing before buyers see it.',
           automationMessage:
               'Prefilled from the ${crop.name} crop workflow. Review quantity, pricing, and delivery terms before publishing.',
+          resolutionRules: [
+            TaskResolutionRule(
+              sourceEventType: 'setup',
+              sourceEventId: crop.id.isEmpty ? crop.name.toLowerCase() : crop.id,
+              titleContains: const ['market prep', 'harvest', 'sale'],
+            ),
+            TaskResolutionRule(
+              sourceEventType: 'crop',
+              sourceEventId: crop.id.isEmpty ? crop.name.toLowerCase() : crop.id,
+            ),
+            TaskResolutionRule(
+              sourceEventType: 'harvest',
+              sourceEventId: crop.id.isEmpty ? crop.name.toLowerCase() : crop.id,
+            ),
+          ],
         ),
       ),
     );
 
-    if (result is! ProductEntity) return;
-    await getIt<MarketplaceRepository>().addProduct(result);
-    await _resolveCropTasks(
-      crop,
-      titleHints: const ['market prep', 'harvest', 'sale'],
-    );
+    final draft = switch (result) {
+      MarketplaceDraftResult marketDraft => marketDraft,
+      ProductEntity product => MarketplaceDraftResult(product: product),
+      _ => null,
+    };
+    if (draft == null) return;
+    await getIt<MarketplaceRepository>().addProduct(draft.product);
+    await SyncData().completeTaskRules(draft.taskResolutionRules);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Marketplace draft created from crop')),

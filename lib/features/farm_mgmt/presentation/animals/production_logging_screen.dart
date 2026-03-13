@@ -651,7 +651,17 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
       final sale = _buildQuickSaleDraft(entity, animalName);
       try {
         await getIt<AddSale>().execute(sale);
-        await _resolveSaleReadinessTasks(entity);
+        await _syncData.completeTaskRules([
+          TaskResolutionRule(
+            sourceEventType: 'production',
+            sourceEventId: entity.animalId,
+          ),
+          TaskResolutionRule(
+            sourceEventType: 'setup',
+            sourceEventId: entity.animalId,
+            titleContains: const ['sales readiness', 'market timing'],
+          ),
+        ]);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Quick sale draft saved successfully.')),
@@ -665,7 +675,7 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
       return;
     }
 
-    final sale = await Navigator.push<SaleEntity>(
+    final result = await Navigator.push<Object?>(
       context,
       MaterialPageRoute(
         builder: (_) => AddSaleScreen(
@@ -678,15 +688,31 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
               'Draft created from production log on ${_formatDate(entity.recordedAt)}.',
           automationMessage:
               'Prefilled from a ${entity.productType.toLowerCase()} production log for $animalName. Confirm pricing and customer details only if you need changes.',
+          resolutionRules: [
+            TaskResolutionRule(
+              sourceEventType: 'production',
+              sourceEventId: entity.animalId,
+            ),
+            TaskResolutionRule(
+              sourceEventType: 'setup',
+              sourceEventId: entity.animalId,
+              titleContains: const ['sales readiness', 'market timing'],
+            ),
+          ],
         ),
       ),
     );
 
-    if (sale == null) return;
+    final saleDraft = switch (result) {
+      SaleDraftResult draft => draft,
+      SaleEntity sale => SaleDraftResult(sale: sale),
+      _ => null,
+    };
+    if (saleDraft == null) return;
 
     try {
-      await getIt<AddSale>().execute(sale);
-      await _resolveSaleReadinessTasks(entity);
+      await getIt<AddSale>().execute(saleDraft.sale);
+      await _syncData.completeTaskRules(saleDraft.taskResolutionRules);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sale draft saved successfully.')),
@@ -719,20 +745,6 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
       notes:
           'Quick draft created from production log on ${_formatDate(entity.recordedAt)}.',
     );
-  }
-
-  Future<void> _resolveSaleReadinessTasks(ProductionLogEntity entity) async {
-    await _syncData.completeTaskRules([
-      TaskResolutionRule(
-        sourceEventType: 'production',
-        sourceEventId: entity.animalId,
-      ),
-      TaskResolutionRule(
-        sourceEventType: 'setup',
-        sourceEventId: entity.animalId,
-        titleContains: const ['sales readiness', 'market timing'],
-      ),
-    ]);
   }
 
   String _saleTypeForProduct(String productType) {
