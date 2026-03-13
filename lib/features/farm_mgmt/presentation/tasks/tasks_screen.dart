@@ -164,8 +164,12 @@ class _TasksScreenState extends State<TasksScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) =>
-                                      TaskDetailScreen.fromEntity(entity: task),
+                                  builder: (_) => BlocProvider.value(
+                                    value: context.read<TasksBloc>(),
+                                    child: TaskDetailScreen.fromEntity(
+                                      entity: task,
+                                    ),
+                                  ),
                                 ),
                               );
                             },

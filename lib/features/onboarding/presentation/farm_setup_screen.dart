@@ -57,6 +57,8 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
   final Set<_AnimalPreset> _selectedAnimals = {};
   final Set<_CropPreset> _selectedCrops = {};
   final Set<_MaterialPreset> _selectedMaterials = {};
+  final Map<_AnimalPreset, _FarmScale> _animalScales = {};
+  final Map<_CropPreset, _CropSetupMode> _cropModes = {};
   bool _saving = false;
 
   static const List<_AnimalPreset> _animalPresets = [
@@ -255,6 +257,19 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
                         subtitle: preset.subtitle,
                         selected: _selectedAnimals.contains(preset),
                         onTap: () => _toggleAnimal(preset),
+                        footer: _selectedAnimals.contains(preset)
+                            ? _InlineChoiceBar<_FarmScale>(
+                                value:
+                                    _animalScales[preset] ?? _FarmScale.small,
+                                options: _FarmScale.values,
+                                labelBuilder: (value) => value.label,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _animalScales[preset] = value;
+                                  });
+                                },
+                              )
+                            : null,
                       ),
                     )
                     .toList(),
@@ -275,6 +290,19 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
                         subtitle: preset.subtitle,
                         selected: _selectedCrops.contains(preset),
                         onTap: () => _toggleCrop(preset),
+                        footer: _selectedCrops.contains(preset)
+                            ? _InlineChoiceBar<_CropSetupMode>(
+                                value: _cropModes[preset] ??
+                                    _CropSetupMode.planned,
+                                options: _CropSetupMode.values,
+                                labelBuilder: (value) => value.label,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _cropModes[preset] = value;
+                                  });
+                                },
+                              )
+                            : null,
                       ),
                     )
                     .toList(),
@@ -320,7 +348,8 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
                   ),
                   _SummaryLine(
                     label: 'Starter operational tasks',
-                    value: '${_selectedAnimals.length + _selectedCrops.length}',
+                    value:
+                        '${(_selectedAnimals.length * 2) + (_selectedCrops.length * 2)}',
                   ),
                 ],
               ),
@@ -363,9 +392,11 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
   void _toggleAnimal(_AnimalPreset preset) {
     setState(() {
       if (_selectedAnimals.remove(preset)) {
+        _animalScales.remove(preset);
         return;
       }
       _selectedAnimals.add(preset);
+      _animalScales[preset] = _animalScales[preset] ?? _FarmScale.small;
       _applyRecommendedMaterials();
     });
   }
@@ -373,9 +404,11 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
   void _toggleCrop(_CropPreset preset) {
     setState(() {
       if (_selectedCrops.remove(preset)) {
+        _cropModes.remove(preset);
         return;
       }
       _selectedCrops.add(preset);
+      _cropModes[preset] = _cropModes[preset] ?? _CropSetupMode.planned;
       _applyRecommendedMaterials();
     });
   }
@@ -408,9 +441,10 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
     setState(() => _saving = true);
     try {
       for (final preset in _selectedAnimals) {
+        final scale = _animalScales[preset] ?? _FarmScale.small;
         await getIt<AddAnimal>().execute(
           AnimalEntity(
-            name: AnimalName(preset.defaultName),
+            name: AnimalName('${preset.defaultName} (${scale.label})'),
             type: AnimalType(preset.animalType),
             breed: preset.breedHint,
           ),
@@ -427,10 +461,26 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
             sourceEventId: preset.title.toLowerCase().replaceAll(' ', '_'),
           ),
         );
+        await getIt<AddTask>().execute(
+          TaskEntity(
+            title: TaskTitle(
+                'Record ${scale.label.toLowerCase()} count for ${preset.title}'),
+            description:
+                'Capture the opening number of animals and production purpose for ${preset.title.toLowerCase()} so automation can use realistic herd or flock assumptions.',
+            dueDate: DateTime.now().add(const Duration(days: 1)),
+            sourceEventType: 'setup',
+            sourceEventId:
+                '${preset.title.toLowerCase().replaceAll(' ', '_')}_${scale.name}',
+          ),
+        );
       }
 
       for (final preset in _selectedCrops) {
-        final plantedAt = DateTime.now();
+        final mode = _cropModes[preset] ?? _CropSetupMode.planned;
+        final plantedAt = mode == _CropSetupMode.planted
+            ? DateTime.now()
+                .subtract(Duration(days: (preset.daysToHarvest * 0.35).round()))
+            : DateTime.now();
         await getIt<AddCrop>().execute(
           CropEntity(
             name: CropName(preset.title),
@@ -439,32 +489,48 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
             expectedHarvest:
                 plantedAt.add(Duration(days: preset.daysToHarvest)),
             area: 1,
-            status: 'Planned',
-            notes: 'Seeded from onboarding farm setup template.',
+            status: mode == _CropSetupMode.planted ? 'Growing' : 'Planned',
+            notes:
+                'Seeded from onboarding farm setup template (${mode.label.toLowerCase()}).',
           ),
         );
         await getIt<AddTask>().execute(
           TaskEntity(
-            title: TaskTitle('Review ${preset.title} planting plan'),
-            description:
-                'Confirm acreage, inputs, and first field tasks for ${preset.title.toLowerCase()}.',
+            title: TaskTitle(mode == _CropSetupMode.planted
+                ? 'Review current ${preset.title} field'
+                : 'Review ${preset.title} planting plan'),
+            description: mode == _CropSetupMode.planted
+                ? 'Confirm current growth stage, recent inputs, and next field action for ${preset.title.toLowerCase()}.'
+                : 'Confirm acreage, inputs, and first field tasks for ${preset.title.toLowerCase()}.',
             dueDate: DateTime.now().add(const Duration(days: 3)),
-            assignedTo: null,
-            staffMemberId: null,
             sourceEventType: 'setup',
             sourceEventId: preset.title.toLowerCase(),
+          ),
+        );
+        await getIt<AddTask>().execute(
+          TaskEntity(
+            title: TaskTitle(mode == _CropSetupMode.planted
+                ? 'Prepare harvest path for ${preset.title}'
+                : 'Confirm input stock for ${preset.title}'),
+            description: mode == _CropSetupMode.planted
+                ? 'Prepare stock, labor, and market handoff for the next ${preset.title.toLowerCase()} harvest cycle.'
+                : 'Make sure seed, fertilizer, and protection inputs are available before field work starts.',
+            dueDate: DateTime.now().add(const Duration(days: 7)),
+            sourceEventType: 'setup',
+            sourceEventId: '${preset.title.toLowerCase()}_${mode.name}',
           ),
         );
       }
 
       for (final material in _selectedMaterials) {
+        final minStock = _recommendedMinStock(material);
         await getIt<InventoryRepository>().addItem(
           InventoryItem(
             itemName: material.name,
             category: material.category,
             quantity: 0,
             unit: material.unit,
-            minStock: 1,
+            minStock: minStock,
             supplier: null,
             unitPrice: null,
             totalValue: null,
@@ -488,6 +554,27 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
         setState(() => _saving = false);
       }
     }
+  }
+
+  int _recommendedMinStock(_MaterialPreset material) {
+    var score = 1;
+
+    for (final preset in _selectedAnimals) {
+      if (preset.starterMaterials.contains(material.name)) {
+        score += (_animalScales[preset] ?? _FarmScale.small).weight;
+      }
+    }
+
+    for (final preset in _selectedCrops) {
+      if (preset.starterMaterials.contains(material.name)) {
+        score += (_cropModes[preset] ?? _CropSetupMode.planned) ==
+                _CropSetupMode.planted
+            ? 3
+            : 1;
+      }
+    }
+
+    return score.clamp(1, 12);
   }
 }
 
@@ -535,6 +622,34 @@ class _MaterialPreset {
     required this.category,
     required this.unit,
   });
+}
+
+enum _FarmScale {
+  small('Small'),
+  medium('Medium'),
+  large('Large');
+
+  const _FarmScale(this.label);
+  final String label;
+
+  int get weight {
+    switch (this) {
+      case _FarmScale.small:
+        return 1;
+      case _FarmScale.medium:
+        return 3;
+      case _FarmScale.large:
+        return 5;
+    }
+  }
+}
+
+enum _CropSetupMode {
+  planned('Planned'),
+  planted('Already Planted');
+
+  const _CropSetupMode(this.label);
+  final String label;
 }
 
 class _HeroSetupCard extends StatelessWidget {
@@ -643,12 +758,14 @@ class _SelectableChipCard extends StatelessWidget {
   final String subtitle;
   final bool selected;
   final VoidCallback onTap;
+  final Widget? footer;
 
   const _SelectableChipCard({
     required this.title,
     required this.subtitle,
     required this.selected,
     required this.onTap,
+    this.footer,
   });
 
   @override
@@ -702,9 +819,46 @@ class _SelectableChipCard extends StatelessWidget {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
+            if (footer != null) ...[
+              const SizedBox(height: 12),
+              footer!,
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+class _InlineChoiceBar<T> extends StatelessWidget {
+  final T value;
+  final List<T> options;
+  final String Function(T value) labelBuilder;
+  final ValueChanged<T> onChanged;
+
+  const _InlineChoiceBar({
+    required this.value,
+    required this.options,
+    required this.labelBuilder,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: options
+          .map(
+            (option) => ChoiceChip(
+              label: Text(labelBuilder(option)),
+              selected: option == value,
+              onSelected: (_) => onChanged(option),
+              labelStyle: theme.textTheme.bodySmall,
+            ),
+          )
+          .toList(),
     );
   }
 }
