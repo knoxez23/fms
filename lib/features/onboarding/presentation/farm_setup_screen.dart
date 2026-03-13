@@ -61,6 +61,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
   final Set<_MaterialPreset> _selectedMaterials = {};
   final Map<_AnimalPreset, _FarmScale> _animalScales = {};
   final Map<_CropPreset, _CropSetupMode> _cropModes = {};
+  final Map<_MaterialPreset, _MaterialAvailability> _materialAvailability = {};
   bool _saving = false;
 
   static const List<_AnimalPreset> _animalPresets = [
@@ -206,23 +207,6 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _preselectMaterials();
-  }
-
-  void _preselectMaterials() {
-    _selectedMaterials.addAll(
-      _materialPresets.where((item) => {
-            'Napier Grass',
-            'Hay',
-            'Maize Seed',
-            'DAP Fertilizer',
-          }.contains(item.name)),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
     final farmerLabel = widget.farmName?.trim().isNotEmpty == true
         ? widget.farmName!.trim()
@@ -312,18 +296,32 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
             ),
             const SizedBox(height: 16),
             _SectionCard(
-              title: 'Available Feed & Materials',
+              title: 'Starter Feed & Materials',
               subtitle:
-                  'Mark what is already on hand so inventory and cost tracking start closer to reality.',
+                  'The app suggests what this farm likely needs. Mark each item as already available or as something to source soon.',
               child: Wrap(
                 spacing: 10,
                 runSpacing: 10,
                 children: _materialPresets
                     .map(
-                      (material) => FilterChip(
-                        label: Text(material.name),
+                      (material) => _SelectableChipCard(
+                        title: material.name,
+                        subtitle: material.category,
                         selected: _selectedMaterials.contains(material),
-                        onSelected: (_) => _toggleMaterial(material),
+                        onTap: () => _toggleMaterial(material),
+                        footer: _selectedMaterials.contains(material)
+                            ? _InlineChoiceBar<_MaterialAvailability>(
+                                value: _materialAvailability[material] ??
+                                    _MaterialAvailability.needSoon,
+                                options: _MaterialAvailability.values,
+                                labelBuilder: (value) => value.label,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _materialAvailability[material] = value;
+                                  });
+                                },
+                              )
+                            : null,
                       ),
                     )
                     .toList(),
@@ -349,9 +347,19 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
                     value: '${_selectedMaterials.length}',
                   ),
                   _SummaryLine(
+                    label: 'Ready on hand now',
+                    value:
+                        '${_selectedMaterials.where((item) => (_materialAvailability[item] ?? _MaterialAvailability.needSoon) == _MaterialAvailability.availableNow).length}',
+                  ),
+                  _SummaryLine(
+                    label: 'Source soon tasks',
+                    value:
+                        '${_selectedMaterials.where((item) => (_materialAvailability[item] ?? _MaterialAvailability.needSoon) == _MaterialAvailability.needSoon).length}',
+                  ),
+                  _SummaryLine(
                     label: 'Starter operational tasks',
                     value:
-                        '${(_selectedAnimals.length * 2) + (_selectedCrops.length * 2)}',
+                        '${(_selectedAnimals.length * 2) + (_selectedCrops.length * 2) + _selectedMaterials.where((item) => (_materialAvailability[item] ?? _MaterialAvailability.needSoon) == _MaterialAvailability.needSoon).length}',
                   ),
                 ],
               ),
@@ -417,8 +425,12 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
 
   void _toggleMaterial(_MaterialPreset material) {
     setState(() {
-      if (!_selectedMaterials.remove(material)) {
+      if (_selectedMaterials.remove(material)) {
+        _materialAvailability.remove(material);
+      } else {
         _selectedMaterials.add(material);
+        _materialAvailability[material] =
+            _materialAvailability[material] ?? _MaterialAvailability.needSoon;
       }
     });
   }
@@ -431,6 +443,10 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
     _selectedMaterials.addAll(
       _materialPresets.where((item) => recommended.contains(item.name)),
     );
+    for (final material in _selectedMaterials) {
+      _materialAvailability[material] =
+          _materialAvailability[material] ?? _MaterialAvailability.needSoon;
+    }
   }
 
   Future<void> _skipMinimalSetup() async {
@@ -526,11 +542,15 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
 
       for (final material in _selectedMaterials) {
         final minStock = _recommendedMinStock(material);
+        final availability =
+            _materialAvailability[material] ?? _MaterialAvailability.needSoon;
         await getIt<InventoryRepository>().addItem(
           InventoryItem(
             itemName: material.name,
             category: material.category,
-            quantity: 0,
+            quantity: availability == _MaterialAvailability.availableNow
+                ? (minStock * 1.5).toDouble()
+                : 0,
             unit: material.unit,
             minStock: minStock,
             supplier: null,
@@ -539,6 +559,23 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
             isSynced: false,
           ),
         );
+        if (availability == _MaterialAvailability.needSoon) {
+          await getIt<AddTask>().execute(
+            TaskEntity(
+              title: TaskTitle('Source ${material.name}'),
+              description:
+                  'Add or buy ${material.name.toLowerCase()} so ${material.category.toLowerCase()} workflows start without delays.',
+              dueDate: DateTime.now().add(
+                Duration(
+                  days: material.category == 'Animal Feed' ? 2 : 5,
+                ),
+              ),
+              sourceEventType: 'setup',
+              sourceEventId:
+                  'material_${material.name.toLowerCase().replaceAll(' ', '_')}',
+            ),
+          );
+        }
       }
 
       await FarmSetupService().markSetupComplete(widget.userId);
@@ -761,6 +798,14 @@ enum _CropSetupMode {
   planted('Already Planted');
 
   const _CropSetupMode(this.label);
+  final String label;
+}
+
+enum _MaterialAvailability {
+  availableNow('Available Now'),
+  needSoon('Need Soon');
+
+  const _MaterialAvailability(this.label);
   final String label;
 }
 

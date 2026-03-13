@@ -86,4 +86,35 @@ void main() {
     expect(insights.first.id, 'stable');
     expect(insights.first.severity, OperationalInsightSeverity.info);
   });
+
+  test('summarizes setup readiness gaps from starter inventory', () async {
+    final db = await DatabaseHelper().database;
+
+    await db.insert('inventory', {
+      'item_name': 'Hay',
+      'category': 'Animal Feed',
+      'quantity': 0,
+      'min_stock': 4,
+      'unit': 'bales',
+    });
+    await db.insert('inventory', {
+      'item_name': 'Maize Seed',
+      'category': 'Seeds',
+      'quantity': 1,
+      'min_stock': 3,
+      'unit': 'kg',
+    });
+    await db.insert('inventory', {
+      'item_name': 'Fungicide',
+      'category': 'Chemicals',
+      'quantity': 2,
+      'min_stock': 2,
+      'unit': 'liters',
+    });
+
+    final summary = await LocalData.getFarmSummary();
+
+    expect(summary['feedReadinessGaps'], 1);
+    expect(summary['cropInputGaps'], 2);
+  });
 }

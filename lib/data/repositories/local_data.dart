@@ -181,6 +181,32 @@ class LocalData {
     );
     final activeFieldCrops = Sqflite.firstIntValue(plantedCropsResult) ?? 0;
 
+    final feedGapResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM inventory
+      WHERE LOWER(COALESCE(category, '')) = 'animal feed'
+        AND min_stock > 0
+        AND quantity <= min_stock
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null ? null : [activeUserId],
+    );
+    final feedReadinessGaps = Sqflite.firstIntValue(feedGapResult) ?? 0;
+
+    final cropInputGapResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM inventory
+      WHERE LOWER(COALESCE(category, '')) IN ('seeds', 'fertilizers', 'chemicals')
+        AND min_stock > 0
+        AND quantity <= min_stock
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null ? null : [activeUserId],
+    );
+    final cropInputGaps = Sqflite.firstIntValue(cropInputGapResult) ?? 0;
+
     return {
       "crops": cropCount,
       "livestock": animalCount,
@@ -200,6 +226,8 @@ class LocalData {
       "setupTasksNext7Days": setupTasksNext7Days,
       "setupTasksNext30Days": setupTasksNext30Days,
       "activeFieldCrops": activeFieldCrops,
+      "feedReadinessGaps": feedReadinessGaps,
+      "cropInputGaps": cropInputGaps,
     };
   }
 

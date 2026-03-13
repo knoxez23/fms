@@ -542,6 +542,9 @@ class _SetupMomentumSection extends StatelessWidget {
         (summary['setupTasksNext30Days'] as num?)?.toInt() ?? 0;
     final activeFieldCrops =
         (summary['activeFieldCrops'] as num?)?.toInt() ?? 0;
+    final feedGaps = (summary['feedReadinessGaps'] as num?)?.toInt() ?? 0;
+    final cropInputGaps = (summary['cropInputGaps'] as num?)?.toInt() ?? 0;
+    final totalReadinessGaps = feedGaps + cropInputGaps;
 
     return Column(
       children: [
@@ -552,9 +555,11 @@ class _SetupMomentumSection extends StatelessWidget {
                 theme: theme,
                 title: 'Today\'s Feeding',
                 value: '$todaysFeedings',
-                subtitle: todaysFeedings == 0
-                    ? 'No active schedules yet'
-                    : 'Feeding sessions ready',
+                subtitle: feedGaps > 0
+                    ? '$feedGaps feed item${feedGaps == 1 ? '' : 's'} need sourcing'
+                    : todaysFeedings == 0
+                        ? 'No active schedules yet'
+                        : 'Feeding sessions ready',
                 icon: Icons.local_dining_outlined,
                 color: Colors.teal,
                 onTap: onOpenFarm,
@@ -582,9 +587,11 @@ class _SetupMomentumSection extends StatelessWidget {
                 theme: theme,
                 title: 'Field Crops',
                 value: '$activeFieldCrops',
-                subtitle: activeFieldCrops == 0
-                    ? 'No crops marked active'
-                    : 'Crops already in motion',
+                subtitle: cropInputGaps > 0
+                    ? '$cropInputGaps crop input gap${cropInputGaps == 1 ? '' : 's'} to fix'
+                    : activeFieldCrops == 0
+                        ? 'No crops marked active'
+                        : 'Crops already in motion',
                 icon: Icons.grass_outlined,
                 color: Colors.green,
                 onTap: onOpenFarm,
@@ -596,7 +603,9 @@ class _SetupMomentumSection extends StatelessWidget {
                 theme: theme,
                 title: '30-Day Plan',
                 value: '$setupTasks30',
-                subtitle: 'Operational checklist seeded',
+                subtitle: totalReadinessGaps > 0
+                    ? '$totalReadinessGaps startup blocker${totalReadinessGaps == 1 ? '' : 's'} visible'
+                    : 'Operational checklist seeded',
                 icon: Icons.fact_check_outlined,
                 color: Colors.deepOrange,
                 onTap: onOpenInventory,
@@ -604,6 +613,15 @@ class _SetupMomentumSection extends StatelessWidget {
             ),
           ],
         ),
+        if (totalReadinessGaps > 0) ...[
+          const SizedBox(height: 12),
+          _SetupReadinessBanner(
+            theme: theme,
+            feedGaps: feedGaps,
+            cropInputGaps: cropInputGaps,
+            onOpenInventory: onOpenInventory,
+          ),
+        ],
       ],
     );
   }
@@ -678,6 +696,58 @@ class _SetupMomentumCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SetupReadinessBanner extends StatelessWidget {
+  final ThemeData theme;
+  final int feedGaps;
+  final int cropInputGaps;
+  final VoidCallback onOpenInventory;
+
+  const _SetupReadinessBanner({
+    required this.theme,
+    required this.feedGaps,
+    required this.cropInputGaps,
+    required this.onOpenInventory,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final blockers = <String>[
+      if (feedGaps > 0)
+        '$feedGaps feed item${feedGaps == 1 ? '' : 's'} below starter level',
+      if (cropInputGaps > 0)
+        '$cropInputGaps crop input${cropInputGaps == 1 ? '' : 's'} still missing',
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.amber),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              blockers.join(' • '),
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: onOpenInventory,
+            child: const Text('Resolve'),
+          ),
+        ],
       ),
     );
   }
