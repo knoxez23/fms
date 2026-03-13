@@ -13,6 +13,7 @@ import 'core/presentation/settings/app_settings_controller.dart';
 import 'core/presentation/widgets/app_drawer.dart';
 import 'features/auth/application/auth_usecases.dart';
 import 'features/farm_mgmt/application/domain_event_subscribers.dart';
+import 'core/services/farm_setup_service.dart';
 import 'package:pamoja_twalima/features/business/presentation/sales/sales_screen.dart';
 import 'package:pamoja_twalima/features/inventory/presentation/inventory_screen.dart';
 import 'data/repositories/sync_worker.dart';
@@ -24,6 +25,7 @@ import 'features/home/presentation/home_screen.dart';
 import 'features/farm_mgmt/presentation/farm_mgmt_screen.dart';
 import 'features/farm_mgmt/presentation/animals/animals_screen.dart';
 import 'features/onboarding/presentation/onboarding_screen.dart';
+import 'features/onboarding/presentation/farm_setup_screen.dart';
 import 'features/profile/presentation/profile_screen.dart';
 import 'features/marketplace/presentation/sell_product_screen.dart';
 import 'features/auth/presentation/register_screen.dart';
@@ -90,6 +92,7 @@ class PamojaApp extends StatelessWidget {
             '/onboarding': (_) => const OnboardingScreen(),
             '/login': (_) => const LoginScreen(),
             '/register': (_) => const RegisterScreen(),
+            '/farm-setup': (_) => const FarmSetupGate(),
             '/animals': (_) => const AnimalsScreen(),
             '/home': (_) => const MainShell(),
             '/profile': (_) => const ProfileScreen(),
@@ -138,7 +141,9 @@ class _SplashScreenState extends State<SplashScreen> {
       if (!seenOnboarding) {
         route = '/onboarding';
       } else if (isAuthenticated) {
-        route = '/home';
+        final user = await getIt<GetCurrentUser>().execute();
+        final setupDone = await FarmSetupService().isSetupComplete(user.id);
+        route = setupDone ? '/home' : '/farm-setup';
       } else {
         route = '/login';
       }

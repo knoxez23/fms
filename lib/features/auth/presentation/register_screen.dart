@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'bloc/auth/auth_bloc.dart';
 import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
+import 'package:pamoja_twalima/core/services/farm_setup_service.dart';
+import 'package:pamoja_twalima/features/onboarding/presentation/farm_setup_screen.dart';
 
 class RegisterScreen extends StatelessWidget {
   const RegisterScreen({super.key});
@@ -78,8 +80,23 @@ class _RegisterViewState extends State<RegisterView> {
           state.when(
             initial: () {},
             loading: () {},
-            authenticated: (user) {
-              Navigator.of(context).pushReplacementNamed('/home');
+            authenticated: (user) async {
+              final setupDone =
+                  await FarmSetupService().isSetupComplete(user.id);
+              if (!context.mounted) return;
+              if (setupDone) {
+                Navigator.of(context).pushReplacementNamed('/home');
+                return;
+              }
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => FarmSetupScreen(
+                    userId: user.id ?? 0,
+                    farmerName: user.name,
+                    farmName: user.farmName,
+                  ),
+                ),
+              );
             },
             unauthenticated: () {},
             error: (message) {
