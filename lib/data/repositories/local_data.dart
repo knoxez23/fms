@@ -569,11 +569,12 @@ class LocalData {
 
   static Future<int> updateTask(Task task) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     final existing = await db.query(
       'tasks',
       columns: ['is_synced'],
-      where: 'id = ?',
-      whereArgs: [task.id],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [task.id] : [task.id, activeUserId],
       limit: 1,
     );
     final isSynced =
@@ -586,23 +587,29 @@ class LocalData {
     return await db.update(
       'tasks',
       row,
-      where: 'id = ?',
-      whereArgs: [task.id],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [task.id] : [task.id, activeUserId],
     );
   }
 
   static Future<int> deleteTask(int id) async {
     final db = await _dbHelper.database;
-    return await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
+    final activeUserId = await _getActiveUserId();
+    return await db.delete(
+      'tasks',
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [id] : [id, activeUserId],
+    );
   }
 
   static Future<bool> isTaskSynced(int id) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     final rows = await db.query(
       'tasks',
       columns: ['is_synced'],
-      where: 'id = ?',
-      whereArgs: [id],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [id] : [id, activeUserId],
       limit: 1,
     );
     if (rows.isEmpty) return false;
@@ -611,11 +618,12 @@ class LocalData {
 
   static Future<bool> isTaskUnsynced(int id) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     final rows = await db.query(
       'tasks',
       columns: ['is_synced'],
-      where: 'id = ?',
-      whereArgs: [id],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [id] : [id, activeUserId],
       limit: 1,
     );
     if (rows.isEmpty) return false;
@@ -624,12 +632,14 @@ class LocalData {
 
   static Future<void> queueTaskDelete(int taskServerId) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     await db.insert(
       'task_delete_sync_queue',
       {
         'task_server_id': taskServerId,
         'created_at': DateTime.now().toIso8601String(),
         'retry_count': 0,
+        'user_id': activeUserId,
       },
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
@@ -637,40 +647,58 @@ class LocalData {
 
   static Future<List<Map<String, dynamic>>> getPendingTaskDeletes() async {
     final db = await _dbHelper.database;
-    return db.query('task_delete_sync_queue', orderBy: 'created_at ASC');
+    final activeUserId = await _getActiveUserId();
+    return db.query(
+      'task_delete_sync_queue',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
+      orderBy: 'created_at ASC',
+    );
   }
 
   static Future<int> deletePendingTaskDelete(int id) async {
     final db = await _dbHelper.database;
-    return db
-        .delete('task_delete_sync_queue', where: 'id = ?', whereArgs: [id]);
+    final activeUserId = await _getActiveUserId();
+    return db.delete(
+      'task_delete_sync_queue',
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [id] : [id, activeUserId],
+    );
   }
 
   static Future<int> deletePendingTaskDeleteByServerId(int taskServerId) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     return db.delete(
       'task_delete_sync_queue',
-      where: 'task_server_id = ?',
-      whereArgs: [taskServerId],
+      where: activeUserId == null
+          ? 'task_server_id = ?'
+          : 'task_server_id = ? AND user_id = ?',
+      whereArgs:
+          activeUserId == null ? [taskServerId] : [taskServerId, activeUserId],
     );
   }
 
   static Future<int> updatePendingTaskDeleteRetryCount(
       int id, int retryCount) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     return db.update(
       'task_delete_sync_queue',
       {'retry_count': retryCount},
-      where: 'id = ?',
-      whereArgs: [id],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [id] : [id, activeUserId],
     );
   }
 
   static Future<Set<int>> getPendingTaskDeleteServerIds() async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     final rows = await db.query(
       'task_delete_sync_queue',
       columns: ['task_server_id'],
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
     );
     return rows.map((row) => row['task_server_id']).whereType<int>().toSet();
   }
@@ -681,11 +709,14 @@ class LocalData {
     required Map<String, dynamic> payload,
   }) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     final encodedPayload = jsonEncode(payload);
     final existing = await db.query(
       'task_sync_queue',
-      where: 'task_local_id = ?',
-      whereArgs: [localId],
+      where: activeUserId == null
+          ? 'task_local_id = ?'
+          : 'task_local_id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [localId] : [localId, activeUserId],
       orderBy: 'created_at DESC',
     );
 
@@ -702,8 +733,10 @@ class LocalData {
             'created_at': DateTime.now().toIso8601String(),
             'retry_count': 0,
           },
-          where: 'id = ?',
-          whereArgs: [createEntry['id']],
+          where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+          whereArgs: activeUserId == null
+              ? [createEntry['id']]
+              : [createEntry['id'], activeUserId],
         );
         return;
       }
@@ -720,8 +753,10 @@ class LocalData {
             'created_at': DateTime.now().toIso8601String(),
             'retry_count': 0,
           },
-          where: 'id = ?',
-          whereArgs: [latestUpdate['id']],
+          where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+          whereArgs: activeUserId == null
+              ? [latestUpdate['id']]
+              : [latestUpdate['id'], activeUserId],
         );
         return;
       }
@@ -740,8 +775,10 @@ class LocalData {
             'created_at': DateTime.now().toIso8601String(),
             'retry_count': 0,
           },
-          where: 'id = ?',
-          whereArgs: [latestCreate['id']],
+          where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+          whereArgs: activeUserId == null
+              ? [latestCreate['id']]
+              : [latestCreate['id'], activeUserId],
         );
         return;
       }
@@ -753,33 +790,52 @@ class LocalData {
       'payload': encodedPayload,
       'created_at': DateTime.now().toIso8601String(),
       'retry_count': 0,
+      'user_id': activeUserId,
     });
   }
 
   static Future<List<Map<String, dynamic>>> getPendingTaskActions() async {
     final db = await _dbHelper.database;
-    return db.query('task_sync_queue', orderBy: 'created_at ASC');
+    final activeUserId = await _getActiveUserId();
+    return db.query(
+      'task_sync_queue',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
+      orderBy: 'created_at ASC',
+    );
   }
 
   static Future<int> deletePendingTaskAction(int id) async {
     final db = await _dbHelper.database;
-    return db.delete('task_sync_queue', where: 'id = ?', whereArgs: [id]);
+    final activeUserId = await _getActiveUserId();
+    return db.delete(
+      'task_sync_queue',
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [id] : [id, activeUserId],
+    );
   }
 
   static Future<int> deletePendingTaskActionsForLocalId(int localId) async {
     final db = await _dbHelper.database;
-    return db.delete('task_sync_queue',
-        where: 'task_local_id = ?', whereArgs: [localId]);
+    final activeUserId = await _getActiveUserId();
+    return db.delete(
+      'task_sync_queue',
+      where: activeUserId == null
+          ? 'task_local_id = ?'
+          : 'task_local_id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [localId] : [localId, activeUserId],
+    );
   }
 
   static Future<int> updatePendingTaskActionRetryCount(
       int id, int retryCount) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     return db.update(
       'task_sync_queue',
       {'retry_count': retryCount},
-      where: 'id = ?',
-      whereArgs: [id],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [id] : [id, activeUserId],
     );
   }
 

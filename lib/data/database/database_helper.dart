@@ -55,7 +55,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'pamoja_twalima.db');
     return await openDatabase(
       path,
-      version: 20,
+      version: 21,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -306,7 +306,9 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         task_server_id INTEGER NOT NULL UNIQUE,
         created_at TEXT NOT NULL,
-        retry_count INTEGER DEFAULT 0
+        retry_count INTEGER DEFAULT 0,
+        user_id INTEGER,
+        FOREIGN KEY (user_id) REFERENCES users (id)
       )
     ''');
 
@@ -318,7 +320,9 @@ class DatabaseHelper {
         action TEXT NOT NULL,
         payload TEXT NOT NULL,
         created_at TEXT NOT NULL,
-        retry_count INTEGER DEFAULT 0
+        retry_count INTEGER DEFAULT 0,
+        user_id INTEGER,
+        FOREIGN KEY (user_id) REFERENCES users (id)
       )
     ''');
 
@@ -607,6 +611,21 @@ class DatabaseHelper {
       try {
         await db.execute(
             'ALTER TABLE marketplace_inquiries ADD COLUMN user_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+    }
+
+    if (oldVersion < 21) {
+      try {
+        await db.execute(
+            'ALTER TABLE task_delete_sync_queue ADD COLUMN user_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+      try {
+        await db
+            .execute('ALTER TABLE task_sync_queue ADD COLUMN user_id INTEGER');
       } catch (e) {
         // Column may already exist
       }
