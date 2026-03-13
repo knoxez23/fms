@@ -14,6 +14,10 @@ class LocalData {
   static final DatabaseHelper _dbHelper = DatabaseHelper();
   static final LocalSessionService _localSessionService = LocalSessionService();
 
+  static Future<int?> _getActiveUserId() async {
+    return _localSessionService.getActiveUserId();
+  }
+
   static Future<Map<String, dynamic>> _attachActiveUserId(
     Map<String, dynamic> row,
   ) async {
@@ -30,33 +34,41 @@ class LocalData {
 
   static Future<Map<String, dynamic>> getFarmSummary() async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
 
     // Get crop count
-    final cropResult = await db.rawQuery('SELECT COUNT(*) as count FROM crops');
+    final cropResult = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM crops${activeUserId == null ? '' : ' WHERE user_id = ?'}',
+      activeUserId == null ? null : [activeUserId],
+    );
     final cropCount = Sqflite.firstIntValue(cropResult) ?? 0;
 
     // Get animal count
-    final animalResult =
-        await db.rawQuery('SELECT COUNT(*) as count FROM animals');
+    final animalResult = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM animals${activeUserId == null ? '' : ' WHERE user_id = ?'}',
+      activeUserId == null ? null : [activeUserId],
+    );
     final animalCount = Sqflite.firstIntValue(animalResult) ?? 0;
 
     // Get inventory count
-    final inventoryResult =
-        await db.rawQuery('SELECT COUNT(*) as count FROM inventory');
+    final inventoryResult = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM inventory${activeUserId == null ? '' : ' WHERE user_id = ?'}',
+      activeUserId == null ? null : [activeUserId],
+    );
     final inventoryCount = Sqflite.firstIntValue(inventoryResult) ?? 0;
 
     // Get pending tasks count
     final tasksResult = await db.rawQuery(
-      'SELECT COUNT(*) as count FROM tasks WHERE status != ?',
-      ['completed'],
+      'SELECT COUNT(*) as count FROM tasks WHERE status != ?${activeUserId == null ? '' : ' AND user_id = ?'}',
+      activeUserId == null ? ['completed'] : ['completed', activeUserId],
     );
     final pendingTasksCount = Sqflite.firstIntValue(tasksResult) ?? 0;
 
     // Get today's sales
     final today = DateTime.now().toIso8601String().split('T')[0];
     final salesResult = await db.rawQuery(
-        'SELECT SUM(total_amount) as total FROM sales WHERE DATE(sale_date) = ?',
-        [today]);
+        'SELECT SUM(total_amount) as total FROM sales WHERE DATE(sale_date) = ?${activeUserId == null ? '' : ' AND user_id = ?'}',
+        activeUserId == null ? [today] : [today, activeUserId]);
     final salesToday = (salesResult.first['total'] as num?)?.toDouble() ?? 0.0;
 
     // Get this month's sales
@@ -65,27 +77,32 @@ class LocalData {
             .toIso8601String()
             .split('T')[0];
     final monthlySalesResult = await db.rawQuery(
-        'SELECT SUM(total_amount) as total FROM sales WHERE DATE(sale_date) >= ?',
-        [firstDayOfMonth]);
+        'SELECT SUM(total_amount) as total FROM sales WHERE DATE(sale_date) >= ?${activeUserId == null ? '' : ' AND user_id = ?'}',
+        activeUserId == null
+            ? [firstDayOfMonth]
+            : [firstDayOfMonth, activeUserId]);
     final monthlySales =
         (monthlySalesResult.first['total'] as num?)?.toDouble() ?? 0.0;
 
     final expensesTodayResult = await db.rawQuery(
-      'SELECT SUM(amount) as total FROM expenses WHERE DATE(expense_date) = ?',
-      [today],
+      'SELECT SUM(amount) as total FROM expenses WHERE DATE(expense_date) = ?${activeUserId == null ? '' : ' AND user_id = ?'}',
+      activeUserId == null ? [today] : [today, activeUserId],
     );
     final expensesToday =
         (expensesTodayResult.first['total'] as num?)?.toDouble() ?? 0.0;
 
     final monthlyExpensesResult = await db.rawQuery(
-      'SELECT SUM(amount) as total FROM expenses WHERE DATE(expense_date) >= ?',
-      [firstDayOfMonth],
+      'SELECT SUM(amount) as total FROM expenses WHERE DATE(expense_date) >= ?${activeUserId == null ? '' : ' AND user_id = ?'}',
+      activeUserId == null
+          ? [firstDayOfMonth]
+          : [firstDayOfMonth, activeUserId],
     );
     final monthlyExpenses =
         (monthlyExpensesResult.first['total'] as num?)?.toDouble() ?? 0.0;
 
     final lowStockResult = await db.rawQuery(
-      'SELECT COUNT(*) as count FROM inventory WHERE min_stock > 0 AND quantity <= min_stock',
+      'SELECT COUNT(*) as count FROM inventory WHERE min_stock > 0 AND quantity <= min_stock${activeUserId == null ? '' : ' AND user_id = ?'}',
+      activeUserId == null ? null : [activeUserId],
     );
     final lowStockItems = Sqflite.firstIntValue(lowStockResult) ?? 0;
 
@@ -96,8 +113,9 @@ class LocalData {
         SUM(CASE WHEN LOWER(COALESCE(production_type, '')) = 'eggs' THEN COALESCE(quantity, 0) ELSE 0 END) AS eggs_total
       FROM production_logs
       WHERE DATE(date_produced) = ?
+      ${activeUserId == null ? '' : 'AND user_id = ?'}
       ''',
-      [today],
+      activeUserId == null ? [today] : [today, activeUserId],
     );
     final milkToday =
         (productionTodayRows.first['milk_total'] as num?)?.toDouble() ?? 0.0;
@@ -127,6 +145,7 @@ class LocalData {
     int limit = 5,
   }) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final todayIso = today.toIso8601String().split('T').first;
@@ -140,8 +159,11 @@ class LocalData {
       WHERE status != ?
         AND due_date IS NOT NULL
         AND DATE(due_date) < DATE(?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
       ''',
-      ['completed', todayIso],
+      activeUserId == null
+          ? ['completed', todayIso]
+          : ['completed', todayIso, activeUserId],
     );
     final overdueTasks = Sqflite.firstIntValue(overdueTasksResult) ?? 0;
 
@@ -152,8 +174,11 @@ class LocalData {
       WHERE status != ?
         AND due_date IS NOT NULL
         AND DATE(due_date) = DATE(?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
       ''',
-      ['completed', todayIso],
+      activeUserId == null
+          ? ['completed', todayIso]
+          : ['completed', todayIso, activeUserId],
     );
     final dueTodayTasks = Sqflite.firstIntValue(dueTodayTasksResult) ?? 0;
 
@@ -162,7 +187,9 @@ class LocalData {
       SELECT COUNT(*) as count
       FROM inventory
       WHERE min_stock > 0 AND quantity <= min_stock
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
       ''',
+      activeUserId == null ? null : [activeUserId],
     );
     final lowStockCount = Sqflite.firstIntValue(lowStockResult) ?? 0;
 
@@ -173,8 +200,9 @@ class LocalData {
       WHERE expected_harvest_date IS NOT NULL
         AND LOWER(COALESCE(status, '')) != 'harvested'
         AND DATE(expected_harvest_date) <= DATE(?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
       ''',
-      [nextWeekIso],
+      activeUserId == null ? [nextWeekIso] : [nextWeekIso, activeUserId],
     );
     final harvestSoonCount = Sqflite.firstIntValue(harvestSoonResult) ?? 0;
 
@@ -183,7 +211,9 @@ class LocalData {
       SELECT COUNT(*) as count
       FROM sales
       WHERE LOWER(COALESCE(payment_status, 'pending')) != 'paid'
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
       ''',
+      activeUserId == null ? null : [activeUserId],
     );
     final unpaidSalesCount = Sqflite.firstIntValue(unpaidSalesResult) ?? 0;
 
@@ -194,8 +224,11 @@ class LocalData {
       WHERE completed = 0
         AND (start_date IS NULL OR DATE(start_date) <= DATE(?))
         AND (end_date IS NULL OR DATE(end_date) >= DATE(?))
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
       ''',
-      [todayIso, todayIso],
+      activeUserId == null
+          ? [todayIso, todayIso]
+          : [todayIso, todayIso, activeUserId],
     );
     final activeFeedingSchedules =
         Sqflite.firstIntValue(activeFeedingSchedulesResult) ?? 0;
@@ -289,11 +322,14 @@ class LocalData {
     int limit = 5,
   }) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     return db.query(
       'tasks',
       columns: ['id', 'title', 'due_date', 'status', 'priority'],
-      where: 'status != ?',
-      whereArgs: ['completed'],
+      where:
+          activeUserId == null ? 'status != ?' : 'status != ? AND user_id = ?',
+      whereArgs:
+          activeUserId == null ? ['completed'] : ['completed', activeUserId],
       orderBy: 'CASE WHEN due_date IS NULL THEN 1 ELSE 0 END, due_date ASC',
       limit: limit,
     );
@@ -303,6 +339,7 @@ class LocalData {
     int limit = 5,
   }) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     return db.query(
       'sales',
       columns: [
@@ -313,6 +350,8 @@ class LocalData {
         'payment_status',
         'customer_name',
       ],
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
       orderBy: 'sale_date DESC',
       limit: limit,
     );
@@ -322,6 +361,7 @@ class LocalData {
     int limit = 5,
   }) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     return db.query(
       'expenses',
       columns: [
@@ -333,6 +373,8 @@ class LocalData {
         'vendor_name',
         'payment_method',
       ],
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
       orderBy: 'expense_date DESC',
       limit: limit,
     );
@@ -347,6 +389,7 @@ class LocalData {
     int days = 7,
   }) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     final startDate = DateTime.now().subtract(Duration(days: days - 1));
     final start = DateTime(startDate.year, startDate.month, startDate.day)
         .toIso8601String();
@@ -355,9 +398,10 @@ class LocalData {
       SELECT DATE(date_produced) as day, COALESCE(SUM(quantity), 0) as total
       FROM production_logs
       WHERE date_produced >= ?
+      ${activeUserId == null ? '' : 'AND user_id = ?'}
       GROUP BY DATE(date_produced)
       ORDER BY day ASC
-    ''', [start]);
+    ''', activeUserId == null ? [start] : [start, activeUserId]);
 
     final totalsByDay = <String, double>{
       for (final row in rows)
@@ -392,7 +436,12 @@ class LocalData {
   // Animal CRUD operations
   static Future<List<Animal>> getAnimals() async {
     final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query('animals');
+    final activeUserId = await _getActiveUserId();
+    final List<Map<String, dynamic>> maps = await db.query(
+      'animals',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
+    );
     return List.generate(maps.length, (i) => Animal.fromMap(maps[i]));
   }
 
@@ -434,7 +483,12 @@ class LocalData {
   // Crop CRUD operations
   static Future<List<Crop>> getCrops() async {
     final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query('crops');
+    final activeUserId = await _getActiveUserId();
+    final List<Map<String, dynamic>> maps = await db.query(
+      'crops',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
+    );
     return List.generate(maps.length, (i) => Crop.fromMap(maps[i]));
   }
 
@@ -479,7 +533,12 @@ class LocalData {
   // Task CRUD operations
   static Future<List<Task>> getTasks() async {
     final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query('tasks');
+    final activeUserId = await _getActiveUserId();
+    final List<Map<String, dynamic>> maps = await db.query(
+      'tasks',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
+    );
     return List.generate(maps.length, (i) => Task.fromMap(maps[i]));
   }
 
@@ -826,8 +885,11 @@ class LocalData {
   // Animal Health Record CRUD operations
   static Future<List<AnimalHealthRecord>> getAnimalHealthRecords() async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     final maps = await db.query(
       'animal_health_records',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
       orderBy: 'treated_at DESC, id DESC',
     );
     return List.generate(
@@ -882,8 +944,13 @@ class LocalData {
   // Sales CRUD operations
   static Future<List<Map<String, dynamic>>> getSales() async {
     final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps =
-        await db.query('sales', orderBy: 'sale_date DESC');
+    final activeUserId = await _getActiveUserId();
+    final List<Map<String, dynamic>> maps = await db.query(
+      'sales',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
+      orderBy: 'sale_date DESC',
+    );
     return maps;
   }
 
@@ -921,6 +988,7 @@ class LocalData {
 
   static Future<int> upsertSaleFromServer(Map<String, dynamic> sale) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     final serverId = sale['id'];
     if (serverId == null) {
       return await insertSale(sale);
@@ -945,8 +1013,10 @@ class LocalData {
     final existing = await db.query(
       'sales',
       columns: ['id'],
-      where: 'server_id = ?',
-      whereArgs: [serverId],
+      where: activeUserId == null
+          ? 'server_id = ?'
+          : 'server_id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [serverId] : [serverId, activeUserId],
       limit: 1,
     );
 
@@ -961,6 +1031,7 @@ class LocalData {
 
   static Future<int> updateSale(int id, Map<String, dynamic> sale) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
 
     final row = await _attachActiveUserId(<String, dynamic>{
       'server_id': sale['server_id'] ?? sale['id'],
@@ -981,14 +1052,15 @@ class LocalData {
     return await db.update(
       'sales',
       row,
-      where: 'id = ?',
-      whereArgs: [id],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [id] : [id, activeUserId],
     );
   }
 
   static Future<int> updateSaleByIdOrServerId(
       int id, Map<String, dynamic> sale) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
 
     final row = await _attachActiveUserId(<String, dynamic>{
       'server_id': sale['server_id'] ?? sale['id'],
@@ -1009,27 +1081,38 @@ class LocalData {
     return await db.update(
       'sales',
       row,
-      where: 'id = ? OR server_id = ?',
-      whereArgs: [id, id],
+      where: activeUserId == null
+          ? 'id = ? OR server_id = ?'
+          : '(id = ? OR server_id = ?) AND user_id = ?',
+      whereArgs: activeUserId == null ? [id, id] : [id, id, activeUserId],
     );
   }
 
   static Future<int> deleteSale(int id) async {
     final db = await _dbHelper.database;
-    return await db.delete('sales', where: 'id = ?', whereArgs: [id]);
+    final activeUserId = await _getActiveUserId();
+    return await db.delete(
+      'sales',
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [id] : [id, activeUserId],
+    );
   }
 
   static Future<int> deleteSaleByIdOrServerId(int id) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     return await db.delete(
       'sales',
-      where: 'id = ? OR server_id = ?',
-      whereArgs: [id, id],
+      where: activeUserId == null
+          ? 'id = ? OR server_id = ?'
+          : '(id = ? OR server_id = ?) AND user_id = ?',
+      whereArgs: activeUserId == null ? [id, id] : [id, id, activeUserId],
     );
   }
 
   static Future<int?> findSaleIdByPayload(Map<String, dynamic> sale) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
 
     final customerName = sale['customer_name'] ?? sale['customer'];
     final saleDate = sale['sale_date'] ?? sale['date'];
@@ -1038,16 +1121,27 @@ class LocalData {
       'sales',
       columns: ['id'],
       where:
-          'product_name = ? AND quantity = ? AND unit = ? AND price = ? AND total_amount = ? AND customer_name = ? AND sale_date = ?',
-      whereArgs: [
-        sale['product_name'],
-        sale['quantity'],
-        sale['unit'],
-        sale['price'],
-        sale['total_amount'],
-        customerName,
-        saleDate,
-      ],
+          'product_name = ? AND quantity = ? AND unit = ? AND price = ? AND total_amount = ? AND customer_name = ? AND sale_date = ?${activeUserId == null ? '' : ' AND user_id = ?'}',
+      whereArgs: activeUserId == null
+          ? [
+              sale['product_name'],
+              sale['quantity'],
+              sale['unit'],
+              sale['price'],
+              sale['total_amount'],
+              customerName,
+              saleDate,
+            ]
+          : [
+              sale['product_name'],
+              sale['quantity'],
+              sale['unit'],
+              sale['price'],
+              sale['total_amount'],
+              customerName,
+              saleDate,
+              activeUserId,
+            ],
       limit: 1,
     );
 
@@ -1057,11 +1151,14 @@ class LocalData {
 
   static Future<int?> findSaleIdByServerId(int serverId) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     final rows = await db.query(
       'sales',
       columns: ['id'],
-      where: 'server_id = ?',
-      whereArgs: [serverId],
+      where: activeUserId == null
+          ? 'server_id = ?'
+          : 'server_id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [serverId] : [serverId, activeUserId],
       limit: 1,
     );
 
@@ -1071,28 +1168,32 @@ class LocalData {
 
   static Future<List<Map<String, dynamic>>> getRevenueByType() async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     return db.rawQuery('''
       SELECT
         COALESCE(NULLIF(type, ''), 'Other') AS label,
         COUNT(*) AS entry_count,
         SUM(COALESCE(total_amount, 0)) AS total
       FROM sales
+      ${activeUserId == null ? '' : 'WHERE user_id = ?'}
       GROUP BY COALESCE(NULLIF(type, ''), 'Other')
       ORDER BY total DESC, label ASC
-    ''');
+    ''', activeUserId == null ? null : [activeUserId]);
   }
 
   static Future<List<Map<String, dynamic>>> getExpensesByCategory() async {
     final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
     return db.rawQuery('''
       SELECT
         COALESCE(NULLIF(category, ''), 'Other') AS label,
         COUNT(*) AS entry_count,
         SUM(COALESCE(amount, 0)) AS total
       FROM expenses
+      ${activeUserId == null ? '' : 'WHERE user_id = ?'}
       GROUP BY COALESCE(NULLIF(category, ''), 'Other')
       ORDER BY total DESC, label ASC
-    ''');
+    ''', activeUserId == null ? null : [activeUserId]);
   }
 
   // Pending sales (offline sync queue)
