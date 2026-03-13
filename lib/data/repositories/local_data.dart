@@ -181,6 +181,44 @@ class LocalData {
     );
     final activeFieldCrops = Sqflite.firstIntValue(plantedCropsResult) ?? 0;
 
+    final productionReviewResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM tasks
+      WHERE status != ?
+        AND LOWER(COALESCE(source_event_type, '')) = 'setup'
+        AND due_date IS NOT NULL
+        AND (
+          LOWER(COALESCE(title, '')) LIKE '%production review%'
+          OR LOWER(COALESCE(title, '')) LIKE '%feed efficiency%'
+          OR LOWER(COALESCE(title, '')) LIKE '%growth review%'
+          OR LOWER(COALESCE(title, '')) LIKE '%market timing%'
+        )
+        AND DATE(due_date) <= DATE(?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null
+          ? ['completed', nextDateIso(7)]
+          : ['completed', nextDateIso(7), activeUserId],
+    );
+    final productionReviewsNext7Days =
+        Sqflite.firstIntValue(productionReviewResult) ?? 0;
+
+    final harvestReadyResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM crops
+      WHERE expected_harvest_date IS NOT NULL
+        AND LOWER(COALESCE(status, '')) != 'harvested'
+        AND DATE(expected_harvest_date) <= DATE(?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null
+          ? [nextDateIso(14)]
+          : [nextDateIso(14), activeUserId],
+    );
+    final harvestReadyCrops = Sqflite.firstIntValue(harvestReadyResult) ?? 0;
+
     final feedGapResult = await db.rawQuery(
       '''
       SELECT COUNT(*) as count
@@ -226,6 +264,8 @@ class LocalData {
       "setupTasksNext7Days": setupTasksNext7Days,
       "setupTasksNext30Days": setupTasksNext30Days,
       "activeFieldCrops": activeFieldCrops,
+      "productionReviewsNext7Days": productionReviewsNext7Days,
+      "harvestReadyCrops": harvestReadyCrops,
       "feedReadinessGaps": feedReadinessGaps,
       "cropInputGaps": cropInputGaps,
     };

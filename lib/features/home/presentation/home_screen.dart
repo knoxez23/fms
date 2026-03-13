@@ -542,6 +542,10 @@ class _SetupMomentumSection extends StatelessWidget {
         (summary['setupTasksNext30Days'] as num?)?.toInt() ?? 0;
     final activeFieldCrops =
         (summary['activeFieldCrops'] as num?)?.toInt() ?? 0;
+    final productionReviews =
+        (summary['productionReviewsNext7Days'] as num?)?.toInt() ?? 0;
+    final harvestReadyCrops =
+        (summary['harvestReadyCrops'] as num?)?.toInt() ?? 0;
     final feedGaps = (summary['feedReadinessGaps'] as num?)?.toInt() ?? 0;
     final cropInputGaps = (summary['cropInputGaps'] as num?)?.toInt() ?? 0;
     final totalReadinessGaps = feedGaps + cropInputGaps;
@@ -570,8 +574,11 @@ class _SetupMomentumSection extends StatelessWidget {
               child: _SetupMomentumCard(
                 theme: theme,
                 title: 'Next 7 Days',
-                value: '$setupTasks7',
-                subtitle: 'Setup tasks due soon',
+                value:
+                    '${productionReviews > 0 ? productionReviews : setupTasks7}',
+                subtitle: productionReviews > 0
+                    ? 'Production reviews queued'
+                    : 'Setup tasks due soon',
                 icon: Icons.event_available_outlined,
                 color: Colors.indigo,
                 onTap: onOpenFarm,
@@ -586,12 +593,15 @@ class _SetupMomentumSection extends StatelessWidget {
               child: _SetupMomentumCard(
                 theme: theme,
                 title: 'Field Crops',
-                value: '$activeFieldCrops',
-                subtitle: cropInputGaps > 0
-                    ? '$cropInputGaps crop input gap${cropInputGaps == 1 ? '' : 's'} to fix'
-                    : activeFieldCrops == 0
-                        ? 'No crops marked active'
-                        : 'Crops already in motion',
+                value:
+                    '${harvestReadyCrops > 0 ? harvestReadyCrops : activeFieldCrops}',
+                subtitle: harvestReadyCrops > 0
+                    ? 'Harvest window approaching'
+                    : cropInputGaps > 0
+                        ? '$cropInputGaps crop input gap${cropInputGaps == 1 ? '' : 's'} to fix'
+                        : activeFieldCrops == 0
+                            ? 'No crops marked active'
+                            : 'Crops already in motion',
                 icon: Icons.grass_outlined,
                 color: Colors.green,
                 onTap: onOpenFarm,

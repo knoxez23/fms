@@ -358,8 +358,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
                   ),
                   _SummaryLine(
                     label: 'Starter operational tasks',
-                    value:
-                        '${(_selectedAnimals.length * 2) + (_selectedCrops.length * 2) + _selectedMaterials.where((item) => (_materialAvailability[item] ?? _MaterialAvailability.needSoon) == _MaterialAvailability.needSoon).length}',
+                    value: '${_estimatedTaskCount()}',
                   ),
                 ],
               ),
@@ -501,6 +500,9 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
                 '${preset.title.toLowerCase().replaceAll(' ', '_')}_${scale.name}',
           ),
         );
+        for (final task in _productionChecklistFor(preset, scale)) {
+          await getIt<AddTask>().execute(task);
+        }
       }
 
       for (final preset in _selectedCrops) {
@@ -616,6 +618,35 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
     return score.clamp(1, 12);
   }
 
+  int _estimatedTaskCount() {
+    final materialTasks = _selectedMaterials
+        .where((item) =>
+            (_materialAvailability[item] ?? _MaterialAvailability.needSoon) ==
+            _MaterialAvailability.needSoon)
+        .length;
+    final cropTasks = _selectedCrops.fold<int>(
+      0,
+      (count, preset) =>
+          count +
+          1 +
+          _cropChecklistFor(
+            preset,
+            _cropModes[preset] ?? _CropSetupMode.planned,
+          ).length,
+    );
+    final animalTasks = _selectedAnimals.fold<int>(
+      0,
+      (count, preset) =>
+          count +
+          2 +
+          _productionChecklistFor(
+            preset,
+            _animalScales[preset] ?? _FarmScale.small,
+          ).length,
+    );
+    return materialTasks + cropTasks + animalTasks;
+  }
+
   List<FeedingScheduleEntity> _feedingTemplatesFor({
     required int animalId,
     required _AnimalPreset preset,
@@ -722,6 +753,70 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
         dueDate: DateTime.now().add(const Duration(days: 30)),
         sourceEventType: 'setup',
         sourceEventId: '${cropName.toLowerCase()}_30d',
+      ),
+    ];
+  }
+
+  List<TaskEntity> _productionChecklistFor(
+    _AnimalPreset preset,
+    _FarmScale scale,
+  ) {
+    final lowerTitle = preset.title.toLowerCase();
+    final sourceId = '${lowerTitle.replaceAll(' ', '_')}_${scale.name}';
+
+    if (lowerTitle.contains('dairy') || lowerTitle.contains('layers')) {
+      return [
+        TaskEntity(
+          title: TaskTitle('7-day ${preset.title} production review'),
+          description:
+              'Check output trend, feed usage, and recording consistency for ${preset.title.toLowerCase()}.',
+          dueDate: DateTime.now().add(const Duration(days: 7)),
+          sourceEventType: 'setup',
+          sourceEventId: '${sourceId}_production_7d',
+        ),
+        TaskEntity(
+          title: TaskTitle('14-day ${preset.title} feed efficiency check'),
+          description:
+              'Review whether ${preset.title.toLowerCase()} output matches feed cost and current ration plan.',
+          dueDate: DateTime.now().add(const Duration(days: 14)),
+          sourceEventType: 'setup',
+          sourceEventId: '${sourceId}_production_14d',
+        ),
+        TaskEntity(
+          title: TaskTitle('30-day ${preset.title} sales readiness review'),
+          description:
+              'Decide whether current ${preset.title.toLowerCase()} output should move into sales, stock, or buyer outreach.',
+          dueDate: DateTime.now().add(const Duration(days: 30)),
+          sourceEventType: 'setup',
+          sourceEventId: '${sourceId}_production_30d',
+        ),
+      ];
+    }
+
+    return [
+      TaskEntity(
+        title: TaskTitle('7-day ${preset.title} growth review'),
+        description:
+            'Check growth, health, and stocking assumptions for ${preset.title.toLowerCase()}.',
+        dueDate: DateTime.now().add(const Duration(days: 7)),
+        sourceEventType: 'setup',
+        sourceEventId: '${sourceId}_growth_7d',
+      ),
+      TaskEntity(
+        title: TaskTitle('14-day ${preset.title} cost check'),
+        description:
+            'Review feed use, medication, and labor drivers for ${preset.title.toLowerCase()}.',
+        dueDate: DateTime.now().add(const Duration(days: 14)),
+        sourceEventType: 'setup',
+        sourceEventId: '${sourceId}_growth_14d',
+      ),
+      TaskEntity(
+        title: TaskTitle('30-day ${preset.title} market timing review'),
+        description:
+            'Review sale timing and expected margin for ${preset.title.toLowerCase()}.',
+        dueDate: DateTime.now().add(const Duration(days: 30)),
+        sourceEventType: 'setup',
+        sourceEventId: '${sourceId}_growth_30d',
       ),
     ];
   }

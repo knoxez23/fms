@@ -89,6 +89,7 @@ void main() {
 
   test('summarizes setup readiness gaps from starter inventory', () async {
     final db = await DatabaseHelper().database;
+    final now = DateTime.now();
 
     await db.insert('inventory', {
       'item_name': 'Hay',
@@ -111,10 +112,24 @@ void main() {
       'min_stock': 2,
       'unit': 'liters',
     });
+    await db.insert('tasks', {
+      'title': '7-day Dairy Cows production review',
+      'status': 'pending',
+      'source_event_type': 'setup',
+      'due_date': now.add(const Duration(days: 5)).toIso8601String(),
+    });
+    await db.insert('crops', {
+      'name': 'Tomatoes',
+      'status': 'Growing',
+      'expected_harvest_date':
+          now.add(const Duration(days: 10)).toIso8601String(),
+    });
 
     final summary = await LocalData.getFarmSummary();
 
     expect(summary['feedReadinessGaps'], 1);
     expect(summary['cropInputGaps'], 2);
+    expect(summary['productionReviewsNext7Days'], 1);
+    expect(summary['harvestReadyCrops'], 1);
   });
 }
