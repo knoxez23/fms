@@ -13,6 +13,8 @@ import 'package:pamoja_twalima/data/database/database_helper.dart';
 import 'package:pamoja_twalima/data/repositories/local_data.dart';
 import 'package:pamoja_twalima/data/repositories/sync_data.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/bloc/feeding/feeding_bloc.dart';
+import 'package:pamoja_twalima/features/inventory/domain/entities/inventory_item.dart';
+import 'package:pamoja_twalima/features/inventory/domain/repositories/inventory_repository.dart';
 // Feeding entities are provided via the farm_mgmt domain entities barrel.
 import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/entities.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/value_objects/value_objects.dart';
@@ -1125,13 +1127,28 @@ class _AnimalFeedingCalendarScreenState
     );
     if (saved != true) return;
 
+    final quantity = double.parse(quantityController.text.trim());
+    final inventoryIssue = await _validateFeedInventoryBeforeLog(
+      inventoryId: selectedInventoryId,
+      quantity: quantity,
+      unit: unit,
+      feedType: feedTypeController.text.trim(),
+    );
+    if (inventoryIssue != null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(inventoryIssue)),
+      );
+      return;
+    }
+
     await _syncData.insertFeedingLog(
       FeedingLog(
         animalId: animalId,
         scheduleId: null,
         inventoryId: selectedInventoryId,
         feedType: feedTypeController.text.trim(),
-        quantity: double.parse(quantityController.text.trim()),
+        quantity: quantity,
         unit: unit,
         fedAt: DateTime.now().toIso8601String(),
         fedBy: 'User',
@@ -1146,12 +1163,137 @@ class _AnimalFeedingCalendarScreenState
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Feeding log recorded')),
     );
-    await _maybeCreateFeedExpense(
+    await _decrementFeedInventory(
       inventoryId: selectedInventoryId,
-      quantity: double.parse(quantityController.text.trim()),
+      quantity: quantity,
       unit: unit,
       animalName: selectedAnimalName,
       feedType: feedTypeController.text.trim(),
+    );
+    await _maybeCreateFeedExpense(
+      inventoryId: selectedInventoryId,
+      quantity: quantity,
+      unit: unit,
+      animalName: selectedAnimalName,
+      feedType: feedTypeController.text.trim(),
+    );
+  }
+
+  Future<String?> _validateFeedInventoryBeforeLog({
+    required int? inventoryId,
+    required double quantity,
+    required String unit,
+    required String feedType,
+  }) async {
+    if (inventoryId == null) return null;
+
+    final db = await DatabaseHelper().database;
+    final activeUserId = await _localSessionService.getActiveUserId();
+    final rows = await db.query(
+      'inventory',
+      columns: ['item_name', 'quantity', 'unit'],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs:
+          activeUserId == null ? [inventoryId] : [inventoryId, activeUserId],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return 'The selected feed inventory item is no longer available.';
+    }
+
+    final row = rows.first;
+    final itemName = (row['item_name'] ?? feedType).toString();
+    final inventoryUnit = (row['unit'] ?? unit).toString();
+    final availableQuantity = (row['quantity'] as num?)?.toDouble() ?? 0;
+
+    if (inventoryUnit.toLowerCase() != unit.toLowerCase()) {
+      return 'Unit mismatch for $itemName. Log feeding in $inventoryUnit or update the inventory item first.';
+    }
+    if (availableQuantity < quantity) {
+      return '$itemName has only ${availableQuantity.toStringAsFixed(1)} $inventoryUnit available. Restock or lower the logged feeding quantity.';
+    }
+
+    return null;
+  }
+
+  Future<void> _decrementFeedInventory({
+    required int? inventoryId,
+    required double quantity,
+    required String unit,
+    required String animalName,
+    required String feedType,
+  }) async {
+    if (inventoryId == null) return;
+
+    final db = await DatabaseHelper().database;
+    final activeUserId = await _localSessionService.getActiveUserId();
+    final rows = await db.query(
+      'inventory',
+      columns: [
+        'id',
+        'client_uuid',
+        'supplier_id',
+        'item_name',
+        'category',
+        'quantity',
+        'unit',
+        'min_stock',
+        'unit_price',
+        'total_value',
+        'supplier',
+        'last_restock',
+        'is_synced',
+        'conflict',
+      ],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs:
+          activeUserId == null ? [inventoryId] : [inventoryId, activeUserId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
+
+    final row = rows.first;
+    final inventoryUnit = (row['unit'] ?? unit).toString();
+    if (inventoryUnit.toLowerCase() != unit.toLowerCase()) return;
+
+    final currentQuantity = (row['quantity'] as num?)?.toDouble() ?? 0;
+    final nextQuantity = currentQuantity - quantity;
+    if (nextQuantity < 0) return;
+
+    final unitPrice = (row['unit_price'] as num?)?.toDouble();
+    final item = InventoryItem(
+      id: (row['id'] as int?)?.toString(),
+      clientUuid: row['client_uuid']?.toString(),
+      supplierId: row['supplier_id']?.toString(),
+      itemName: (row['item_name'] ?? feedType).toString(),
+      category: (row['category'] ?? 'Animal Feed').toString(),
+      quantity: nextQuantity,
+      unit: inventoryUnit,
+      minStock: (row['min_stock'] as num?)?.toInt() ?? 0,
+      unitPrice: unitPrice,
+      totalValue: unitPrice == null ? null : unitPrice * nextQuantity,
+      supplier: row['supplier']?.toString(),
+      lastRestock: row['last_restock'] == null
+          ? null
+          : DateTime.tryParse(row['last_restock'].toString()),
+      isSynced: (row['is_synced'] as num?) == 1,
+      hasConflict: (row['conflict'] as num?) == 1,
+    );
+
+    await getIt<InventoryRepository>().updateItem(item);
+
+    if (!mounted) return;
+    final lowStock = item.minStock > 0 && nextQuantity <= item.minStock;
+    final remaining = nextQuantity
+        .toStringAsFixed(nextQuantity == nextQuantity.roundToDouble() ? 0 : 1);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          lowStock
+              ? '${item.itemName} deducted for $animalName. $remaining ${item.unit} left, which is now low stock.'
+              : '${item.itemName} deducted for $animalName. $remaining ${item.unit} remaining.',
+        ),
+      ),
     );
   }
 
