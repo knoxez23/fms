@@ -24,6 +24,21 @@ class TaskService
     public function createForUser(int $userId, array $validated): Task
     {
         $validated = $this->attachOwnedStaffName($userId, $validated);
+        $clientUuid = $validated['client_uuid'] ?? null;
+
+        if (is_string($clientUuid) && $clientUuid !== '') {
+            $existing = Task::where('user_id', $userId)
+                ->where('client_uuid', $clientUuid)
+                ->first();
+
+            if ($existing !== null) {
+                $existing->fill($validated);
+                $existing->save();
+
+                return $existing;
+            }
+        }
+
         $task = Task::create(array_merge($validated, ['user_id' => $userId]));
 
         $this->auditService->record(

@@ -14,6 +14,7 @@ class UpdateTaskRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'client_uuid' => 'nullable|uuid',
             'title' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
             'due_date' => 'nullable|date',

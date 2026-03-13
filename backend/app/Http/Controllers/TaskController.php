@@ -28,11 +28,17 @@ class TaskController extends Controller
      */
     public function store(StoreTaskRequest $request)
     {
-        $task = $this->taskService->createForUser((int) auth()->id(), $request->validated());
+        $userId = (int) auth()->id();
+        $clientUuid = $request->validated('client_uuid');
+        $alreadyExists = is_string($clientUuid) && $clientUuid !== ''
+            ? Task::where('user_id', $userId)->where('client_uuid', $clientUuid)->exists()
+            : false;
+
+        $task = $this->taskService->createForUser($userId, $request->validated());
 
         return (new TaskResource($task))
             ->response()
-            ->setStatusCode(201);
+            ->setStatusCode($alreadyExists ? 200 : 201);
     }
 
     /**

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:injectable/injectable.dart';
 import 'package:pamoja_twalima/core/services/local_session_service.dart';
+import 'package:uuid/uuid.dart';
 
 import '../network/api_service.dart';
 import '../services/connectivity_service.dart';
@@ -22,6 +23,7 @@ class SyncData {
 
   final ApiService _apiService = ApiService();
   final ConnectivityService _connectivityService = ConnectivityService();
+  static const Uuid _uuid = Uuid();
   // No instance needed, using static methods
 
   SyncData._internal();
@@ -184,15 +186,22 @@ class SyncData {
             .where((task) => task.id != null)
             .map((task) => task.id!)
             .toSet();
+        final serverClientUuids = filtered
+            .map((task) => task.clientUuid)
+            .whereType<String>()
+            .where((uuid) => uuid.isNotEmpty)
+            .toSet();
         final merged = <Task>[...filtered];
 
         // Keep local-only unsynced edits/creates visible in UI while online.
         for (final local in localTasks) {
           final isLocalOnly =
               local.id != null && !serverIds.contains(local.id!);
+          final matchesServerClientUuid = local.clientUuid != null &&
+              serverClientUuids.contains(local.clientUuid);
           if (local.isSynced == false || isLocalOnly) {
             final exists = merged.any((task) => task.id == local.id);
-            if (!exists) merged.add(local);
+            if (!exists && !matchesServerClientUuid) merged.add(local);
           }
         }
 
@@ -207,7 +216,11 @@ class SyncData {
   }
 
   Future<int> insertTask(Task task) async {
-    final payload = _taskPayload(task);
+    final taskWithClientUuid =
+        task.clientUuid == null || task.clientUuid!.isEmpty
+            ? task.copyWith(clientUuid: _uuid.v4())
+            : task;
+    final payload = _taskPayload(taskWithClientUuid);
     if (await _isOnline()) {
       try {
         final response = await _apiService.post('/tasks', data: payload);
@@ -218,7 +231,7 @@ class SyncData {
         developer.log('insertTask API failed, storing locally: $e',
             error: e, stackTrace: st);
         final localId = await LocalData.insertTask(
-            task.copyWith(isSynced: false, id: null));
+            taskWithClientUuid.copyWith(isSynced: false, id: null));
         await LocalData.queueTaskAction(
           localId: localId,
           action: 'create',
@@ -227,8 +240,8 @@ class SyncData {
         return localId;
       }
     } else {
-      final localId =
-          await LocalData.insertTask(task.copyWith(isSynced: false, id: null));
+      final localId = await LocalData.insertTask(
+          taskWithClientUuid.copyWith(isSynced: false, id: null));
       await LocalData.queueTaskAction(
         localId: localId,
         action: 'create',
@@ -301,6 +314,7 @@ class SyncData {
 
   Map<String, dynamic> _taskPayload(Task task) {
     return {
+      'client_uuid': task.clientUuid,
       'title': task.title,
       'description': task.description,
       'due_date': task.dueDate,

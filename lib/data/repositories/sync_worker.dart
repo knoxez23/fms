@@ -173,6 +173,7 @@ class SyncWorker {
           await _apiService.put('/tasks/$localId', data: payload);
           final updated = Task(
             id: localId,
+            clientUuid: payload['client_uuid']?.toString(),
             title: payload['title']?.toString() ?? '',
             description: payload['description']?.toString(),
             dueDate: payload['due_date']?.toString(),

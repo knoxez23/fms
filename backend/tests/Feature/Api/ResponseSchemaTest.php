@@ -67,6 +67,7 @@ test('core resources return stable response schema for create/show/index', funct
         ->assertCreated()
         ->assertJsonStructure([
             'id',
+            'client_uuid',
             'title',
             'description',
             'due_date',
@@ -132,6 +133,7 @@ test('core resources return stable response schema for create/show/index', funct
         ->assertJsonStructure([
             [
                 'id',
+                'client_uuid',
                 'title',
                 'status',
                 'created_at',

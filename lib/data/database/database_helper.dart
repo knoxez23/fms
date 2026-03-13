@@ -55,7 +55,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'pamoja_twalima.db');
     return await openDatabase(
       path,
-      version: 22,
+      version: 23,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -112,6 +112,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE tasks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_uuid TEXT,
         title TEXT NOT NULL,
         description TEXT,
         due_date TEXT,
@@ -637,6 +638,14 @@ class DatabaseHelper {
       try {
         await db
             .execute('ALTER TABLE breeding_records ADD COLUMN user_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+    }
+
+    if (oldVersion < 23) {
+      try {
+        await db.execute('ALTER TABLE tasks ADD COLUMN client_uuid TEXT');
       } catch (e) {
         // Column may already exist
       }

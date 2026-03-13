@@ -16,6 +16,7 @@ class TaskResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'client_uuid' => $this->client_uuid,
             'title' => $this->title,
             'description' => $this->description,
             'due_date' => optional($this->due_date)?->toISOString(),

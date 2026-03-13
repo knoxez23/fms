@@ -604,6 +604,25 @@ class LocalData {
     );
   }
 
+  static Future<int?> findTaskIdByClientUuid(String clientUuid) async {
+    final db = await _dbHelper.database;
+    final activeUserId = await _getActiveUserId();
+    final rows = await db.query(
+      'tasks',
+      columns: ['id'],
+      where: activeUserId == null
+          ? 'client_uuid = ?'
+          : 'client_uuid = ? AND user_id = ?',
+      whereArgs:
+          activeUserId == null ? [clientUuid] : [clientUuid, activeUserId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final id = rows.first['id'];
+    if (id is int) return id;
+    return int.tryParse('$id');
+  }
+
   static Future<int> deleteTask(int id) async {
     final db = await _dbHelper.database;
     final activeUserId = await _getActiveUserId();

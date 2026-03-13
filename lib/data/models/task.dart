@@ -1,5 +1,6 @@
 class Task {
   final int? id;
+  final String? clientUuid;
   final String title;
   final String? description;
   final String? dueDate;
@@ -16,6 +17,7 @@ class Task {
 
   Task({
     this.id,
+    this.clientUuid,
     required this.title,
     this.description,
     this.dueDate,
@@ -34,6 +36,7 @@ class Task {
   Map<String, dynamic> toMap() {
     final map = {
       'id': id,
+      'client_uuid': clientUuid,
       'title': title,
       'description': description,
       'due_date': dueDate,
@@ -55,6 +58,7 @@ class Task {
   factory Task.fromMap(Map<String, dynamic> map) {
     return Task(
       id: map['id'],
+      clientUuid: map['client_uuid']?.toString(),
       title: map['title'],
       description: map['description'],
       dueDate: map['due_date'],
@@ -75,6 +79,7 @@ class Task {
 
   Task copyWith({
     int? id,
+    String? clientUuid,
     String? title,
     String? description,
     String? dueDate,
@@ -91,6 +96,7 @@ class Task {
   }) {
     return Task(
       id: id ?? this.id,
+      clientUuid: clientUuid ?? this.clientUuid,
       title: title ?? this.title,
       description: description ?? this.description,
       dueDate: dueDate ?? this.dueDate,
