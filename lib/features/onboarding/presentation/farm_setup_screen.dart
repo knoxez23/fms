@@ -508,6 +508,8 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
           ),
         );
         final animalId = int.tryParse(createdAnimal.id ?? '');
+        final animalSourceId =
+            createdAnimal.id ?? preset.title.toLowerCase().replaceAll(' ', '_');
         if (animalId != null) {
           for (final schedule in _feedingTemplatesFor(
             animalId: animalId,
@@ -526,7 +528,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
             assignedTo: null,
             staffMemberId: null,
             sourceEventType: 'setup',
-            sourceEventId: preset.title.toLowerCase().replaceAll(' ', '_'),
+            sourceEventId: animalSourceId,
           ),
         );
         await getIt<AddTask>().execute(
@@ -537,11 +539,14 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
                 'Capture the opening number of animals and production purpose for ${preset.title.toLowerCase()} so automation can use realistic herd or flock assumptions.',
             dueDate: DateTime.now().add(const Duration(days: 1)),
             sourceEventType: 'setup',
-            sourceEventId:
-                '${preset.title.toLowerCase().replaceAll(' ', '_')}_${scale.name}',
+            sourceEventId: animalSourceId,
           ),
         );
-        for (final task in _productionChecklistFor(preset, scale)) {
+        for (final task in _productionChecklistFor(
+          preset,
+          scale,
+          sourceId: animalSourceId,
+        )) {
           await getIt<AddTask>().execute(task);
         }
       }
@@ -552,7 +557,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
             ? DateTime.now()
                 .subtract(Duration(days: (preset.daysToHarvest * 0.35).round()))
             : DateTime.now();
-        await getIt<AddCrop>().execute(
+        final createdCrop = await getIt<AddCrop>().execute(
           CropEntity(
             name: CropName(preset.title),
             variety: preset.varietyHint,
@@ -565,6 +570,8 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
                 'Seeded from onboarding farm setup template (${mode.label.toLowerCase()}).',
           ),
         );
+        final cropSourceId =
+            createdCrop.id ?? preset.title.toLowerCase().replaceAll(' ', '_');
         await getIt<AddTask>().execute(
           TaskEntity(
             title: TaskTitle(mode == _CropSetupMode.planted
@@ -575,10 +582,14 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
                 : 'Confirm acreage, inputs, and first field tasks for ${preset.title.toLowerCase()}.',
             dueDate: DateTime.now().add(const Duration(days: 3)),
             sourceEventType: 'setup',
-            sourceEventId: preset.title.toLowerCase(),
+            sourceEventId: cropSourceId,
           ),
         );
-        for (final task in _cropChecklistFor(preset, mode)) {
+        for (final task in _cropChecklistFor(
+          preset,
+          mode,
+          sourceId: cropSourceId,
+        )) {
           await getIt<AddTask>().execute(task);
         }
       }
@@ -674,6 +685,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
           _cropChecklistFor(
             preset,
             _cropModes[preset] ?? _CropSetupMode.planned,
+            sourceId: 'preview_${preset.title.toLowerCase().replaceAll(' ', '_')}',
           ).length,
     );
     final animalTasks = _selectedAnimals.fold<int>(
@@ -684,6 +696,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
           _productionChecklistFor(
             preset,
             _animalScales[preset] ?? _FarmScale.small,
+            sourceId: 'preview_${preset.title.toLowerCase().replaceAll(' ', '_')}',
           ).length,
     );
     return materialTasks + cropTasks + animalTasks;
@@ -870,10 +883,8 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
     return double.parse(value.toStringAsFixed(1));
   }
 
-  List<TaskEntity> _cropChecklistFor(
-    _CropPreset preset,
-    _CropSetupMode mode,
-  ) {
+  List<TaskEntity> _cropChecklistFor(_CropPreset preset, _CropSetupMode mode,
+      {required String sourceId}) {
     final cropName = preset.title;
     if (mode == _CropSetupMode.planted) {
       return [
@@ -883,7 +894,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
               'Review moisture, pests, and nutrient needs for current $cropName crop.',
           dueDate: DateTime.now().add(const Duration(days: 7)),
           sourceEventType: 'setup',
-          sourceEventId: '${cropName.toLowerCase()}_7d',
+          sourceEventId: sourceId,
         ),
         TaskEntity(
           title: TaskTitle('14-day $cropName progress review'),
@@ -891,7 +902,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
               'Check crop health, expected yield direction, and missing field tasks.',
           dueDate: DateTime.now().add(const Duration(days: 14)),
           sourceEventType: 'setup',
-          sourceEventId: '${cropName.toLowerCase()}_14d',
+          sourceEventId: sourceId,
         ),
         TaskEntity(
           title: TaskTitle('30-day $cropName market prep'),
@@ -899,7 +910,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
               'Review likely harvest path, stock handling, and buyer readiness for $cropName.',
           dueDate: DateTime.now().add(const Duration(days: 30)),
           sourceEventType: 'setup',
-          sourceEventId: '${cropName.toLowerCase()}_30d',
+          sourceEventId: sourceId,
         ),
       ];
     }
@@ -911,14 +922,14 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
             'Confirm seed, fertilizer, and protection inputs before starting $cropName field work.',
         dueDate: DateTime.now().add(const Duration(days: 7)),
         sourceEventType: 'setup',
-        sourceEventId: '${cropName.toLowerCase()}_7d',
+        sourceEventId: sourceId,
       ),
       TaskEntity(
         title: TaskTitle('14-day $cropName planting readiness'),
         description: 'Confirm field, labor, and planting date for $cropName.',
         dueDate: DateTime.now().add(const Duration(days: 14)),
         sourceEventType: 'setup',
-        sourceEventId: '${cropName.toLowerCase()}_14d',
+        sourceEventId: sourceId,
       ),
       TaskEntity(
         title: TaskTitle('30-day $cropName early growth review'),
@@ -926,17 +937,15 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
             'Plan the first monitoring cycle and expected early-stage tasks for $cropName.',
         dueDate: DateTime.now().add(const Duration(days: 30)),
         sourceEventType: 'setup',
-        sourceEventId: '${cropName.toLowerCase()}_30d',
+        sourceEventId: sourceId,
       ),
     ];
   }
 
   List<TaskEntity> _productionChecklistFor(
-    _AnimalPreset preset,
-    _FarmScale scale,
-  ) {
+      _AnimalPreset preset, _FarmScale scale,
+      {required String sourceId}) {
     final lowerTitle = preset.title.toLowerCase();
-    final sourceId = '${lowerTitle.replaceAll(' ', '_')}_${scale.name}';
 
     if (lowerTitle.contains('dairy') || lowerTitle.contains('layers')) {
       return [
@@ -946,7 +955,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
               'Check output trend, feed usage, and recording consistency for ${preset.title.toLowerCase()}.',
           dueDate: DateTime.now().add(const Duration(days: 7)),
           sourceEventType: 'setup',
-          sourceEventId: '${sourceId}_production_7d',
+          sourceEventId: sourceId,
         ),
         TaskEntity(
           title: TaskTitle('14-day ${preset.title} feed efficiency check'),
@@ -954,7 +963,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
               'Review whether ${preset.title.toLowerCase()} output matches feed cost and current ration plan.',
           dueDate: DateTime.now().add(const Duration(days: 14)),
           sourceEventType: 'setup',
-          sourceEventId: '${sourceId}_production_14d',
+          sourceEventId: sourceId,
         ),
         TaskEntity(
           title: TaskTitle('30-day ${preset.title} sales readiness review'),
@@ -962,7 +971,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
               'Decide whether current ${preset.title.toLowerCase()} output should move into sales, stock, or buyer outreach.',
           dueDate: DateTime.now().add(const Duration(days: 30)),
           sourceEventType: 'setup',
-          sourceEventId: '${sourceId}_production_30d',
+          sourceEventId: sourceId,
         ),
       ];
     }
@@ -974,7 +983,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
             'Check growth, health, and stocking assumptions for ${preset.title.toLowerCase()}.',
         dueDate: DateTime.now().add(const Duration(days: 7)),
         sourceEventType: 'setup',
-        sourceEventId: '${sourceId}_growth_7d',
+        sourceEventId: sourceId,
       ),
       TaskEntity(
         title: TaskTitle('14-day ${preset.title} cost check'),
@@ -982,7 +991,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
             'Review feed use, medication, and labor drivers for ${preset.title.toLowerCase()}.',
         dueDate: DateTime.now().add(const Duration(days: 14)),
         sourceEventType: 'setup',
-        sourceEventId: '${sourceId}_growth_14d',
+        sourceEventId: sourceId,
       ),
       TaskEntity(
         title: TaskTitle('30-day ${preset.title} market timing review'),
@@ -990,7 +999,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
             'Review sale timing and expected margin for ${preset.title.toLowerCase()}.',
         dueDate: DateTime.now().add(const Duration(days: 30)),
         sourceEventType: 'setup',
-        sourceEventId: '${sourceId}_growth_30d',
+        sourceEventId: sourceId,
       ),
     ];
   }

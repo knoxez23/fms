@@ -531,6 +531,20 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
       );
 
       await _suggestSaleDraft(entity, selected.name.value);
+      final sourceId = selected.id;
+      if (sourceId != null && sourceId.isNotEmpty) {
+        await _syncData.completeTasksWhere(
+          sourceEventType: 'setup',
+          sourceEventId: sourceId,
+          titleContains: const [
+            'production review',
+            'feed efficiency',
+            'sales readiness',
+            'growth review',
+            'market timing',
+          ],
+        );
+      }
     }
   }
 

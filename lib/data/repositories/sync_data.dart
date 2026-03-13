@@ -286,6 +286,36 @@ class SyncData {
     }
   }
 
+  Future<int> completeTasksWhere({
+    String? sourceEventType,
+    String? sourceEventId,
+    List<String> titleContains = const [],
+  }) async {
+    final tasks = await LocalData.getTasks();
+    var completed = 0;
+
+    for (final task in tasks) {
+      final status = (task.status ?? 'pending').toLowerCase();
+      if (status == 'completed') continue;
+
+      final matchesSourceType = sourceEventType == null ||
+          (task.sourceEventType ?? '').toLowerCase() ==
+              sourceEventType.toLowerCase();
+      final matchesSourceId =
+          sourceEventId == null || (task.sourceEventId ?? '') == sourceEventId;
+      final lowerTitle = task.title.toLowerCase();
+      final matchesTitle = titleContains.isEmpty ||
+          titleContains.any((item) => lowerTitle.contains(item.toLowerCase()));
+
+      if (!matchesSourceType || !matchesSourceId || !matchesTitle) continue;
+
+      await updateTask(task.copyWith(status: 'completed'));
+      completed++;
+    }
+
+    return completed;
+  }
+
   Future<int> deleteTask(int id) async {
     final isSyncedTask = await LocalData.isTaskSynced(id);
     await LocalData.deletePendingTaskActionsForLocalId(id);

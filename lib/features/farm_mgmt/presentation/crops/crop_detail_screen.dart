@@ -264,6 +264,10 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
         sourceEventId: crop.id.isEmpty ? crop.name.toLowerCase() : crop.id,
       ),
     );
+    await _resolveCropTasks(
+      crop,
+      titleHints: const ['harvest', 'market prep', 'input check'],
+    );
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -349,6 +353,10 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
         sourceEventId: crop.id,
       ),
     );
+    await _resolveCropTasks(
+      crop,
+      titleHints: const ['planting plan', 'field check', 'early growth review'],
+    );
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -409,6 +417,26 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
   double? _parseArea(String areaText) {
     final normalized = areaText.split(' ').first;
     return double.tryParse(normalized);
+  }
+
+  Future<void> _resolveCropTasks(
+    _CropDetailView crop, {
+    List<String> titleHints = const [],
+  }) async {
+    final sourceId = crop.id.isEmpty ? crop.name.toLowerCase() : crop.id;
+    await SyncData().completeTasksWhere(
+      sourceEventType: 'setup',
+      sourceEventId: sourceId,
+      titleContains: titleHints,
+    );
+    await SyncData().completeTasksWhere(
+      sourceEventType: 'crop',
+      sourceEventId: sourceId,
+    );
+    await SyncData().completeTasksWhere(
+      sourceEventType: 'harvest',
+      sourceEventId: sourceId,
+    );
   }
 }
 
