@@ -5,7 +5,26 @@ import 'package:pamoja_twalima/data/services/contact_directory_service.dart';
 import 'package:pamoja_twalima/features/business/presentation/contacts/contacts_screen.dart';
 
 class AddInventoryScreen extends StatefulWidget {
-  const AddInventoryScreen({super.key});
+  final String? initialName;
+  final String? initialCategory;
+  final String? initialQuantity;
+  final String? initialUnit;
+  final String? initialMinStock;
+  final String? initialSupplier;
+  final String? initialCost;
+  final String? initialNotes;
+
+  const AddInventoryScreen({
+    super.key,
+    this.initialName,
+    this.initialCategory,
+    this.initialQuantity,
+    this.initialUnit,
+    this.initialMinStock,
+    this.initialSupplier,
+    this.initialCost,
+    this.initialNotes,
+  });
 
   @override
   State<AddInventoryScreen> createState() => _AddInventoryScreenState();
@@ -26,6 +45,12 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
   Map<String, String> _supplierIdByName = const {};
 
   final List<String> _categories = [
+    'Crops',
+    'Vegetables',
+    'Fruits',
+    'Dairy',
+    'Poultry',
+    'Livestock',
     'Fertilizers',
     'Seeds',
     'Animal Feed',
@@ -37,6 +62,12 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
   ];
 
   final Map<String, List<String>> _units = {
+    'Crops': ['kg', 'bags', 'crates', 'tons', 'pieces'],
+    'Vegetables': ['kg', 'crates', 'pieces'],
+    'Fruits': ['kg', 'crates', 'pieces'],
+    'Dairy': ['liters', 'kg', 'pieces'],
+    'Poultry': ['pieces', 'crates', 'kg'],
+    'Livestock': ['pieces', 'kg'],
     'Fertilizers': ['kg', 'bags', 'liters'],
     'Seeds': ['packets', 'kg', 'grams'],
     'Animal Feed': ['bags', 'kg'],
@@ -50,13 +81,24 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedCategory = widget.initialCategory ?? _selectedCategory;
+    final availableUnits = _units[_selectedCategory] ?? const ['units'];
+    _selectedUnit = availableUnits.contains(widget.initialUnit)
+        ? widget.initialUnit!
+        : availableUnits.first;
+    _nameController.text = widget.initialName ?? '';
+    _quantityController.text = widget.initialQuantity ?? '';
+    _minStockController.text = widget.initialMinStock ?? '';
+    _supplierController.text = widget.initialSupplier ?? '';
+    _costController.text = widget.initialCost ?? '';
+    _notesController.text = widget.initialNotes ?? '';
     _loadSuppliers();
   }
 
   Future<void> _loadSuppliers() async {
     try {
-      final rows =
-          await ContactDirectoryService(ApiService()).list(ContactType.supplier);
+      final rows = await ContactDirectoryService(ApiService())
+          .list(ContactType.supplier);
       if (!mounted) return;
       setState(() {
         final entries = rows
@@ -294,9 +336,10 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
                       if (_supplierNames.isNotEmpty) ...[
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
-                          initialValue: _supplierNames.contains(_supplierController.text)
-                              ? _supplierController.text
-                              : null,
+                          initialValue:
+                              _supplierNames.contains(_supplierController.text)
+                                  ? _supplierController.text
+                                  : null,
                           decoration: const InputDecoration(
                             labelText: 'Pick Existing Supplier',
                             border: OutlineInputBorder(),

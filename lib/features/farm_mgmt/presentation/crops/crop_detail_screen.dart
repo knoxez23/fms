@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pamoja_twalima/core/di/injection.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
@@ -8,6 +9,12 @@ import 'package:pamoja_twalima/data/repositories/sync_data.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/crop_entity.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/task_entity.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/tasks/add_task_screen.dart';
+import 'package:pamoja_twalima/features/inventory/domain/entities/inventory_item.dart';
+import 'package:pamoja_twalima/features/inventory/domain/repositories/inventory_repository.dart';
+import 'package:pamoja_twalima/features/inventory/presentation/add_inventory_screen.dart';
+import 'package:pamoja_twalima/features/marketplace/domain/entities/product_entity.dart';
+import 'package:pamoja_twalima/features/marketplace/domain/repositories/marketplace_repository.dart';
+import 'package:pamoja_twalima/features/marketplace/presentation/sell_product_screen.dart';
 
 class CropDetailScreen extends StatefulWidget {
   final CropEntity entity;
@@ -128,6 +135,15 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  _HarvestAutomationStrip(
+                    crop: crop,
+                    theme: theme,
+                    onCreateStockDraft: () => _openHarvestStockDraft(crop),
+                    onCreateMarketplaceDraft: () => _openMarketplaceDraft(crop),
+                    onCreateFollowUpTask: () =>
+                        _createHarvestFollowUpTask(crop),
+                  ),
                 ],
               ),
             ),
@@ -193,6 +209,164 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
         return Colors.grey;
     }
   }
+
+  Future<void> _openHarvestStockDraft(_CropDetailView crop) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddInventoryScreen(
+          initialName: crop.name,
+          initialCategory: 'Crops',
+          initialUnit: 'kg',
+          initialMinStock: '0',
+          initialNotes:
+              'Harvest stock drafted from ${crop.name} crop${crop.harvestDate == 'Not set' ? '' : ' scheduled for ${crop.harvestDate}'}',
+        ),
+      ),
+    );
+
+    if (result is! Map<String, dynamic>) return;
+
+    final item = InventoryItem(
+      itemName: (result['itemName'] ?? '').toString(),
+      category: (result['category'] ?? 'Crops').toString(),
+      quantity: ((result['quantity'] as num?) ?? 0).toDouble(),
+      unit: (result['unit'] ?? 'kg').toString(),
+      minStock: (result['minStock'] as int?) ?? 0,
+      supplier: result['supplier']?.toString(),
+      supplierId: result['supplierId']?.toString(),
+      unitPrice: (result['unitPrice'] as num?)?.toDouble(),
+      totalValue: (result['totalValue'] as num?)?.toDouble(),
+      lastRestock: result['lastRestock'] as DateTime?,
+      isSynced: false,
+    );
+
+    await getIt<InventoryRepository>().addItem(item);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Harvest stock added to inventory')),
+    );
+  }
+
+  Future<void> _openMarketplaceDraft(_CropDetailView crop) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SellProductScreen(
+          initialName: crop.name,
+          initialCategory: 'Crops',
+          initialSubCategory: 'Other',
+          initialUnit: 'kg',
+          initialDescription:
+              '${crop.name} harvested from this farm and prepared for direct sale. The listing can be adjusted with grade, delivery terms, and pricing before buyers see it.',
+        ),
+      ),
+    );
+
+    if (result is! ProductEntity) return;
+    await getIt<MarketplaceRepository>().addProduct(result);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Marketplace draft created from crop')),
+    );
+  }
+
+  Future<void> _createHarvestFollowUpTask(_CropDetailView crop) async {
+    await SyncData().insertTask(
+      Task(
+        title: 'Prepare ${crop.name} harvest for sale or storage',
+        description:
+            'Sort, bag, transport, or store ${crop.name} harvest and confirm final market-ready quantity.',
+        dueDate: crop.expectedHarvest?.toIso8601String(),
+        category: 'Crops',
+        status: 'pending',
+        sourceEventType: 'crop',
+        sourceEventId: crop.id,
+      ),
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Harvest follow-up task created')),
+    );
+  }
+}
+
+class _HarvestAutomationStrip extends StatelessWidget {
+  final _CropDetailView crop;
+  final ThemeData theme;
+  final VoidCallback onCreateStockDraft;
+  final VoidCallback onCreateMarketplaceDraft;
+  final VoidCallback onCreateFollowUpTask;
+
+  const _HarvestAutomationStrip({
+    required this.crop,
+    required this.theme,
+    required this.onCreateStockDraft,
+    required this.onCreateMarketplaceDraft,
+    required this.onCreateFollowUpTask,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isHarvestWindow = crop.expectedHarvest != null &&
+        crop.expectedHarvest!.difference(DateTime.now()).inDays.abs() <= 21;
+    final helperText = isHarvestWindow
+        ? 'Harvest window is near. Turn this crop into stock, a listing, or a follow-up task.'
+        : 'Pre-build the handoff from field to stock or market before harvest day.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.12),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Harvest Automation',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            helperText,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: onCreateStockDraft,
+                icon: const Icon(Icons.inventory_2_outlined),
+                label: const Text('Harvest Stock'),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: onCreateMarketplaceDraft,
+                icon: const Icon(Icons.storefront_outlined),
+                label: const Text('Market Draft'),
+              ),
+              OutlinedButton.icon(
+                onPressed: onCreateFollowUpTask,
+                icon: const Icon(Icons.task_alt_outlined),
+                label: const Text('Follow-up Task'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _CropDetailView {
@@ -225,8 +399,11 @@ class _CropDetailView {
       id: entity.id ?? '',
       name: entity.name.value,
       type: entity.variety ?? 'General',
-      status: entity.status ?? (entity.isReadyForHarvest ? 'Harvested' : 'Growing'),
-      area: entity.area == null ? 'Not set' : '${entity.area!.toStringAsFixed(1)} ac',
+      status:
+          entity.status ?? (entity.isReadyForHarvest ? 'Harvested' : 'Growing'),
+      area: entity.area == null
+          ? 'Not set'
+          : '${entity.area!.toStringAsFixed(1)} ac',
       plantedDate: _formatDate(entity.plantedAt),
       harvestDate: _formatDate(entity.expectedHarvest),
       plantedAt: entity.plantedAt,
@@ -310,8 +487,14 @@ class _GrowthTab extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _InfoRow(label: 'Planted Date', value: crop.plantedDate, theme: theme),
-                _InfoRow(label: 'Expected Harvest', value: crop.harvestDate, theme: theme),
+                _InfoRow(
+                    label: 'Planted Date',
+                    value: crop.plantedDate,
+                    theme: theme),
+                _InfoRow(
+                    label: 'Expected Harvest',
+                    value: crop.harvestDate,
+                    theme: theme),
                 _InfoRow(
                   label: 'Harvest Countdown',
                   value: daysToHarvest,
@@ -414,8 +597,7 @@ class _TasksTabState extends State<_TasksTab> {
                                 builder: (_) => AddTaskScreen(
                                   sourceEventType: 'crop',
                                   sourceEventId: widget.crop.id,
-                                  initialTitle:
-                                      'Task for ${widget.crop.name}',
+                                  initialTitle: 'Task for ${widget.crop.name}',
                                   initialDescription:
                                       'Linked task for ${widget.crop.name}',
                                 ),
@@ -464,13 +646,15 @@ class _TasksTabState extends State<_TasksTab> {
                             (task) => ListTile(
                               contentPadding: EdgeInsets.zero,
                               leading: const Icon(Icons.task_alt),
-                              title: Text((task['title'] ?? 'Untitled').toString()),
+                              title: Text(
+                                  (task['title'] ?? 'Untitled').toString()),
                               subtitle: Text(
                                 'Due: ${_formatDate(DateTime.tryParse((task['due_date'] ?? '').toString()))}',
                               ),
                               trailing: Text(
                                 ((task['status'] ?? 'pending').toString()),
-                                style: widget.theme.textTheme.bodySmall?.copyWith(
+                                style:
+                                    widget.theme.textTheme.bodySmall?.copyWith(
                                   color: ((task['status'] ?? '')
                                               .toString()
                                               .toLowerCase() ==
@@ -543,7 +727,8 @@ class _HistoryTab extends StatelessWidget {
                   const ListTile(
                     leading: Icon(Icons.history),
                     title: Text('No history yet'),
-                    subtitle: Text('Crop events will appear here as data is captured.'),
+                    subtitle: Text(
+                        'Crop events will appear here as data is captured.'),
                   )
                 else
                   ...history.map(

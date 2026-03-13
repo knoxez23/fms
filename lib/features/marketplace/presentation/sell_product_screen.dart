@@ -7,7 +7,24 @@ import 'package:pamoja_twalima/features/marketplace/domain/entities/product_enti
 import 'package:pamoja_twalima/features/marketplace/domain/value_objects/value_objects.dart';
 
 class SellProductScreen extends StatefulWidget {
-  const SellProductScreen({super.key});
+  final String? initialName;
+  final String? initialDescription;
+  final String? initialCategory;
+  final String? initialSubCategory;
+  final String? initialPrice;
+  final String? initialQuantity;
+  final String? initialUnit;
+
+  const SellProductScreen({
+    super.key,
+    this.initialName,
+    this.initialDescription,
+    this.initialCategory,
+    this.initialSubCategory,
+    this.initialPrice,
+    this.initialQuantity,
+    this.initialUnit,
+  });
 
   @override
   State<SellProductScreen> createState() => _SellProductScreenState();
@@ -149,6 +166,16 @@ class _SellProductScreenState extends State<SellProductScreen> {
   @override
   void initState() {
     super.initState();
+    _productNameController.text = widget.initialName ?? '';
+    _descriptionController.text = widget.initialDescription ?? '';
+    _priceController.text = widget.initialPrice ?? '';
+    _quantityController.text = widget.initialQuantity ?? '';
+    _selectedCategory = widget.initialCategory ?? _selectedCategory;
+    _selectedSubCategory = widget.initialSubCategory ??
+        (_subCategories[_selectedCategory]?.first ?? _selectedSubCategory);
+    if (_units.contains(widget.initialUnit)) {
+      _selectedUnit = widget.initialUnit!;
+    }
   }
 
   Widget _buildProgressIndicator(ThemeData theme) {
