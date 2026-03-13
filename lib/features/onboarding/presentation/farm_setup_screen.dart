@@ -62,6 +62,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
   final Map<_AnimalPreset, _FarmScale> _animalScales = {};
   final Map<_CropPreset, _CropSetupMode> _cropModes = {};
   final Map<_MaterialPreset, _MaterialAvailability> _materialAvailability = {};
+  _FeedMeasurementStyle _feedMeasurementStyle = _FeedMeasurementStyle.household;
   bool _saving = false;
 
   static const List<_AnimalPreset> _animalPresets = [
@@ -187,19 +188,36 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
     _MaterialPreset(name: 'Hay', category: 'Animal Feed', unit: 'bales'),
     _MaterialPreset(name: 'Silage', category: 'Animal Feed', unit: 'kg'),
     _MaterialPreset(name: 'Dairy Meal', category: 'Animal Feed', unit: 'kg'),
+    _MaterialPreset(
+        name: 'Goat Dairy Mix', category: 'Animal Feed', unit: 'kg'),
     _MaterialPreset(name: 'Layer Mash', category: 'Animal Feed', unit: 'kg'),
+    _MaterialPreset(name: 'Chick Starter', category: 'Animal Feed', unit: 'kg'),
     _MaterialPreset(
         name: 'Broiler Starter', category: 'Animal Feed', unit: 'kg'),
+    _MaterialPreset(
+        name: 'Broiler Finisher', category: 'Animal Feed', unit: 'kg'),
+    _MaterialPreset(
+        name: 'Pig Grower Feed', category: 'Animal Feed', unit: 'kg'),
     _MaterialPreset(name: 'Maize Bran', category: 'Animal Feed', unit: 'kg'),
+    _MaterialPreset(name: 'Browse Feed', category: 'Animal Feed', unit: 'kg'),
+    _MaterialPreset(
+        name: 'Clean Water', category: 'Animal Feed', unit: 'liters'),
     _MaterialPreset(
         name: 'Mineral Lick', category: 'Animal Health', unit: 'pieces'),
     _MaterialPreset(name: 'Maize Seed', category: 'Seeds', unit: 'kg'),
     _MaterialPreset(name: 'Bean Seed', category: 'Seeds', unit: 'kg'),
+    _MaterialPreset(name: 'Potato Seed', category: 'Seeds', unit: 'bags'),
+    _MaterialPreset(name: 'Onion Seed', category: 'Seeds', unit: 'packets'),
     _MaterialPreset(
         name: 'Tomato Seedlings', category: 'Seeds', unit: 'pieces'),
+    _MaterialPreset(
+        name: 'Cabbage Seedlings', category: 'Seeds', unit: 'pieces'),
     _MaterialPreset(name: 'Kale Seedlings', category: 'Seeds', unit: 'pieces'),
     _MaterialPreset(
         name: 'DAP Fertilizer', category: 'Fertilizers', unit: 'kg'),
+    _MaterialPreset(
+        name: 'Top Dress Fertilizer', category: 'Fertilizers', unit: 'kg'),
+    _MaterialPreset(name: 'Fertilizer', category: 'Fertilizers', unit: 'kg'),
     _MaterialPreset(
         name: 'CAN Fertilizer', category: 'Fertilizers', unit: 'kg'),
     _MaterialPreset(name: 'Manure', category: 'Fertilizers', unit: 'bags'),
@@ -295,6 +313,23 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            if (_selectedAnimals.isNotEmpty)
+              _SectionCard(
+                title: 'How You Measure Feed',
+                subtitle:
+                    'Pick the style farmers on this farm actually use. The app will seed feed stock and schedules using these units.',
+                child: _InlineChoiceBar<_FeedMeasurementStyle>(
+                  value: _feedMeasurementStyle,
+                  options: _FeedMeasurementStyle.values,
+                  labelBuilder: (value) => value.label,
+                  onChanged: (value) {
+                    setState(() {
+                      _feedMeasurementStyle = value;
+                    });
+                  },
+                ),
+              ),
+            if (_selectedAnimals.isNotEmpty) const SizedBox(height: 16),
             _SectionCard(
               title: 'Starter Feed & Materials',
               subtitle:
@@ -306,7 +341,8 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
                     .map(
                       (material) => _SelectableChipCard(
                         title: material.name,
-                        subtitle: material.category,
+                        subtitle:
+                            '${material.category} • ${_seedUnitForMaterial(material)}',
                         selected: _selectedMaterials.contains(material),
                         onTap: () => _toggleMaterial(material),
                         footer: _selectedMaterials.contains(material)
@@ -345,6 +381,10 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
                   _SummaryLine(
                     label: 'Starter material inventory items',
                     value: '${_selectedMaterials.length}',
+                  ),
+                  _SummaryLine(
+                    label: 'Feed measurement style',
+                    value: _feedMeasurementStyle.label,
                   ),
                   _SummaryLine(
                     label: 'Ready on hand now',
@@ -546,6 +586,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
         final minStock = _recommendedMinStock(material);
         final availability =
             _materialAvailability[material] ?? _MaterialAvailability.needSoon;
+        final seededUnit = _seedUnitForMaterial(material);
         await getIt<InventoryRepository>().addItem(
           InventoryItem(
             itemName: material.name,
@@ -553,7 +594,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
             quantity: availability == _MaterialAvailability.availableNow
                 ? (minStock * 1.5).toDouble()
                 : 0,
-            unit: material.unit,
+            unit: seededUnit,
             minStock: minStock,
             supplier: null,
             unitPrice: null,
@@ -658,42 +699,117 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
     final secondaryFeed = preset.starterMaterials.length > 1
         ? preset.starterMaterials[1]
         : primaryFeed;
-    final baseQuantity = switch (preset.animalType) {
+    final primaryUnit = _seedUnitForFeedName(primaryFeed);
+    final secondaryUnit = _seedUnitForFeedName(secondaryFeed);
+
+    return [
+      FeedingScheduleEntity(
+        animalId: animalId,
+        feedType: primaryFeed,
+        quantity: _feedingQuantityForUnit(
+          animalType: preset.animalType,
+          scale: scale,
+          unit: primaryUnit,
+          isPrimary: true,
+        ),
+        unit: primaryUnit,
+        timeOfDay: 'Morning',
+        frequency: 'Daily',
+        startDate: DateTime.now(),
+        notes:
+            'Auto-created from farm setup (${_feedMeasurementStyle.label.toLowerCase()}).',
+      ),
+      FeedingScheduleEntity(
+        animalId: animalId,
+        feedType: secondaryFeed,
+        quantity: _feedingQuantityForUnit(
+          animalType: preset.animalType,
+          scale: scale,
+          unit: secondaryUnit,
+          isPrimary: false,
+        ),
+        unit: secondaryUnit,
+        timeOfDay: 'Evening',
+        frequency: 'Daily',
+        startDate: DateTime.now(),
+        notes:
+            'Auto-created from farm setup (${_feedMeasurementStyle.label.toLowerCase()}).',
+      ),
+    ];
+  }
+
+  String _seedUnitForMaterial(_MaterialPreset material) {
+    if (material.category != 'Animal Feed') return material.unit;
+    return _seedUnitForFeedName(material.name);
+  }
+
+  String _seedUnitForFeedName(String materialName) {
+    if (_feedMeasurementStyle == _FeedMeasurementStyle.standard) {
+      final preset = _materialPresets
+          .where((item) => item.name == materialName)
+          .cast<_MaterialPreset?>()
+          .firstWhere((item) => item != null, orElse: () => null);
+      return preset?.unit ?? 'kg';
+    }
+
+    final lower = materialName.toLowerCase();
+    if (lower.contains('water')) return 'buckets';
+    if (lower.contains('napier') ||
+        lower.contains('hay') ||
+        lower.contains('silage') ||
+        lower.contains('browse')) {
+      return 'buckets';
+    }
+    if (lower.contains('lick')) return 'pieces';
+    if (lower.contains('meal') ||
+        lower.contains('mash') ||
+        lower.contains('starter') ||
+        lower.contains('finisher') ||
+        lower.contains('bran') ||
+        lower.contains('grower') ||
+        lower.contains('mix')) {
+      return 'scoops';
+    }
+    return 'buckets';
+  }
+
+  double _feedingQuantityForUnit({
+    required String animalType,
+    required _FarmScale scale,
+    required String unit,
+    required bool isPrimary,
+  }) {
+    final standardBase = switch (animalType) {
       'cow' => 8.0,
       'goat' => 2.0,
       'chicken' => 0.12,
       'pig' => 1.8,
       _ => 1.0,
     };
-    final multiplier = switch (scale) {
+    final standardMultiplier = switch (scale) {
       _FarmScale.small => 1.0,
       _FarmScale.medium => 2.5,
       _FarmScale.large => 4.0,
     };
+    if (_feedMeasurementStyle == _FeedMeasurementStyle.standard) {
+      final value = standardBase * standardMultiplier * (isPrimary ? 1.0 : 0.7);
+      return double.parse(value.toStringAsFixed(2));
+    }
 
-    return [
-      FeedingScheduleEntity(
-        animalId: animalId,
-        feedType: primaryFeed,
-        quantity: double.parse((baseQuantity * multiplier).toStringAsFixed(2)),
-        unit: preset.animalType == 'chicken' ? 'kg' : 'kg',
-        timeOfDay: 'Morning',
-        frequency: 'Daily',
-        startDate: DateTime.now(),
-        notes: 'Auto-created from farm setup',
-      ),
-      FeedingScheduleEntity(
-        animalId: animalId,
-        feedType: secondaryFeed,
-        quantity: double.parse(
-            ((baseQuantity * multiplier) * 0.7).toStringAsFixed(2)),
-        unit: 'kg',
-        timeOfDay: 'Evening',
-        frequency: 'Daily',
-        startDate: DateTime.now(),
-        notes: 'Auto-created from farm setup',
-      ),
-    ];
+    final householdBase = switch (animalType) {
+      'cow' => unit == 'scoops' ? 3.0 : 2.0,
+      'goat' => unit == 'scoops' ? 2.0 : 1.0,
+      'chicken' => unit == 'scoops' ? 2.0 : 1.0,
+      'pig' => unit == 'scoops' ? 3.0 : 1.5,
+      _ => 1.0,
+    };
+    final householdMultiplier = switch (scale) {
+      _FarmScale.small => 1.0,
+      _FarmScale.medium => 1.8,
+      _FarmScale.large => 2.8,
+    };
+    final value = householdBase * householdMultiplier * (isPrimary ? 1.0 : 0.7);
+    return double.parse(value.toStringAsFixed(1));
   }
 
   List<TaskEntity> _cropChecklistFor(
@@ -901,6 +1017,14 @@ enum _MaterialAvailability {
   needSoon('Need Soon');
 
   const _MaterialAvailability(this.label);
+  final String label;
+}
+
+enum _FeedMeasurementStyle {
+  household('Everyday items'),
+  standard('Standard units');
+
+  const _FeedMeasurementStyle(this.label);
   final String label;
 }
 
