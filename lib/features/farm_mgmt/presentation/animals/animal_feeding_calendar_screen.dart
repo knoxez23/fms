@@ -58,6 +58,20 @@ class _AnimalFeedingCalendarScreenState
     'Goats',
     'Sheep'
   ];
+  static const List<String> _feedUnitOptions = [
+    'kg',
+    'grams',
+    'liters',
+    'bags',
+    'buckets',
+    'sufurias',
+    'plates',
+    'cups',
+    'tins',
+    'scoops',
+    'bundles',
+    'pieces',
+  ];
 
   @override
   void initState() {
@@ -778,11 +792,14 @@ class _AnimalFeedingCalendarScreenState
               ),
               DropdownButtonFormField<String>(
                 initialValue: unit,
-                items: const [
-                  DropdownMenuItem(value: 'kg', child: Text('kg')),
-                  DropdownMenuItem(value: 'grams', child: Text('grams')),
-                  DropdownMenuItem(value: 'liters', child: Text('liters')),
-                ],
+                items: _feedUnitOptions
+                    .map(
+                      (feedUnit) => DropdownMenuItem(
+                        value: feedUnit,
+                        child: Text(feedUnit),
+                      ),
+                    )
+                    .toList(),
                 onChanged: (v) => unit = v ?? unit,
                 decoration: const InputDecoration(labelText: 'Unit'),
               ),
@@ -940,11 +957,14 @@ class _AnimalFeedingCalendarScreenState
               ),
               DropdownButtonFormField<String>(
                 initialValue: unit,
-                items: const [
-                  DropdownMenuItem(value: 'kg', child: Text('kg')),
-                  DropdownMenuItem(value: 'grams', child: Text('grams')),
-                  DropdownMenuItem(value: 'liters', child: Text('liters')),
-                ],
+                items: _feedUnitOptions
+                    .map(
+                      (feedUnit) => DropdownMenuItem(
+                        value: feedUnit,
+                        child: Text(feedUnit),
+                      ),
+                    )
+                    .toList(),
                 onChanged: (v) => unit = v ?? unit,
                 decoration: const InputDecoration(labelText: 'Unit'),
               ),
@@ -1094,11 +1114,14 @@ class _AnimalFeedingCalendarScreenState
               ),
               DropdownButtonFormField<String>(
                 initialValue: unit,
-                items: const [
-                  DropdownMenuItem(value: 'kg', child: Text('kg')),
-                  DropdownMenuItem(value: 'grams', child: Text('grams')),
-                  DropdownMenuItem(value: 'liters', child: Text('liters')),
-                ],
+                items: _feedUnitOptions
+                    .map(
+                      (feedUnit) => DropdownMenuItem(
+                        value: feedUnit,
+                        child: Text(feedUnit),
+                      ),
+                    )
+                    .toList(),
                 onChanged: (v) => unit = v ?? unit,
                 decoration: const InputDecoration(labelText: 'Unit'),
               ),

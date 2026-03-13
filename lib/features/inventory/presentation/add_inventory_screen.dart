@@ -70,12 +70,36 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
     'Livestock': ['pieces', 'kg'],
     'Fertilizers': ['kg', 'bags', 'liters'],
     'Seeds': ['packets', 'kg', 'grams'],
-    'Animal Feed': ['bags', 'kg'],
+    'Animal Feed': [
+      'bags',
+      'kg',
+      'grams',
+      'liters',
+      'buckets',
+      'sufurias',
+      'plates',
+      'cups',
+      'tins',
+      'scoops',
+      'bundles',
+      'pieces',
+    ],
     'Chemicals': ['liters', 'kg', 'packets'],
     'Animal Health': ['doses', 'bottles', 'packets'],
     'Equipment': ['pieces', 'meters', 'sets'],
     'Tools': ['pieces', 'sets'],
-    'Other': ['units', 'kg', 'liters', 'pieces'],
+    'Other': [
+      'units',
+      'kg',
+      'liters',
+      'pieces',
+      'buckets',
+      'sufurias',
+      'plates',
+      'cups',
+      'tins',
+      'scoops',
+    ],
   };
 
   @override
@@ -222,6 +246,16 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      if (_selectedCategory == 'Animal Feed') ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Use whatever unit the farmer actually measures with, including buckets, sufurias, cups, or plates. Keeping the same unit across stock and feeding logs preserves automation.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.68),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       Row(
                         children: [
