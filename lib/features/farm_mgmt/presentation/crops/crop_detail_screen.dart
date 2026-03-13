@@ -137,6 +137,14 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
+                  _CropDecisionStrip(
+                    crop: crop,
+                    theme: theme,
+                    onRunHarvestPipeline: () => _runHarvestPipeline(crop),
+                    onCreateFollowUpTask: () =>
+                        _createHarvestFollowUpTask(crop),
+                  ),
+                  const SizedBox(height: 16),
                   _HarvestAutomationStrip(
                     crop: crop,
                     theme: theme,
@@ -484,6 +492,129 @@ class _HarvestAutomationStrip extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CropDecisionStrip extends StatelessWidget {
+  final _CropDetailView crop;
+  final ThemeData theme;
+  final VoidCallback onRunHarvestPipeline;
+  final VoidCallback onCreateFollowUpTask;
+
+  const _CropDecisionStrip({
+    required this.crop,
+    required this.theme,
+    required this.onRunHarvestPipeline,
+    required this.onCreateFollowUpTask,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final daysToHarvest = crop.expectedHarvest == null
+        ? null
+        : DateTime(
+            crop.expectedHarvest!.year,
+            crop.expectedHarvest!.month,
+            crop.expectedHarvest!.day,
+          )
+            .difference(
+              DateTime(DateTime.now().year, DateTime.now().month,
+                  DateTime.now().day),
+            )
+            .inDays;
+
+    final actions = <({
+      IconData icon,
+      Color color,
+      String title,
+      String detail,
+      VoidCallback onTap
+    })>[
+      if (crop.status.toLowerCase() == 'planned')
+        (
+          icon: Icons.playlist_add_check_circle_outlined,
+          color: Colors.indigo,
+          title: 'Field work is still in planning',
+          detail:
+              'Seed follow-up tasks and confirm inputs before this crop moves into active field work.',
+          onTap: onCreateFollowUpTask,
+        ),
+      if (daysToHarvest != null && daysToHarvest <= 14)
+        (
+          icon: Icons.agriculture_outlined,
+          color: Colors.orange,
+          title: 'Harvest window is close',
+          detail: daysToHarvest < 0
+              ? 'This crop is past the expected harvest date. Move it into stock or market flow now.'
+              : 'Expected harvest is in $daysToHarvest day${daysToHarvest == 1 ? '' : 's'}. Prepare stock and sales flow now.',
+          onTap: onRunHarvestPipeline,
+        ),
+      if (crop.status.toLowerCase() == 'growing' ||
+          crop.status.toLowerCase() == 'planted')
+        (
+          icon: Icons.grass_outlined,
+          color: Colors.green,
+          title: 'Keep field progress current',
+          detail:
+              'Updating status and harvest timing keeps marketplace and stock automation accurate.',
+          onTap: onCreateFollowUpTask,
+        ),
+    ];
+
+    if (actions.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      children: actions
+          .map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: InkWell(
+                onTap: item.onTap,
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: item.color.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border:
+                        Border.all(color: item.color.withValues(alpha: 0.18)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(item.icon, color: item.color),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.title,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              item.detail,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.68),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios,
+                          size: 14, color: item.color),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 }

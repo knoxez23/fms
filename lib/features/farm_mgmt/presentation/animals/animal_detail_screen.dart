@@ -268,6 +268,13 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                         ],
                       ),
                     ],
+                    const SizedBox(height: 16),
+                    _AnimalDecisionStrip(
+                      animal: animal,
+                      theme: theme,
+                      onOpenProduction: () => setState(() => _selectedTab = 1),
+                      onOpenTasks: () => setState(() => _selectedTab = 2),
+                    ),
                   ],
                 ),
               ),
@@ -376,9 +383,12 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
   }
 
   Future<void> _showEditAnimalDialog() async {
-    final nameController = TextEditingController(text: _currentAnimal.name.value);
-    final typeController = TextEditingController(text: _currentAnimal.type.value);
-    final breedController = TextEditingController(text: _currentAnimal.breed ?? '');
+    final nameController =
+        TextEditingController(text: _currentAnimal.name.value);
+    final typeController =
+        TextEditingController(text: _currentAnimal.type.value);
+    final breedController =
+        TextEditingController(text: _currentAnimal.breed ?? '');
     final weightController = TextEditingController(
       text: _currentAnimal.weight?.toStringAsFixed(1) ?? '',
     );
@@ -458,8 +468,9 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
       id: id,
       name: nameController.text.trim(),
       type: typeController.text.trim(),
-      breed:
-          breedController.text.trim().isEmpty ? null : breedController.text.trim(),
+      breed: breedController.text.trim().isEmpty
+          ? null
+          : breedController.text.trim(),
       weight: weight,
       age: null,
       healthStatus: null,
@@ -484,8 +495,9 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
         id: _currentAnimal.id,
         name: AnimalName(nameController.text.trim()),
         type: AnimalType(typeController.text.trim()),
-        breed:
-            breedController.text.trim().isEmpty ? null : breedController.text.trim(),
+        breed: breedController.text.trim().isEmpty
+            ? null
+            : breedController.text.trim(),
         birthDate: _currentAnimal.birthDate,
         weight: weight,
       );
@@ -630,6 +642,125 @@ class _AnimalDetailView {
       weight: entity.weight == null
           ? null
           : '${entity.weight!.toStringAsFixed(1)} kg',
+    );
+  }
+
+  bool get productionFocused {
+    final lowerType = type.toLowerCase();
+    return lowerType.contains('dairy') ||
+        lowerType.contains('layer') ||
+        lowerType.contains('poultry');
+  }
+
+  bool get needsAttention => healthScore < 70 || status.toLowerCase() == 'sick';
+}
+
+class _AnimalDecisionStrip extends StatelessWidget {
+  final _AnimalDetailView animal;
+  final ThemeData theme;
+  final VoidCallback onOpenProduction;
+  final VoidCallback onOpenTasks;
+
+  const _AnimalDecisionStrip({
+    required this.animal,
+    required this.theme,
+    required this.onOpenProduction,
+    required this.onOpenTasks,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final blockers = <({
+      IconData icon,
+      Color color,
+      String title,
+      String detail,
+      VoidCallback onTap
+    })>[
+      if (animal.needsAttention)
+        (
+          icon: Icons.monitor_heart_outlined,
+          color: Colors.redAccent,
+          title: 'Health attention needed',
+          detail:
+              'Health score is ${animal.healthScore}%. Review care, treatment, or follow-up tasks.',
+          onTap: onOpenTasks,
+        ),
+      if (animal.productionFocused)
+        (
+          icon: Icons.insights_outlined,
+          color: Colors.indigo,
+          title: 'Production should be tracked closely',
+          detail:
+              'Use production logs often so milk, eggs, and sales automation stay useful.',
+          onTap: onOpenProduction,
+        ),
+      if (animal.groupType == 'Group' && animal.quantity > 1)
+        (
+          icon: Icons.group_outlined,
+          color: Colors.teal,
+          title: 'Group records affect accuracy',
+          detail:
+              'Keep count and output current so feed plans and summaries stay realistic.',
+          onTap: onOpenTasks,
+        ),
+    ];
+
+    if (blockers.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: blockers
+          .map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: InkWell(
+                onTap: item.onTap,
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: item.color.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border:
+                        Border.all(color: item.color.withValues(alpha: 0.18)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(item.icon, color: item.color),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.title,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              item.detail,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.68),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios,
+                          size: 14, color: item.color),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 }
@@ -1079,8 +1210,8 @@ class _HistoryTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AnimalHealthRecordsCubit, AnimalHealthRecordsState>(
-      builder: (context, healthState) => BlocBuilder<ProductionLogCubit,
-          ProductionLogState>(
+      builder: (context, healthState) =>
+          BlocBuilder<ProductionLogCubit, ProductionLogState>(
         builder: (context, productionState) {
           final history = _buildHistoryEntries(healthState, productionState);
           return ListView(
@@ -1110,8 +1241,8 @@ class _HistoryTab extends StatelessWidget {
                           ),
                         )
                       else
-                        ...history
-                            .map((entry) => _HistoryItem(entry: entry, theme: theme)),
+                        ...history.map((entry) =>
+                            _HistoryItem(entry: entry, theme: theme)),
                     ],
                   ),
                 ),
@@ -1131,9 +1262,8 @@ class _HistoryTab extends StatelessWidget {
     final healthRecords = healthState.records
         .where((r) => r.animalId.toString() == animal.id)
         .toList();
-    final productionLogs = productionState.logs
-        .where((r) => r.animalId == animal.id)
-        .toList();
+    final productionLogs =
+        productionState.logs.where((r) => r.animalId == animal.id).toList();
 
     for (final record in healthRecords) {
       final when = record.treatedAt ?? DateTime.now();
@@ -1154,8 +1284,7 @@ class _HistoryTab extends StatelessWidget {
           date: _formatDate(log.recordedAt),
           timestamp: log.recordedAt,
           event: 'Production: ${log.productType}',
-          details:
-              '${log.quantity.value.toStringAsFixed(1)} ${log.unit.value}',
+          details: '${log.quantity.value.toStringAsFixed(1)} ${log.unit.value}',
           notes: log.notes,
         ),
       );
@@ -1260,8 +1389,9 @@ class _AnimalTasksTabState extends State<_AnimalTasksTab> {
                                 title: result.title.value,
                                 description: result.description,
                                 dueDate: result.dueDate?.toIso8601String(),
-                                status:
-                                    result.isCompleted ? 'completed' : 'pending',
+                                status: result.isCompleted
+                                    ? 'completed'
+                                    : 'pending',
                                 sourceEventType: result.sourceEventType,
                                 sourceEventId: result.sourceEventId,
                               ),
@@ -1289,7 +1419,8 @@ class _AnimalTasksTabState extends State<_AnimalTasksTab> {
                             (task) => ListTile(
                               contentPadding: EdgeInsets.zero,
                               leading: const Icon(Icons.task_alt),
-                              title: Text((task['title'] ?? 'Untitled').toString()),
+                              title: Text(
+                                  (task['title'] ?? 'Untitled').toString()),
                               subtitle: Text(
                                 'Due: ${_formatDate(DateTime.tryParse((task['due_date'] ?? '').toString()))}',
                               ),
@@ -1365,8 +1496,8 @@ class _HistoryItem extends StatelessWidget {
                     child: Text(
                       entry.notes!,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.7),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.7),
                       ),
                     ),
                   ),
