@@ -556,6 +556,8 @@ class _SetupMomentumSection extends StatelessWidget {
         (summary['productionReviewsNext7Days'] as num?)?.toInt() ?? 0;
     final harvestReadyCrops =
         (summary['harvestReadyCrops'] as num?)?.toInt() ?? 0;
+    final todaysFeedingPreview =
+        (summary['todaysFeedingPreview'] ?? '').toString().trim();
     final feedGaps = (summary['feedReadinessGaps'] as num?)?.toInt() ?? 0;
     final cropInputGaps = (summary['cropInputGaps'] as num?)?.toInt() ?? 0;
     final totalReadinessGaps = feedGaps + cropInputGaps;
@@ -571,9 +573,11 @@ class _SetupMomentumSection extends StatelessWidget {
                 value: '$todaysFeedings',
                 subtitle: feedGaps > 0
                     ? '$feedGaps feed item${feedGaps == 1 ? '' : 's'} need sourcing'
-                    : todaysFeedings == 0
-                        ? 'No active schedules yet'
-                        : 'Feeding sessions ready',
+                    : todaysFeedingPreview.isNotEmpty
+                        ? todaysFeedingPreview
+                        : todaysFeedings == 0
+                            ? 'No active schedules yet'
+                            : 'Feeding sessions ready',
                 icon: Icons.local_dining_outlined,
                 color: Colors.teal,
                 onTap: onOpenFarm,

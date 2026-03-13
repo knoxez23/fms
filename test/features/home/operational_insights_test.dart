@@ -124,6 +124,15 @@ void main() {
       'expected_harvest_date':
           now.add(const Duration(days: 10)).toIso8601String(),
     });
+    await db.insert('feeding_schedules', {
+      'animal_id': 1,
+      'feed_type': 'Hay',
+      'quantity': 1,
+      'unit': 'buckets',
+      'time_of_day': 'Morning',
+      'start_date': now.toIso8601String(),
+      'notes': 'measure_label:1 morning bucket',
+    });
 
     final summary = await LocalData.getFarmSummary();
 
@@ -131,5 +140,7 @@ void main() {
     expect(summary['cropInputGaps'], 2);
     expect(summary['productionReviewsNext7Days'], 1);
     expect(summary['harvestReadyCrops'], 1);
+    expect(
+        summary['todaysFeedingPreview'], contains('Morning: 1 morning bucket'));
   });
 }

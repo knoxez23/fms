@@ -56,6 +56,7 @@ class FarmSetupGate extends StatelessWidget {
 }
 
 class _FarmSetupScreenState extends State<FarmSetupScreen> {
+  static const String _rationLabelPrefix = 'measure_label:';
   final Set<_AnimalPreset> _selectedAnimals = {};
   final Set<_CropPreset> _selectedCrops = {};
   final Set<_MaterialPreset> _selectedMaterials = {};
@@ -716,8 +717,18 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
         timeOfDay: 'Morning',
         frequency: 'Daily',
         startDate: DateTime.now(),
-        notes:
-            'Auto-created from farm setup (${_feedMeasurementStyle.label.toLowerCase()}).',
+        notes: _composeSetupFeedingNotes(
+          rationLabel: _defaultRationLabel(
+            quantity: _feedingQuantityForUnit(
+              animalType: preset.animalType,
+              scale: scale,
+              unit: primaryUnit,
+              isPrimary: true,
+            ),
+            unit: primaryUnit,
+            timeOfDay: 'Morning',
+          ),
+        ),
       ),
       FeedingScheduleEntity(
         animalId: animalId,
@@ -732,10 +743,57 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
         timeOfDay: 'Evening',
         frequency: 'Daily',
         startDate: DateTime.now(),
-        notes:
-            'Auto-created from farm setup (${_feedMeasurementStyle.label.toLowerCase()}).',
+        notes: _composeSetupFeedingNotes(
+          rationLabel: _defaultRationLabel(
+            quantity: _feedingQuantityForUnit(
+              animalType: preset.animalType,
+              scale: scale,
+              unit: secondaryUnit,
+              isPrimary: false,
+            ),
+            unit: secondaryUnit,
+            timeOfDay: 'Evening',
+          ),
+        ),
       ),
     ];
+  }
+
+  String _composeSetupFeedingNotes({required String rationLabel}) {
+    return '$_rationLabelPrefix$rationLabel\n'
+        'Auto-created from farm setup (${_feedMeasurementStyle.label.toLowerCase()}).';
+  }
+
+  String _defaultRationLabel({
+    required double quantity,
+    required String unit,
+    required String timeOfDay,
+  }) {
+    final quantityText = quantity == quantity.roundToDouble()
+        ? quantity.toInt().toString()
+        : quantity.toStringAsFixed(1);
+    return '$quantityText $timeOfDay ${_singularizeUnit(unit)}';
+  }
+
+  String _singularizeUnit(String unit) {
+    switch (unit.toLowerCase()) {
+      case 'buckets':
+        return 'bucket';
+      case 'sufurias':
+        return 'sufuria';
+      case 'plates':
+        return 'plate';
+      case 'cups':
+        return 'cup';
+      case 'tins':
+        return 'tin';
+      case 'scoops':
+        return 'scoop';
+      case 'bundles':
+        return 'bundle';
+      default:
+        return unit;
+    }
   }
 
   String _seedUnitForMaterial(_MaterialPreset material) {

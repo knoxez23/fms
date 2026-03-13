@@ -13,6 +13,7 @@ import '../models/animal_health_record.dart';
 class LocalData {
   static final DatabaseHelper _dbHelper = DatabaseHelper();
   static final LocalSessionService _localSessionService = LocalSessionService();
+  static const String _rationLabelPrefix = 'measure_label:';
 
   static Future<int?> _getActiveUserId() async {
     return _localSessionService.getActiveUserId();
@@ -136,6 +137,42 @@ class LocalData {
       activeUserId == null ? [today, today] : [today, today, activeUserId],
     );
     final todaysFeedings = Sqflite.firstIntValue(todaysFeedingResult) ?? 0;
+
+    final todaysFeedingPreviewRows = await db.rawQuery(
+      '''
+      SELECT time_of_day, notes, quantity, unit
+      FROM feeding_schedules
+      WHERE completed = 0
+        AND LOWER(COALESCE(time_of_day, '')) IN ('morning', 'afternoon', 'evening')
+        AND (start_date IS NULL OR DATE(start_date) <= DATE(?))
+        AND (end_date IS NULL OR DATE(end_date) >= DATE(?))
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ORDER BY CASE LOWER(COALESCE(time_of_day, ''))
+        WHEN 'morning' THEN 1
+        WHEN 'afternoon' THEN 2
+        WHEN 'evening' THEN 3
+        ELSE 4
+      END ASC
+      LIMIT 3
+      ''',
+      activeUserId == null ? [today, today] : [today, today, activeUserId],
+    );
+    final todaysFeedingPreview = todaysFeedingPreviewRows
+        .map((row) {
+          final timeOfDay = (row['time_of_day'] ?? 'Feed').toString();
+          final rationLabel = _extractRationLabel(row['notes']?.toString());
+          if (rationLabel.isNotEmpty) {
+            return '$timeOfDay: $rationLabel';
+          }
+          final quantity = (row['quantity'] as num?)?.toDouble() ?? 0;
+          final unit = (row['unit'] ?? 'units').toString();
+          final quantityText = quantity == quantity.roundToDouble()
+              ? quantity.toInt().toString()
+              : quantity.toStringAsFixed(1);
+          return '$timeOfDay: $quantityText $unit';
+        })
+        .where((item) => item.trim().isNotEmpty)
+        .join(' • ');
 
     final setupTasks7dResult = await db.rawQuery(
       '''
@@ -261,6 +298,7 @@ class LocalData {
       "eggsToday": eggsToday,
       "productionValueToday": productionValueToday,
       "todaysFeedings": todaysFeedings,
+      "todaysFeedingPreview": todaysFeedingPreview,
       "setupTasksNext7Days": setupTasksNext7Days,
       "setupTasksNext30Days": setupTasksNext30Days,
       "activeFieldCrops": activeFieldCrops,
@@ -277,6 +315,17 @@ class LocalData {
         .toIso8601String()
         .split('T')
         .first;
+  }
+
+  static String _extractRationLabel(String? notes) {
+    if (notes == null || notes.trim().isEmpty) return '';
+    for (final line in notes.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.toLowerCase().startsWith(_rationLabelPrefix)) {
+        return trimmed.substring(_rationLabelPrefix.length).trim();
+      }
+    }
+    return '';
   }
 
   static Future<List<OperationalInsight>> getOperationalInsights({
