@@ -1102,28 +1102,47 @@ class LocalData {
     }
 
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     return await db.insert(
       'pending_sales',
-      {'payload': jsonEncode(sale)},
+      {
+        'payload': jsonEncode(sale),
+        'user_id': activeUserId,
+      },
     );
   }
 
   static Future<List<Map<String, dynamic>>> getPendingSales() async {
     final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps =
-        await db.query('pending_sales', orderBy: 'created_at ASC');
+    final activeUserId = await _localSessionService.getActiveUserId();
+    final List<Map<String, dynamic>> maps = await db.query(
+      'pending_sales',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
+      orderBy: 'created_at ASC',
+    );
     return maps;
   }
 
   static Future<int> deletePendingSale(int id) async {
     final db = await _dbHelper.database;
-    return await db.delete('pending_sales', where: 'id = ?', whereArgs: [id]);
+    final activeUserId = await _localSessionService.getActiveUserId();
+    return await db.delete(
+      'pending_sales',
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [id] : [id, activeUserId],
+    );
   }
 
   static Future<void> cleanupInvalidSales() async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
 
-    final rows = await db.query('pending_sales');
+    final rows = await db.query(
+      'pending_sales',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
+    );
 
     for (final row in rows) {
       final rawPayload = row['payload'] as String?;
@@ -1138,8 +1157,9 @@ class LocalData {
       if ((payload['product_name'] as String?)?.trim().isEmpty ?? true) {
         await db.delete(
           'pending_sales',
-          where: 'id = ?',
-          whereArgs: [row['id']],
+          where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+          whereArgs:
+              activeUserId == null ? [row['id']] : [row['id'], activeUserId],
         );
       }
     }

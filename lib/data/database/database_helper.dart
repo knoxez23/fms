@@ -55,7 +55,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'pamoja_twalima.db');
     return await openDatabase(
       path,
-      version: 19,
+      version: 20,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -294,7 +294,9 @@ class DatabaseHelper {
         action TEXT NOT NULL,
         payload TEXT NOT NULL,
         created_at TEXT NOT NULL,
-        retry_count INTEGER DEFAULT 0
+        retry_count INTEGER DEFAULT 0,
+        user_id INTEGER,
+        FOREIGN KEY (user_id) REFERENCES users (id)
       )
     ''');
 
@@ -328,7 +330,9 @@ class DatabaseHelper {
         server_id INTEGER,
         client_uuid TEXT,
         deleted_at TEXT NOT NULL,
-        expires_at TEXT NOT NULL
+        expires_at TEXT NOT NULL,
+        user_id INTEGER,
+        FOREIGN KEY (user_id) REFERENCES users (id)
       )
     ''');
 
@@ -337,7 +341,9 @@ class DatabaseHelper {
       CREATE TABLE pending_sales (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         payload TEXT NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        user_id INTEGER,
+        FOREIGN KEY (user_id) REFERENCES users (id)
       )
     ''');
 
@@ -350,7 +356,9 @@ class DatabaseHelper {
         category TEXT NOT NULL,
         quantity TEXT NOT NULL,
         details TEXT,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        user_id INTEGER,
+        FOREIGN KEY (user_id) REFERENCES users (id)
       )
     ''');
 
@@ -572,6 +580,33 @@ class DatabaseHelper {
       try {
         await db
             .execute('ALTER TABLE production_logs ADD COLUMN user_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+    }
+
+    if (oldVersion < 20) {
+      try {
+        await db.execute(
+            'ALTER TABLE inventory_sync_queue ADD COLUMN user_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+      try {
+        await db.execute(
+            'ALTER TABLE inventory_delete_tombstones ADD COLUMN user_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+      try {
+        await db
+            .execute('ALTER TABLE pending_sales ADD COLUMN user_id INTEGER');
+      } catch (e) {
+        // Column may already exist
+      }
+      try {
+        await db.execute(
+            'ALTER TABLE marketplace_inquiries ADD COLUMN user_id INTEGER');
       } catch (e) {
         // Column may already exist
       }

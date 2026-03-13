@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'package:pamoja_twalima/core/services/local_session_service.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../../../features/inventory/domain/entities/inventory_item.dart';
@@ -16,6 +17,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   final InventoryService _inventoryService;
   final ConnectivityService _connectivity;
+  final LocalSessionService _localSessionService = LocalSessionService();
 
   InventoryRepositoryImpl(this._inventoryService, this._connectivity);
 
@@ -23,6 +25,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
   @override
   Future<void> addItem(InventoryItem item) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final clientUuid = item.clientUuid ?? const Uuid().v4();
     final dto = InventoryDto.fromEntity(
       InventoryItem(
@@ -47,6 +50,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
       ...dto.toDb(),
       'last_updated': DateTime.now().toIso8601String(),
       'conflict': 0,
+      'user_id': activeUserId,
     });
 
     developer.log('Added item to local DB with ID: $localId');
@@ -73,7 +77,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
     // Return local data
     final db = await _dbHelper.database;
-    final maps = await db.query('inventory', orderBy: 'last_updated DESC');
+    final activeUserId = await _localSessionService.getActiveUserId();
+    final maps = await db.query(
+      'inventory',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
+      orderBy: 'last_updated DESC',
+    );
     return maps.map(_mapToEntity).toList();
   }
 
@@ -84,6 +94,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
       final serverItems = await _inventoryService.list();
       final db = await _dbHelper.database;
+      final activeUserId = await _localSessionService.getActiveUserId();
       final pendingDeleteServerIds = await _getPendingDeleteServerIds(db);
       final pendingDeleteClientUuids = await _getPendingDeleteClientUuids(db);
       final pendingActionLocalIds = await _getPendingActionLocalIds(db);
@@ -133,16 +144,23 @@ class InventoryRepositoryImpl implements InventoryRepository {
         // Check if item already exists locally
         List<Map<String, dynamic>> existing = await db.query(
           'inventory',
-          where: 'server_id = ?',
-          whereArgs: [serverId],
+          where: activeUserId == null
+              ? 'server_id = ?'
+              : 'server_id = ? AND user_id = ?',
+          whereArgs:
+              activeUserId == null ? [serverId] : [serverId, activeUserId],
           limit: 1,
         );
 
         if (existing.isEmpty && serverClientUuid != null) {
           existing = await db.query(
             'inventory',
-            where: 'client_uuid = ?',
-            whereArgs: [serverClientUuid],
+            where: activeUserId == null
+                ? 'client_uuid = ?'
+                : 'client_uuid = ? AND user_id = ?',
+            whereArgs: activeUserId == null
+                ? [serverClientUuid]
+                : [serverClientUuid, activeUserId],
             limit: 1,
           );
         }
@@ -165,6 +183,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
           'is_synced': 1,
           'server_id': serverId,
           'conflict': 0,
+          'user_id': _resolveRowUserId(serverItem, activeUserId),
         };
 
         if (existing.isEmpty) {
@@ -227,7 +246,10 @@ class InventoryRepositoryImpl implements InventoryRepository {
       final localSyncedRows = await db.query(
         'inventory',
         columns: ['id', 'server_id', 'is_synced'],
-        where: 'server_id IS NOT NULL',
+        where: activeUserId == null
+            ? 'server_id IS NOT NULL'
+            : 'server_id IS NOT NULL AND user_id = ?',
+        whereArgs: activeUserId == null ? null : [activeUserId],
       );
       for (final row in localSyncedRows) {
         final localId = row['id'] as int?;
@@ -274,6 +296,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
     if (item.id == null) return;
 
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final dto = InventoryDto.fromEntity(item);
     final localId = int.parse(item.id!);
 
@@ -284,9 +307,10 @@ class InventoryRepositoryImpl implements InventoryRepository {
         'last_updated': DateTime.now().toIso8601String(),
         'is_synced': 0,
         'conflict': 0,
+        'user_id': activeUserId,
       },
-      where: 'id = ?',
-      whereArgs: [localId],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [localId] : [localId, activeUserId],
     );
 
     await SyncDataRepository().queueInventoryAction(
@@ -300,6 +324,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
   @override
   Future<void> deleteItem(String id) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final localId = int.parse(id);
     int? serverId;
     String? clientUuid;
@@ -308,8 +333,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
     final existing = await db.query(
       'inventory',
       columns: ['server_id', 'client_uuid', 'is_synced'],
-      where: 'id = ?',
-      whereArgs: [localId],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [localId] : [localId, activeUserId],
       limit: 1,
     );
 
@@ -329,8 +354,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
     await db.delete(
       'inventory',
-      where: 'id = ?',
-      whereArgs: [localId],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [localId] : [localId, activeUserId],
     );
 
     if (serverId == null &&
@@ -357,12 +382,14 @@ class InventoryRepositoryImpl implements InventoryRepository {
   @override
   Future<void> resolveConflictKeepLocal(String localId) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final localIntId = int.parse(localId);
 
     final existing = await db.query(
       'inventory',
-      where: 'id = ?',
-      whereArgs: [localIntId],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs:
+          activeUserId == null ? [localIntId] : [localIntId, activeUserId],
       limit: 1,
     );
     if (existing.isEmpty) return;
@@ -378,9 +405,11 @@ class InventoryRepositoryImpl implements InventoryRepository {
         'is_synced': 0,
         'conflict': 0,
         'last_updated': DateTime.now().toIso8601String(),
+        'user_id': activeUserId,
       },
-      where: 'id = ?',
-      whereArgs: [localIntId],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs:
+          activeUserId == null ? [localIntId] : [localIntId, activeUserId],
     );
 
     await SyncDataRepository().removeInventoryActionsForLocalId(localIntId);
@@ -394,13 +423,15 @@ class InventoryRepositoryImpl implements InventoryRepository {
   @override
   Future<void> resolveConflictUseServer(String localId) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final localIntId = int.parse(localId);
 
     final existing = await db.query(
       'inventory',
       columns: ['server_id'],
-      where: 'id = ?',
-      whereArgs: [localIntId],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs:
+          activeUserId == null ? [localIntId] : [localIntId, activeUserId],
       limit: 1,
     );
     if (existing.isEmpty) return;
@@ -427,20 +458,23 @@ class InventoryRepositoryImpl implements InventoryRepository {
             serverItem['updated_at'] ?? DateTime.now().toIso8601String(),
         'is_synced': 1,
         'conflict': 0,
+        'user_id': _resolveRowUserId(serverItem, activeUserId),
       },
-      where: 'id = ?',
-      whereArgs: [localIntId],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs:
+          activeUserId == null ? [localIntId] : [localIntId, activeUserId],
     );
 
     await SyncDataRepository().removeInventoryActionsForLocalId(localIntId);
   }
 
   Future<Set<int>> _getPendingDeleteServerIds(Database db) async {
+    final activeUserId = await _localSessionService.getActiveUserId();
     final rows = await db.query(
       'inventory_sync_queue',
       columns: ['payload', 'action'],
-      where: 'action = ?',
-      whereArgs: ['delete'],
+      where: activeUserId == null ? 'action = ?' : 'action = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? ['delete'] : ['delete', activeUserId],
     );
 
     final ids = <int>{};
@@ -467,11 +501,12 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   Future<Set<String>> _getPendingDeleteClientUuids(Database db) async {
+    final activeUserId = await _localSessionService.getActiveUserId();
     final rows = await db.query(
       'inventory_sync_queue',
       columns: ['payload', 'action'],
-      where: 'action = ?',
-      whereArgs: ['delete'],
+      where: activeUserId == null ? 'action = ?' : 'action = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? ['delete'] : ['delete', activeUserId],
     );
 
     final uuids = <String>{};
@@ -495,9 +530,12 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   Future<Set<int>> _getPendingActionLocalIds(Database db) async {
+    final activeUserId = await _localSessionService.getActiveUserId();
     final rows = await db.query(
       'inventory_sync_queue',
       columns: ['inventory_local_id'],
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
     );
 
     return rows
@@ -550,5 +588,16 @@ class InventoryRepositoryImpl implements InventoryRepository {
       'notes': row['notes'],
       'last_restock': row['last_restock'],
     };
+  }
+
+  int? _resolveRowUserId(Map<String, dynamic> row, int? fallbackUserId) {
+    final rawUserId = row['user_id'];
+    if (rawUserId is int) {
+      return rawUserId;
+    }
+    if (rawUserId is String) {
+      return int.tryParse(rawUserId);
+    }
+    return fallbackUserId;
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:injectable/injectable.dart';
+import 'package:pamoja_twalima/core/services/local_session_service.dart';
 
 import '../network/api_service.dart';
 import '../services/connectivity_service.dart';
@@ -571,6 +572,7 @@ class SyncDataRepository {
   SyncDataRepository._internal();
 
   final DatabaseHelper _dbHelper = DatabaseHelper();
+  final LocalSessionService _localSessionService = LocalSessionService();
 
   static const Duration _inventoryDeleteTombstoneTtl = Duration(days: 30);
 
@@ -582,11 +584,14 @@ class SyncDataRepository {
   }) async {
     try {
       final db = await _dbHelper.database;
+      final activeUserId = await _localSessionService.getActiveUserId();
       final encodedPayload = jsonEncode(payload);
       final existing = await db.query(
         'inventory_sync_queue',
-        where: 'inventory_local_id = ?',
-        whereArgs: [localId],
+        where: activeUserId == null
+            ? 'inventory_local_id = ?'
+            : 'inventory_local_id = ? AND user_id = ?',
+        whereArgs: activeUserId == null ? [localId] : [localId, activeUserId],
         orderBy: 'created_at DESC',
       );
 
@@ -594,8 +599,10 @@ class SyncDataRepository {
         // Delete supersedes any pending create/update for the same local row.
         await db.delete(
           'inventory_sync_queue',
-          where: 'inventory_local_id = ?',
-          whereArgs: [localId],
+          where: activeUserId == null
+              ? 'inventory_local_id = ?'
+              : 'inventory_local_id = ? AND user_id = ?',
+          whereArgs: activeUserId == null ? [localId] : [localId, activeUserId],
         );
       } else if (action == 'update') {
         final createEntry = existing
@@ -618,8 +625,12 @@ class SyncDataRepository {
 
           await db.delete(
             'inventory_sync_queue',
-            where: 'inventory_local_id = ? AND action = ? AND id != ?',
-            whereArgs: [localId, 'update', createId],
+            where: activeUserId == null
+                ? 'inventory_local_id = ? AND action = ? AND id != ?'
+                : 'inventory_local_id = ? AND action = ? AND id != ? AND user_id = ?',
+            whereArgs: activeUserId == null
+                ? [localId, 'update', createId]
+                : [localId, 'update', createId, activeUserId],
           );
 
           developer.log(
@@ -674,6 +685,7 @@ class SyncDataRepository {
         'payload': encodedPayload,
         'created_at': DateTime.now().toIso8601String(),
         'retry_count': 0,
+        'user_id': activeUserId,
       };
 
       await db.insert('inventory_sync_queue', queueItem);
@@ -691,8 +703,11 @@ class SyncDataRepository {
   /// Get all pending inventory sync actions
   Future<List<Map<String, dynamic>>> getPendingInventoryActions() async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     return await db.query(
       'inventory_sync_queue',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
       orderBy: 'created_at ASC',
     );
   }
@@ -700,31 +715,36 @@ class SyncDataRepository {
   /// Remove a sync action from queue
   Future<void> removeInventorySyncAction(int queueId) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     await db.delete(
       'inventory_sync_queue',
-      where: 'id = ?',
-      whereArgs: [queueId],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [queueId] : [queueId, activeUserId],
     );
   }
 
   /// Remove all sync actions for a local inventory item
   Future<void> removeInventoryActionsForLocalId(int localId) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     await db.delete(
       'inventory_sync_queue',
-      where: 'inventory_local_id = ?',
-      whereArgs: [localId],
+      where: activeUserId == null
+          ? 'inventory_local_id = ?'
+          : 'inventory_local_id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [localId] : [localId, activeUserId],
     );
   }
 
   /// Update retry count for a sync action
   Future<void> incrementRetryCount(int queueId, int currentCount) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     await db.update(
       'inventory_sync_queue',
       {'retry_count': currentCount + 1},
-      where: 'id = ?',
-      whereArgs: [queueId],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [queueId] : [queueId, activeUserId],
     );
   }
 
@@ -734,6 +754,7 @@ class SyncDataRepository {
     String? clientUuid,
   }) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final now = DateTime.now();
     final expiresAt = now.add(_inventoryDeleteTombstoneTtl).toIso8601String();
     final normalizedUuid =
@@ -743,14 +764,20 @@ class SyncDataRepository {
     if (serverId != null) {
       await db.delete(
         'inventory_delete_tombstones',
-        where: 'server_id = ?',
-        whereArgs: [serverId],
+        where: activeUserId == null
+            ? 'server_id = ?'
+            : 'server_id = ? AND user_id = ?',
+        whereArgs: activeUserId == null ? [serverId] : [serverId, activeUserId],
       );
     } else if (normalizedUuid != null) {
       await db.delete(
         'inventory_delete_tombstones',
-        where: 'client_uuid = ?',
-        whereArgs: [normalizedUuid],
+        where: activeUserId == null
+            ? 'client_uuid = ?'
+            : 'client_uuid = ? AND user_id = ?',
+        whereArgs: activeUserId == null
+            ? [normalizedUuid]
+            : [normalizedUuid, activeUserId],
       );
     }
 
@@ -760,34 +787,48 @@ class SyncDataRepository {
       'client_uuid': normalizedUuid,
       'deleted_at': now.toIso8601String(),
       'expires_at': expiresAt,
+      'user_id': activeUserId,
     });
   }
 
   Future<void> purgeExpiredInventoryDeleteTombstones() async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     await db.delete(
       'inventory_delete_tombstones',
-      where: 'expires_at <= ?',
-      whereArgs: [DateTime.now().toIso8601String()],
+      where: activeUserId == null
+          ? 'expires_at <= ?'
+          : 'expires_at <= ? AND user_id = ?',
+      whereArgs: activeUserId == null
+          ? [DateTime.now().toIso8601String()]
+          : [DateTime.now().toIso8601String(), activeUserId],
     );
   }
 
   Future<Set<int>> getInventoryDeleteTombstoneServerIds() async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final rows = await db.query(
       'inventory_delete_tombstones',
       columns: ['server_id'],
-      where: 'server_id IS NOT NULL',
+      where: activeUserId == null
+          ? 'server_id IS NOT NULL'
+          : 'server_id IS NOT NULL AND user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
     );
     return rows.map((row) => row['server_id']).whereType<int>().toSet();
   }
 
   Future<Set<String>> getInventoryDeleteTombstoneClientUuids() async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final rows = await db.query(
       'inventory_delete_tombstones',
       columns: ['client_uuid'],
-      where: 'client_uuid IS NOT NULL',
+      where: activeUserId == null
+          ? 'client_uuid IS NOT NULL'
+          : 'client_uuid IS NOT NULL AND user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
     );
     return rows
         .map((row) => row['client_uuid'])

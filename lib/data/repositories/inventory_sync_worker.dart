@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'package:pamoja_twalima/core/services/local_session_service.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:pamoja_twalima/data/database/database_helper.dart';
 import 'package:pamoja_twalima/data/network/api_service.dart';
@@ -7,13 +8,17 @@ import 'package:pamoja_twalima/data/network/api_service.dart';
 class InventorySyncWorker {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   final ApiService _api = ApiService();
+  final LocalSessionService _localSessionService = LocalSessionService();
 
   Future<void> sync() async {
     developer.log('InventorySyncWorker: Starting inventory sync');
 
     final Database db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final List<Map<String, dynamic>> queue = await db.query(
       'inventory_sync_queue',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
       orderBy: 'created_at ASC',
     );
 
@@ -48,16 +53,20 @@ class InventorySyncWorker {
               'InventorySyncWorker: Max retries reached for item ${item['id']}, removing from queue');
           await db.delete(
             'inventory_sync_queue',
-            where: 'id = ?',
-            whereArgs: [item['id']],
+            where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+            whereArgs: activeUserId == null
+                ? [item['id']]
+                : [item['id'], activeUserId],
           );
         } else {
           // Update retry count
           await db.update(
             'inventory_sync_queue',
             {'retry_count': retryCount},
-            where: 'id = ?',
-            whereArgs: [item['id']],
+            where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+            whereArgs: activeUserId == null
+                ? [item['id']]
+                : [item['id'], activeUserId],
           );
         }
 
@@ -73,6 +82,7 @@ class InventorySyncWorker {
     Database db,
     Map<String, dynamic> queueItem,
   ) async {
+    final activeUserId = await _localSessionService.getActiveUserId();
     final String action = queueItem['action'];
     final String payloadStr = queueItem['payload'] as String;
     final int localId = queueItem['inventory_local_id'];
@@ -96,8 +106,10 @@ class InventorySyncWorker {
       // Remove invalid entry from queue
       await db.delete(
         'inventory_sync_queue',
-        where: 'id = ?',
-        whereArgs: [queueItem['id']],
+        where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+        whereArgs: activeUserId == null
+            ? [queueItem['id']]
+            : [queueItem['id'], activeUserId],
       );
       return;
     }
@@ -120,8 +132,8 @@ class InventorySyncWorker {
         // Get server_id from inventory table
         final inventoryRecord = await db.query(
           'inventory',
-          where: 'id = ?',
-          whereArgs: [localId],
+          where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+          whereArgs: activeUserId == null ? [localId] : [localId, activeUserId],
         );
 
         if (inventoryRecord.isEmpty) {
@@ -129,8 +141,10 @@ class InventorySyncWorker {
               'InventorySyncWorker: Local record not found for id=$localId');
           await db.delete(
             'inventory_sync_queue',
-            where: 'id = ?',
-            whereArgs: [queueItem['id']],
+            where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+            whereArgs: activeUserId == null
+                ? [queueItem['id']]
+                : [queueItem['id'], activeUserId],
           );
           return;
         }
@@ -171,8 +185,8 @@ class InventorySyncWorker {
         final inventoryRecord = await db.query(
           'inventory',
           columns: ['server_id', 'client_uuid'],
-          where: 'id = ?',
-          whereArgs: [localId],
+          where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+          whereArgs: activeUserId == null ? [localId] : [localId, activeUserId],
         );
 
         if (serverId == null && inventoryRecord.isNotEmpty) {
@@ -218,8 +232,10 @@ class InventorySyncWorker {
       // Remove from queue on success
       await db.delete(
         'inventory_sync_queue',
-        where: 'id = ?',
-        whereArgs: [queueItem['id']],
+        where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+        whereArgs: activeUserId == null
+            ? [queueItem['id']]
+            : [queueItem['id'], activeUserId],
       );
 
       developer.log(
@@ -233,8 +249,8 @@ class InventorySyncWorker {
         await db.update(
           'inventory',
           {'conflict': 1},
-          where: 'id = ?',
-          whereArgs: [localId],
+          where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+          whereArgs: activeUserId == null ? [localId] : [localId, activeUserId],
         );
       } else if (e.statusCode == 401) {
         developer.log('InventorySyncWorker: Unauthorized - stopping sync');
@@ -270,14 +286,15 @@ class InventorySyncWorker {
     int localId,
     int serverId,
   ) async {
+    final activeUserId = await _localSessionService.getActiveUserId();
     await db.update(
       'inventory',
       {
         'is_synced': 1,
         'server_id': serverId,
       },
-      where: 'id = ?',
-      whereArgs: [localId],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [localId] : [localId, activeUserId],
     );
   }
 }

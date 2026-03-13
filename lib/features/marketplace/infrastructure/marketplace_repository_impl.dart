@@ -1,4 +1,5 @@
 import 'package:injectable/injectable.dart';
+import 'package:pamoja_twalima/core/services/local_session_service.dart';
 import 'package:pamoja_twalima/data/repositories/local_data.dart';
 import 'package:pamoja_twalima/data/database/database_helper.dart';
 import '../domain/repositories/marketplace_repository.dart';
@@ -9,9 +10,11 @@ import '../domain/value_objects/value_objects.dart';
 @LazySingleton(as: MarketplaceRepository)
 class MarketplaceRepositoryImpl implements MarketplaceRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper();
+  final LocalSessionService _localSessionService = LocalSessionService();
   @override
   Future<ProductEntity> addProduct(ProductEntity product) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     await db.insert('inventory', {
       'item_name': product.name.value,
       'category': product.category,
@@ -20,6 +23,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
       'unit_price': product.price.value,
       'total_value': product.price.value * product.quantity,
       'last_updated': DateTime.now().toIso8601String(),
+      'user_id': activeUserId,
     });
 
     return product;
@@ -28,16 +32,26 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   @override
   Future<void> deleteProduct(String id) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final int? parsed = int.tryParse(id);
     if (parsed == null) return;
-    await db.delete('inventory', where: 'id = ?', whereArgs: [parsed]);
+    await db.delete(
+      'inventory',
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [parsed] : [parsed, activeUserId],
+    );
   }
 
   @override
   Future<List<ProductEntity>> getProducts() async {
     // Prefer persisted marketplace/inventory records when available
     final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query('inventory');
+    final activeUserId = await _localSessionService.getActiveUserId();
+    final List<Map<String, dynamic>> maps = await db.query(
+      'inventory',
+      where: activeUserId == null ? null : 'user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
+    );
     if (maps.isNotEmpty) {
       return maps.map(_mapToEntity).toList();
     }
@@ -62,6 +76,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   @override
   Future<ProductEntity> updateProduct(ProductEntity product) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final id = int.tryParse(product.id ?? '');
     if (id == null) return product;
 
@@ -75,9 +90,10 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
         'unit_price': product.price.value,
         'total_value': product.price.value * product.quantity,
         'last_updated': DateTime.now().toIso8601String(),
+        'user_id': activeUserId,
       },
-      where: 'id = ?',
-      whereArgs: [id],
+      where: activeUserId == null ? 'id = ?' : 'id = ? AND user_id = ?',
+      whereArgs: activeUserId == null ? [id] : [id, activeUserId],
     );
 
     return product;
@@ -86,6 +102,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   @override
   Future<InquiryEntity> submitInquiry(InquiryEntity inquiry) async {
     final db = await _dbHelper.database;
+    final activeUserId = await _localSessionService.getActiveUserId();
     final id = await db.insert('marketplace_inquiries', {
       'inquiry_type': inquiry.inquiryType,
       'product_name': inquiry.productName,
@@ -93,6 +110,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
       'quantity': inquiry.quantity,
       'details': inquiry.details,
       'created_at': inquiry.createdAt.toIso8601String(),
+      'user_id': activeUserId,
     });
 
     return InquiryEntity(
