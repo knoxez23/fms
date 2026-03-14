@@ -160,22 +160,20 @@ class _SalesViewState extends State<SalesView> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: _SalesFilterDropdown(
+                        child: FilterDropdown(
                           value: _selectedFilter,
                           items: _filters,
                           onChanged: (value) =>
                               setState(() => _selectedFilter = value!),
-                          theme: theme,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _SalesFilterDropdown(
+                        child: FilterDropdown(
                           value: _selectedPeriod,
                           items: _periods,
                           onChanged: (value) =>
                               setState(() => _selectedPeriod = value!),
-                          theme: theme,
                         ),
                       ),
                     ],
@@ -189,25 +187,31 @@ class _SalesViewState extends State<SalesView> {
                 sliver: SliverToBoxAdapter(
                   child: Row(
                     children: [
-                      _QuickStat(
-                        icon: Icons.receipt,
-                        value: periodSales.length.toString(),
-                        label: context.tr('sales'),
-                        theme: theme,
+                      Expanded(
+                        child: _QuickStat(
+                          icon: Icons.receipt,
+                          value: periodSales.length.toString(),
+                          label: context.tr('sales'),
+                          theme: theme,
+                        ),
                       ),
                       const SizedBox(width: 12),
-                      _QuickStat(
-                        icon: Icons.check_circle_outline,
-                        value: paidSales.toString(),
-                        label: context.tr('paid'),
-                        theme: theme,
+                      Expanded(
+                        child: _QuickStat(
+                          icon: Icons.check_circle_outline,
+                          value: paidSales.toString(),
+                          label: context.tr('paid'),
+                          theme: theme,
+                        ),
                       ),
                       const SizedBox(width: 12),
-                      _QuickStat(
-                        icon: Icons.hourglass_empty,
-                        value: pendingSales.toString(),
-                        label: context.tr('pending'),
-                        theme: theme,
+                      Expanded(
+                        child: _QuickStat(
+                          icon: Icons.hourglass_empty,
+                          value: pendingSales.toString(),
+                          label: context.tr('pending'),
+                          theme: theme,
+                        ),
                       ),
                     ],
                   ),
@@ -283,7 +287,7 @@ class _SalesViewState extends State<SalesView> {
                 padding: const EdgeInsets.all(16),
                 sliver: periodSales.isEmpty
                     ? SliverToBoxAdapter(
-                        child: _SalesEmptyState(theme: theme),
+                        child: const _SalesEmptyState(),
                       )
                     : SliverList(
                         delegate: SliverChildBuilderDelegate(
@@ -316,14 +320,16 @@ class _SalesViewState extends State<SalesView> {
               const SliverToBoxAdapter(child: SizedBox(height: 120)),
             ],
           ),
-          floatingActionButton: Padding(
-            padding: const EdgeInsets.only(bottom: 90),
-            child: FloatingActionButton(
-              heroTag: 'addSaleFAB',
-              onPressed: _openAddActions,
-              backgroundColor: theme.colorScheme.primary,
-              child: const Icon(Icons.add, color: Colors.white),
-            ),
+          floatingActionButton: AppFabStack(
+            actions: [
+              AppFabAction(
+                heroTag: 'addSaleFAB',
+                icon: Icons.add,
+                tooltip: 'Add business record',
+                onPressed: _openAddActions,
+                backgroundColor: theme.colorScheme.primary,
+              ),
+            ],
           ),
         );
       },
@@ -568,13 +574,7 @@ class _BusinessFinancePanel extends StatelessWidget {
     final advicePrimary = (summary['advicePrimary'] ?? '').toString().trim();
     final adviceSecondary =
         (summary['adviceSecondary'] ?? '').toString().trim();
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [AppColors.subtleShadow],
-      ),
+    return SurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -639,154 +639,140 @@ class _BusinessFinancePanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          _FinanceOutlookCard(
-            theme: theme,
-            pendingCollectionsValue: pendingCollectionsValue,
-            restockCostEstimate: restockCostEstimate,
-            projectedCashBuffer: projectedCashBuffer,
-            freshnessRiskCount: freshnessRiskCount,
-            freshnessPriorityLabel: freshnessPriorityLabel,
-            oldestFreshOutputAgeHours: oldestFreshOutputAgeHours,
-            verificationScore: verificationScore,
-            verificationBand: verificationBand,
-            marketplaceTrustScore: marketplaceTrustScore,
-            marketplaceTrustBand: marketplaceTrustBand,
-            lendingReadinessScore: lendingReadinessScore,
-            lendingReadinessBand: lendingReadinessBand,
-          ),
-          const SizedBox(height: 14),
-          _ManagementSignalsCard(
-            theme: theme,
-            operationsHealthScore: operationsHealthScore,
-            operationsHealthBand: operationsHealthBand,
-            executionPressureBand: executionPressureBand,
-            advicePrimary: advicePrimary,
-            adviceSecondary: adviceSecondary,
-          ),
-          const SizedBox(height: 14),
-          _OperationsReviewCard(
-            theme: theme,
-            enterpriseFocus: enterpriseFocus,
-            costDisciplineBand: costDisciplineBand,
-            collectionsDisciplineBand: collectionsDisciplineBand,
-            milkTrendBand: milkTrendBand,
-            eggsTrendBand: eggsTrendBand,
-            breedingReviewsDue: breedingReviewsDue,
-            treatmentFollowUps: treatmentFollowUps,
-            cropStageReviewsDue: cropStageReviewsDue,
-            enterpriseAdvicePrimary: enterpriseAdvicePrimary,
-            enterpriseAdviceSecondary: enterpriseAdviceSecondary,
-          ),
-          const SizedBox(height: 14),
-          _OutputPipelineCard(
-            theme: theme,
-            milkToday: milkToday,
-            eggsToday: eggsToday,
-            milkSoldToday: milkSoldToday,
-            eggsSoldToday: eggsSoldToday,
-            milkStockOnHand: milkStockOnHand,
-            eggsStockOnHand: eggsStockOnHand,
-            outputStockValue: outputStockValue,
-            onCreateDraft: onCreateOutputDraft,
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Unit economics',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
+          CollapsibleCardSection(
+            title: 'Outlook',
+            icon: Icons.insights_outlined,
+            child: _FinanceOutlookCard(
+              theme: theme,
+              pendingCollectionsValue: pendingCollectionsValue,
+              restockCostEstimate: restockCostEstimate,
+              projectedCashBuffer: projectedCashBuffer,
+              freshnessRiskCount: freshnessRiskCount,
+              freshnessPriorityLabel: freshnessPriorityLabel,
+              oldestFreshOutputAgeHours: oldestFreshOutputAgeHours,
+              verificationScore: verificationScore,
+              verificationBand: verificationBand,
+              marketplaceTrustScore: marketplaceTrustScore,
+              marketplaceTrustBand: marketplaceTrustBand,
+              lendingReadinessScore: lendingReadinessScore,
+              lendingReadinessBand: lendingReadinessBand,
             ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _BreakdownCard(
-                  theme: theme,
-                  title: 'Revenue by line',
-                  emptyLabel: 'No sales yet',
-                  accent: Colors.green,
-                  rows: revenueByType,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _BreakdownCard(
-                  theme: theme,
-                  title: 'Costs by category',
-                  emptyLabel: 'No expenses yet',
-                  accent: Colors.redAccent,
-                  rows: expensesByCategory,
-                ),
-              ),
-            ],
-          ),
           const SizedBox(height: 14),
-          Text(
-            'Recent expenses',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
+          CollapsibleCardSection(
+            title: 'Management signals',
+            icon: Icons.tips_and_updates_outlined,
+            child: _ManagementSignalsCard(
+              theme: theme,
+              operationsHealthScore: operationsHealthScore,
+              operationsHealthBand: operationsHealthBand,
+              executionPressureBand: executionPressureBand,
+              advicePrimary: advicePrimary,
+              adviceSecondary: adviceSecondary,
             ),
           ),
-          const SizedBox(height: 8),
-          if (expenses.isEmpty)
-            Text(
-              'No expenses recorded yet. Start with feed, vet, labor, or transport.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
-              ),
-            )
-          else
-            ...expenses.map(
-              (expense) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.money_off_csred_outlined,
-                        color: Colors.redAccent,
-                        size: 18,
-                      ),
+          const SizedBox(height: 14),
+          CollapsibleCardSection(
+            title: 'Operations review',
+            icon: Icons.rule_folder_outlined,
+            initiallyExpanded: false,
+            child: _OperationsReviewCard(
+              theme: theme,
+              enterpriseFocus: enterpriseFocus,
+              costDisciplineBand: costDisciplineBand,
+              collectionsDisciplineBand: collectionsDisciplineBand,
+              milkTrendBand: milkTrendBand,
+              eggsTrendBand: eggsTrendBand,
+              breedingReviewsDue: breedingReviewsDue,
+              treatmentFollowUps: treatmentFollowUps,
+              cropStageReviewsDue: cropStageReviewsDue,
+              enterpriseAdvicePrimary: enterpriseAdvicePrimary,
+              enterpriseAdviceSecondary: enterpriseAdviceSecondary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          CollapsibleCardSection(
+            title: 'Output pipeline',
+            icon: Icons.inventory_2_outlined,
+            child: _OutputPipelineCard(
+              theme: theme,
+              milkToday: milkToday,
+              eggsToday: eggsToday,
+              milkSoldToday: milkSoldToday,
+              eggsSoldToday: eggsSoldToday,
+              milkStockOnHand: milkStockOnHand,
+              eggsStockOnHand: eggsStockOnHand,
+              outputStockValue: outputStockValue,
+              onCreateDraft: onCreateOutputDraft,
+            ),
+          ),
+          const SizedBox(height: 14),
+          CollapsibleCardSection(
+            title: 'Unit economics',
+            icon: Icons.stacked_bar_chart_outlined,
+            initiallyExpanded: false,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _BreakdownCard(
+                    theme: theme,
+                    title: 'Revenue by line',
+                    emptyLabel: 'No sales yet',
+                    accent: Colors.green,
+                    rows: revenueByType,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _BreakdownCard(
+                    theme: theme,
+                    title: 'Costs by category',
+                    emptyLabel: 'No expenses yet',
+                    accent: Colors.redAccent,
+                    rows: expensesByCategory,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          CollapsibleCardSection(
+            title: 'Recent expenses',
+            icon: Icons.money_off_csred_outlined,
+            initiallyExpanded: false,
+            child: expenses.isEmpty
+                ? Text(
+                    'No expenses recorded yet. Start with feed, vet, labor, or transport.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            (expense['item_name'] ?? 'Expense').toString(),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
+                  )
+                : Column(
+                    children: expenses
+                        .map(
+                          (expense) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: ListItemCard(
+                              icon: Icons.money_off_csred_outlined,
+                              iconColor: Colors.redAccent,
+                              title: (expense['item_name'] ?? 'Expense')
+                                  .toString(),
+                              subtitle:
+                                  '${expense['category'] ?? 'Other'} • ${_dateLabel(expense['expense_date']?.toString())}',
+                              trailing: Text(
+                                'KSh ${((expense['amount'] as num?) ?? 0).toStringAsFixed(0)}',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: Colors.redAccent,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
                           ),
-                          Text(
-                            '${expense['category'] ?? 'Other'} • ${_dateLabel(expense['expense_date']?.toString())}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.65),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      'KSh ${((expense['amount'] as num?) ?? 0).toStringAsFixed(0)}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.redAccent,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                        )
+                        .toList(),
+                  ),
+          ),
         ],
       ),
     );
@@ -823,23 +809,14 @@ class _ManagementSignalsCard extends StatelessWidget {
         : operationsHealthScore >= 60
             ? Colors.orange
             : Colors.redAccent;
-    return Container(
+    return SurfaceCard(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: scoreColor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: scoreColor.withValues(alpha: 0.18)),
-      ),
+      color: scoreColor.withValues(alpha: 0.08),
+      boxShadow: const [],
+      border: Border.all(color: scoreColor.withValues(alpha: 0.18)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Management signals',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -948,22 +925,13 @@ class _OperationsReviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SurfaceCard(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.secondary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      color: theme.colorScheme.secondary.withValues(alpha: 0.08),
+      boxShadow: const [],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Operations review',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
           Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -1002,22 +970,10 @@ class _TaskPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.4),
-        ),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.bodySmall?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+    return ChipPill(
+      label: label,
+      color: Theme.of(context).colorScheme.primary,
+      outlined: true,
     );
   }
 }
@@ -1055,22 +1011,13 @@ class _FinanceOutlookCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SurfaceCard(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      color: theme.colorScheme.primary.withValues(alpha: 0.06),
+      boxShadow: const [],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Outlook',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -1210,30 +1157,9 @@ class _ScoreChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: RichText(
-        text: TextSpan(
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w700,
-          ),
-          children: [
-            TextSpan(text: label),
-            TextSpan(
-              text: ' • $detail',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: color.withValues(alpha: 0.85),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return ChipPill(
+      label: '$label • $detail',
+      color: color,
     );
   }
 }
@@ -1267,22 +1193,13 @@ class _OutputPipelineCard extends StatelessWidget {
         eggsToday > 0 ||
         milkStockOnHand > 0 ||
         eggsStockOnHand > 0;
-    return Container(
+    return SurfaceCard(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.amber.withValues(alpha: 0.09),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      color: Colors.amber.withValues(alpha: 0.09),
+      boxShadow: const [],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Output pipeline',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
           if (!hasOutput)
             Text(
               'No milk or egg output has moved through stock or sales yet today.',
@@ -1473,20 +1390,7 @@ class _PipelinePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
+    return ChipPill(label: label, color: color);
   }
 }
 
@@ -1507,12 +1411,10 @@ class _BreakdownCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SurfaceCard(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      color: accent.withValues(alpha: 0.08),
+      boxShadow: const [],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1579,32 +1481,12 @@ class _FinanceMetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
-            ),
-          ),
-        ],
-      ),
+    return MetricTile(
+      label: label,
+      value: value,
+      icon: icon,
+      color: color,
+      compact: true,
     );
   }
 }
@@ -1628,86 +1510,11 @@ class _RevenueCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: 170,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: theme.cardTheme.color,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [AppColors.subtleShadow],
-        ),
-        child: Column(
-          children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: color.withValues(alpha: 0.2),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'KSh ${amount.toStringAsFixed(0)}',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SalesFilterDropdown extends StatelessWidget {
-  final String value;
-  final List<String> items;
-  final Function(String?) onChanged;
-  final ThemeData theme;
-
-  const _SalesFilterDropdown({
-    required this.value,
-    required this.items,
-    required this.onChanged,
-    required this.theme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.3),
-        ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          items: items.map((item) {
-            return DropdownMenuItem(
-              value: item,
-              child: Text(
-                item,
-                style: theme.textTheme.bodyMedium,
-              ),
-            );
-          }).toList(),
-          onChanged: onChanged,
-          isExpanded: true,
-          icon: Icon(
-            Icons.arrow_drop_down,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-          ),
-        ),
+      child: MetricTile(
+        label: label,
+        value: 'KSh ${amount.toStringAsFixed(0)}',
+        icon: icon,
+        color: color,
       ),
     );
   }
@@ -1728,35 +1535,12 @@ class _QuickStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.primary.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 16, color: theme.colorScheme.primary),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                fontSize: 10,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+    return MetricTile(
+      label: label,
+      value: value,
+      icon: icon,
+      color: theme.colorScheme.primary,
+      compact: true,
     );
   }
 }
@@ -1780,42 +1564,14 @@ class _OpenContactsButton extends StatelessWidget {
 }
 
 class _SalesEmptyState extends StatelessWidget {
-  final ThemeData theme;
-
-  const _SalesEmptyState({required this.theme});
+  const _SalesEmptyState();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.receipt_long_outlined,
-            size: 36,
-            color: theme.colorScheme.primary.withValues(alpha: 0.7),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'No sales in this filter',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Create a new sale or adjust your period/category filters.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-            ),
-          ),
-        ],
-      ),
+    return const EmptyState(
+      icon: Icons.receipt_long_outlined,
+      title: 'No sales in this filter',
+      subtitle: 'Create a new sale or adjust your period/category filters.',
     );
   }
 }
@@ -1835,73 +1591,23 @@ class _SaleItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPending = sale.isPending;
 
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: _getProductColor(sale.type).withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ListItemCard(
+        icon: _getProductIcon(sale.productName),
+        iconColor: _getProductColor(sale.type),
+        title: sale.productName,
+        subtitle: '${sale.quantity.value} ${sale.unit} • ${sale.customer}',
+        badges: [
+          ChipPill(
+            label: sale.type,
+            color: _getTypeColor(sale.type),
           ),
-          child: Icon(
-            _getProductIcon(sale.productName),
-            color: _getProductColor(sale.type),
-            size: 24,
+          ChipPill(
+            label: sale.paymentStatus,
+            color: isPending ? Colors.orange : Colors.green,
           ),
-        ),
-        title: Text(
-          sale.productName,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${sale.quantity.value} ${sale.unit} • ${sale.customer}'),
-            const SizedBox(height: 2),
-            Row(
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: _getTypeColor(sale.type).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    sale.type,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: _getTypeColor(sale.type),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: isPending
-                        ? Colors.orange.withValues(alpha: 0.1)
-                        : Colors.green.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    sale.paymentStatus,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: isPending ? Colors.orange : Colors.green,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+        ],
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,

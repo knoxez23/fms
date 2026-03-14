@@ -210,45 +210,32 @@ class _HomeViewState extends State<HomeView>
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  SliverToBoxAdapter(
-                    child: SectionHeader(
-                      title: 'Today\'s Operating Plan',
-                      icon: Icons.today_outlined,
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _TodayOperationsSection(
-                        theme: theme,
-                        summary: summary,
-                        onOpenFarm: () => widget.onNavigateTab?.call(1),
-                        onOpenInventory: () => widget.onNavigateTab?.call(2),
-                        onOpenBusiness: () => widget.onNavigateTab?.call(3),
-                      ),
+                  _sectionCardSliver(
+                    title: 'Today\'s Operating Plan',
+                    icon: Icons.today_outlined,
+                    child: _TodayOperationsSection(
+                      theme: theme,
+                      summary: summary,
+                      onOpenFarm: () => widget.onNavigateTab?.call(1),
+                      onOpenInventory: () => widget.onNavigateTab?.call(2),
+                      onOpenBusiness: () => widget.onNavigateTab?.call(3),
                     ),
                   ),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  // Quick Stats Grid
-                  SliverToBoxAdapter(
-                    child: SectionHeader(
-                      title: context.tr('home_farm_snapshot'),
-                      icon: Icons.dashboard,
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    sliver: SliverGrid(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 12,
-                        crossAxisSpacing: 12,
-                        childAspectRatio: 1.5,
-                      ),
-                      delegate: SliverChildListDelegate([
+                  _sectionCardSliver(
+                    title: context.tr('home_farm_snapshot'),
+                    icon: Icons.dashboard,
+                    initiallyExpanded: false,
+                    child: GridView.count(
+                      crossAxisCount: 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 1.5,
+                      children: [
                         _QuickStatCard(
                           icon: Icons.agriculture,
                           label: 'Crops',
@@ -289,158 +276,108 @@ class _HomeViewState extends State<HomeView>
                             widget.onNavigateTab?.call(1);
                           },
                         ),
-                      ]),
+                      ],
                     ),
                   ),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  // Financial Overview
-                  SliverToBoxAdapter(
-                    child: SectionHeader(
-                      title: context.tr('home_financial'),
-                      icon: Icons.payments,
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _FinancialOverview(
-                        summary: summary,
-                        theme: theme,
-                        onOpenBusiness: () => widget.onNavigateTab?.call(3),
-                      ),
+                  _sectionCardSliver(
+                    title: context.tr('home_financial'),
+                    icon: Icons.payments,
+                    child: _FinancialOverview(
+                      summary: summary,
+                      theme: theme,
+                      onOpenBusiness: () => widget.onNavigateTab?.call(3),
                     ),
                   ),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  SliverToBoxAdapter(
-                    child: SectionHeader(
-                      title: 'Today\'s Blockers',
-                      icon: Icons.rule_folder_outlined,
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _TodayBlockersSection(
-                        theme: theme,
-                        summary: summary,
-                        onOpenFarm: () => widget.onNavigateTab?.call(1),
-                        onOpenInventory: () => widget.onNavigateTab?.call(2),
-                        onOpenBusiness: () => widget.onNavigateTab?.call(3),
-                      ),
+                  _sectionCardSliver(
+                    title: 'Today\'s Blockers',
+                    icon: Icons.rule_folder_outlined,
+                    child: _TodayBlockersSection(
+                      theme: theme,
+                      summary: summary,
+                      onOpenFarm: () => widget.onNavigateTab?.call(1),
+                      onOpenInventory: () => widget.onNavigateTab?.call(2),
+                      onOpenBusiness: () => widget.onNavigateTab?.call(3),
                     ),
                   ),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  SliverToBoxAdapter(
-                    child: SectionHeader(
-                      title: 'Smart Focus',
-                      icon: Icons.auto_awesome,
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _OperationalInsightsSection(
-                        theme: theme,
-                        insights: _insights,
-                        onInsightTap: _handleInsightTap,
-                      ),
+                  _sectionCardSliver(
+                    title: 'Smart Focus',
+                    icon: Icons.auto_awesome,
+                    child: _OperationalInsightsSection(
+                      theme: theme,
+                      insights: _insights,
+                      onInsightTap: _handleInsightTap,
                     ),
                   ),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  SliverToBoxAdapter(
-                    child: SectionHeader(
-                      title: 'This Week',
-                      icon: Icons.view_week_outlined,
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _ThisWeekAheadSection(
-                        theme: theme,
-                        summary: summary,
-                        onOpenFarm: () => widget.onNavigateTab?.call(1),
-                        onOpenInventory: () => widget.onNavigateTab?.call(2),
-                        onOpenBusiness: () => widget.onNavigateTab?.call(3),
-                      ),
+                  _sectionCardSliver(
+                    title: 'This Week',
+                    icon: Icons.view_week_outlined,
+                    initiallyExpanded: false,
+                    child: _ThisWeekAheadSection(
+                      theme: theme,
+                      summary: summary,
+                      onOpenFarm: () => widget.onNavigateTab?.call(1),
+                      onOpenInventory: () => widget.onNavigateTab?.call(2),
+                      onOpenBusiness: () => widget.onNavigateTab?.call(3),
                     ),
                   ),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  SliverToBoxAdapter(
-                    child: SectionHeader(
-                      title: 'Farm Advice',
-                      icon: Icons.tips_and_updates_outlined,
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _FarmAdviceSection(
-                        theme: theme,
-                        summary: summary,
-                        onOpenFarm: () => widget.onNavigateTab?.call(1),
-                        onOpenInventory: () => widget.onNavigateTab?.call(2),
-                        onOpenBusiness: () => widget.onNavigateTab?.call(3),
-                      ),
+                  _sectionCardSliver(
+                    title: 'Farm Advice',
+                    icon: Icons.tips_and_updates_outlined,
+                    child: _FarmAdviceSection(
+                      theme: theme,
+                      summary: summary,
+                      onOpenFarm: () => widget.onNavigateTab?.call(1),
+                      onOpenInventory: () => widget.onNavigateTab?.call(2),
+                      onOpenBusiness: () => widget.onNavigateTab?.call(3),
                     ),
                   ),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  // Critical Alerts
-                  SliverToBoxAdapter(
-                    child: SectionHeader(
-                      title: context.tr('home_alerts'),
-                      icon: Icons.warning_amber,
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _CriticalAlerts(
-                        theme: theme,
-                        summary: summary,
-                        onOpenInventory: () => widget.onNavigateTab?.call(2),
-                        onOpenTasks: () => widget.onNavigateTab?.call(1),
-                      ),
+                  _sectionCardSliver(
+                    title: context.tr('home_alerts'),
+                    icon: Icons.warning_amber,
+                    initiallyExpanded: false,
+                    child: _CriticalAlerts(
+                      theme: theme,
+                      summary: summary,
+                      onOpenInventory: () => widget.onNavigateTab?.call(2),
+                      onOpenTasks: () => widget.onNavigateTab?.call(1),
                     ),
                   ),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  // Quick Actions
-                  SliverToBoxAdapter(
-                    child: SectionHeader(
-                      title: context.tr('home_quick_actions'),
-                      icon: Icons.bolt,
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _QuickActions(
-                        theme: theme,
-                        onNavigateTab: (index) =>
-                            widget.onNavigateTab?.call(index),
-                        onAddTask: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const AddTaskScreen(),
-                            ),
-                          ).then((_) => _refresh());
-                        },
-                      ),
+                  _sectionCardSliver(
+                    title: context.tr('home_quick_actions'),
+                    icon: Icons.bolt,
+                    initiallyExpanded: false,
+                    child: _QuickActions(
+                      theme: theme,
+                      onNavigateTab: (index) => widget.onNavigateTab?.call(index),
+                      onAddTask: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AddTaskScreen(),
+                          ),
+                        ).then((_) => _refresh());
+                      },
                     ),
                   ),
 
@@ -486,6 +423,25 @@ class _HomeViewState extends State<HomeView>
       'Dec'
     ];
     return '${days[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  Widget _sectionCardSliver({
+    required String title,
+    required Widget child,
+    IconData? icon,
+    bool initiallyExpanded = true,
+  }) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: CollapsibleCardSection(
+          title: title,
+          icon: icon,
+          initiallyExpanded: initiallyExpanded,
+          child: child,
+        ),
+      ),
+    );
   }
 
   int _notificationCount(Map<String, dynamic> summary) {
@@ -1940,73 +1896,13 @@ class _QuickStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.cardColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: theme.dividerColor.withValues(alpha: 0.2),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(icon, color: color, size: 20),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 14,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    value,
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                  // const SizedBox(height: 0.5),
-                  Text(
-                    '$label $subtitle',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    return MetricTile(
+      label: label,
+      value: value,
+      caption: subtitle,
+      icon: icon,
+      color: color,
+      onTap: onTap,
     );
   }
 }
@@ -2166,32 +2062,12 @@ class _FinancialMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-            ),
-          ),
-        ],
-      ),
+    return MetricTile(
+      label: label,
+      value: value,
+      icon: icon,
+      color: color,
+      compact: true,
     );
   }
 }
@@ -2327,48 +2203,16 @@ class _AlertItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return ListItemCard(
+      icon: icon,
+      iconColor: color,
+      title: title,
+      subtitle: subtitle,
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              size: 14,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-            ),
-          ],
-        ),
+      trailing: Icon(
+        Icons.arrow_forward_ios,
+        size: 14,
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
       ),
     );
   }
@@ -2446,39 +2290,27 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          decoration: BoxDecoration(
-            color: theme.cardColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: theme.dividerColor.withValues(alpha: 0.2),
+    return SurfaceCard(
+      onTap: onTap,
+      boxShadow: const [],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            color: AppColors.primary,
+            size: 28,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
             ),
+            textAlign: TextAlign.center,
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                color: AppColors.primary,
-                size: 28,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/reusable_widgets.dart';
 import 'package:pamoja_twalima/data/network/api_service.dart';
 import 'package:pamoja_twalima/data/services/contact_directory_service.dart';
 import 'package:pamoja_twalima/features/business/presentation/sales/sales_screen.dart';
@@ -70,25 +70,34 @@ class TaskDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             if (item.approvalRequired) ...[
-              _ApprovalCard(
-                theme: theme,
-                task: item,
-                canApprove: canApprove,
-                onApprove: item.isAwaitingApproval
-                    ? () => _setApprovalStatus(context, item, 'approved')
-                    : null,
-                onReject: item.isAwaitingApproval
-                    ? () => _setApprovalStatus(context, item, 'rejected')
-                    : null,
+              CollapsibleCardSection(
+                title: 'Approval',
+                icon: Icons.verified_outlined,
+                child: _ApprovalCard(
+                  theme: theme,
+                  task: item,
+                  canApprove: canApprove,
+                  onApprove: item.isAwaitingApproval
+                      ? () => _setApprovalStatus(context, item, 'approved')
+                      : null,
+                  onReject: item.isAwaitingApproval
+                      ? () => _setApprovalStatus(context, item, 'rejected')
+                      : null,
+                ),
               ),
               const SizedBox(height: 16),
             ],
             if (_workflowLabel(item) != null) ...[
-              _WorkflowActionCard(
-                theme: theme,
-                label: _workflowLabel(item)!,
-                message: _workflowMessage(item),
-                onOpen: () => _openWorkflow(context, item),
+              CollapsibleCardSection(
+                title: 'Linked workspace',
+                icon: Icons.open_in_new_outlined,
+                initiallyExpanded: false,
+                child: _WorkflowActionCard(
+                  theme: theme,
+                  label: _workflowLabel(item)!,
+                  message: _workflowMessage(item),
+                  onOpen: () => _openWorkflow(context, item),
+                ),
               ),
               const SizedBox(height: 16),
             ],
@@ -493,13 +502,7 @@ class _TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [AppColors.subtleShadow],
-      ),
+    return SurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -539,13 +542,12 @@ class _TaskCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               _badge(
-                theme,
                 task.isCompleted ? 'Completed' : 'Pending',
                 task.isCompleted ? Colors.green : Colors.orange,
               ),
-              if (task.isOverdue) _badge(theme, 'Overdue', Colors.red),
+              if (task.isOverdue) _badge('Overdue', Colors.red),
               if (task.approvalRequired)
-                _badge(theme, _approvalLabel(task), _approvalColor(task)),
+                _badge(_approvalLabel(task), _approvalColor(task)),
             ],
           ),
           const SizedBox(height: 12),
@@ -646,21 +648,8 @@ class _TaskCard extends StatelessWidget {
     }
   }
 
-  Widget _badge(ThemeData theme, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
+  Widget _badge(String label, Color color) {
+    return ChipPill(label: label, color: color);
   }
 }
 
@@ -688,22 +677,16 @@ class _ApprovalCard extends StatelessWidget {
       _ => 'This task needs manager sign-off before it is fully cleared.',
     };
 
-    return Container(
+    return SurfaceCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
+      color: theme.colorScheme.primary.withValues(alpha: 0.06),
+      boxShadow: const [],
+      border: Border.all(
+        color: theme.colorScheme.primary.withValues(alpha: 0.15),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Approval',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
           Text(
             headline,
             style: theme.textTheme.bodyMedium,
@@ -795,12 +778,10 @@ class _ReviewTimelineCard extends StatelessWidget {
         ),
     ];
 
-    return Container(
+    return SurfaceCard(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(14),
-      ),
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+      boxShadow: const [],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

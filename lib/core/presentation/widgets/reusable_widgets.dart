@@ -615,3 +615,368 @@ class InfoCard extends StatelessWidget {
     );
   }
 }
+
+// ============================================================================
+// SURFACE CARD - Shared elevated section surface
+// ============================================================================
+
+class SurfaceCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final Color? color;
+  final BorderRadius? borderRadius;
+  final List<BoxShadow>? boxShadow;
+  final Border? border;
+  final VoidCallback? onTap;
+
+  const SurfaceCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(16),
+    this.color,
+    this.borderRadius,
+    this.boxShadow,
+    this.border,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final radius = borderRadius ?? BorderRadius.circular(16);
+    final content = Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: color ?? theme.cardColor,
+        borderRadius: radius,
+        border: border ??
+            Border.all(
+              color: theme.dividerColor.withValues(alpha: 0.18),
+            ),
+        boxShadow: boxShadow ?? const [AppColors.subtleShadow],
+      ),
+      child: child,
+    );
+
+    if (onTap == null) return content;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: content,
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// METRIC TILE - Shared compact stat tile
+// ============================================================================
+
+class MetricTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final String? caption;
+  final bool compact;
+  final VoidCallback? onTap;
+
+  const MetricTile({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    this.caption,
+    this.compact = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final iconSize = compact ? 16.0 : 18.0;
+    final spacing = compact ? 6.0 : 8.0;
+
+    return SurfaceCard(
+      onTap: onTap,
+      padding: EdgeInsets.all(compact ? 12 : 14),
+      color: color.withValues(alpha: 0.08),
+      boxShadow: const [],
+      border: Border.all(color: color.withValues(alpha: 0.14)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: iconSize, color: color),
+          SizedBox(height: spacing),
+          Text(
+            value,
+            style: (compact
+                    ? theme.textTheme.titleMedium
+                    : theme.textTheme.titleLarge)
+                ?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (caption != null && caption!.trim().isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              caption!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// CHIP PILL - Shared pill/badge for list stats and guidance
+// ============================================================================
+
+class ChipPill extends StatelessWidget {
+  final String label;
+  final Color color;
+  final IconData? icon;
+  final bool outlined;
+
+  const ChipPill({
+    super.key,
+    required this.label,
+    this.color = AppColors.primary,
+    this.icon,
+    this.outlined = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: outlined ? theme.colorScheme.surface : color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: outlined
+              ? theme.dividerColor.withValues(alpha: 0.4)
+              : color.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// COLLAPSIBLE CARD SECTION - Shared hide/show section for dense dashboards
+// ============================================================================
+
+class CollapsibleCardSection extends StatefulWidget {
+  final String title;
+  final IconData? icon;
+  final Widget child;
+  final String? subtitle;
+  final bool initiallyExpanded;
+  final Color? accentColor;
+  final EdgeInsetsGeometry padding;
+  final Widget? trailing;
+
+  const CollapsibleCardSection({
+    super.key,
+    required this.title,
+    required this.child,
+    this.icon,
+    this.subtitle,
+    this.initiallyExpanded = true,
+    this.accentColor,
+    this.padding = const EdgeInsets.all(16),
+    this.trailing,
+  });
+
+  @override
+  State<CollapsibleCardSection> createState() => _CollapsibleCardSectionState();
+}
+
+class _CollapsibleCardSectionState extends State<CollapsibleCardSection> {
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initiallyExpanded;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = widget.accentColor ?? theme.colorScheme.primary;
+
+    return SurfaceCard(
+      padding: widget.padding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  if (widget.icon != null) ...[
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(widget.icon, size: 18, color: accent),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.title,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (widget.subtitle != null &&
+                            widget.subtitle!.trim().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              widget.subtitle!,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.65),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (widget.trailing != null) ...[
+                    widget.trailing!,
+                    const SizedBox(width: 8),
+                  ],
+                  AnimatedRotation(
+                    turns: _expanded ? 0.0 : 0.5,
+                    duration: const Duration(milliseconds: 180),
+                    child: Icon(
+                      Icons.keyboard_arrow_up,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: widget.child,
+            ),
+            crossFadeState: _expanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 180),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// SHARED FAB STACK - Standard floating action grouping
+// ============================================================================
+
+class AppFabAction {
+  final String heroTag;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final Color backgroundColor;
+  final bool mini;
+  final String? tooltip;
+
+  const AppFabAction({
+    required this.heroTag,
+    required this.icon,
+    required this.onPressed,
+    required this.backgroundColor,
+    this.mini = false,
+    this.tooltip,
+  });
+}
+
+class AppFabStack extends StatelessWidget {
+  final List<AppFabAction> actions;
+  final double bottomPadding;
+
+  const AppFabStack({
+    super.key,
+    required this.actions,
+    this.bottomPadding = 90,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomPadding),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: actions
+            .map(
+              (action) => Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: FloatingActionButton(
+                  heroTag: action.heroTag,
+                  tooltip: action.tooltip,
+                  onPressed: action.onPressed,
+                  backgroundColor: action.backgroundColor,
+                  mini: action.mini,
+                  child: Icon(action.icon, color: Colors.white),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}

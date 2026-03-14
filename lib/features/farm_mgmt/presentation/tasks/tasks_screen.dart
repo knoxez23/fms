@@ -5,6 +5,7 @@ import 'package:pamoja_twalima/core/di/injection.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/animations/animated_card.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/core/presentation/widgets/reusable_widgets.dart';
 import 'package:pamoja_twalima/data/network/api_service.dart';
 import 'package:pamoja_twalima/data/services/contact_directory_service.dart';
 import 'package:pamoja_twalima/features/business/presentation/sales/sales_screen.dart';
@@ -241,32 +242,41 @@ class _TasksScreenState extends State<TasksScreen> {
                       spacing: 12,
                       runSpacing: 12,
                       children: [
-                        _TaskStat(
-                          count: pendingCount,
-                          label: 'Pending',
-                          color: Colors.orange,
-                          theme: theme,
+                        SizedBox(
+                          width: 170,
+                          child: _TaskStat(
+                            count: pendingCount,
+                            label: 'Pending',
+                            color: Colors.orange,
+                            theme: theme,
+                          ),
                         ),
-                        const SizedBox(width: 12),
-                        _TaskStat(
-                          count: overdueCount,
-                          label: 'Overdue',
-                          color: Colors.red,
-                          theme: theme,
+                        SizedBox(
+                          width: 170,
+                          child: _TaskStat(
+                            count: overdueCount,
+                            label: 'Overdue',
+                            color: Colors.red,
+                            theme: theme,
+                          ),
                         ),
-                        const SizedBox(width: 12),
-                        _TaskStat(
-                          count: completedCount,
-                          label: 'Completed',
-                          color: Colors.green,
-                          theme: theme,
+                        SizedBox(
+                          width: 170,
+                          child: _TaskStat(
+                            count: completedCount,
+                            label: 'Completed',
+                            color: Colors.green,
+                            theme: theme,
+                          ),
                         ),
-                        const SizedBox(width: 12),
-                        _TaskStat(
-                          count: waitingApprovalCount,
-                          label: 'Waiting approval',
-                          color: Colors.deepPurple,
-                          theme: theme,
+                        SizedBox(
+                          width: 170,
+                          child: _TaskStat(
+                            count: waitingApprovalCount,
+                            label: 'Waiting approval',
+                            color: Colors.deepPurple,
+                            theme: theme,
+                          ),
                         ),
                       ],
                     ),
@@ -275,42 +285,51 @@ class _TasksScreenState extends State<TasksScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: _TaskRoleFocusCard(
-                      theme: theme,
-                      currentRole: currentRole,
-                      queueMode: _queueMode,
-                      currentUserName: _currentUserName,
-                      waitingApprovalCount: waitingApprovalCount,
-                      myDueTodayCount: myDueTodayCount,
-                      myReadyToFinishCount: myReadyToFinishCount,
-                      onJumpToMyQueue: () => setState(() {
-                        _queueMode = 'My Queue';
-                        _selectedAssignee = _currentUserName;
-                        _selectedStatus = 'All';
-                      }),
-                      onJumpToApproval: _canApproveRole
-                          ? () => setState(() {
-                                _queueMode = 'Approval Queue';
-                                _selectedStatus = 'Waiting approval';
-                                _selectedAssignee = 'Anyone';
-                              })
-                          : null,
+                    child: CollapsibleCardSection(
+                      title: 'Role focus',
+                      icon: Icons.person_search_outlined,
+                      child: _TaskRoleFocusCard(
+                        theme: theme,
+                        currentRole: currentRole,
+                        queueMode: _queueMode,
+                        currentUserName: _currentUserName,
+                        waitingApprovalCount: waitingApprovalCount,
+                        myDueTodayCount: myDueTodayCount,
+                        myReadyToFinishCount: myReadyToFinishCount,
+                        onJumpToMyQueue: () => setState(() {
+                          _queueMode = 'My Queue';
+                          _selectedAssignee = _currentUserName;
+                          _selectedStatus = 'All';
+                        }),
+                        onJumpToApproval: _canApproveRole
+                            ? () => setState(() {
+                                  _queueMode = 'Approval Queue';
+                                  _selectedStatus = 'Waiting approval';
+                                  _selectedAssignee = 'Anyone';
+                                })
+                            : null,
+                      ),
                     ),
                   ),
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: _TaskOperationsCard(
-                      theme: theme,
-                      farmContext: _farmContext,
-                      assignedCount: assignedCount,
-                      unassignedCount: unassignedCount,
-                      waitingApprovalCount: waitingApprovalCount,
-                      approvedThisWeekCount: approvedThisWeekCount,
-                      sentBackThisWeekCount: sentBackThisWeekCount,
-                      topReviewer: topReviewer,
-                      roleSummary: roleSummary,
+                    child: CollapsibleCardSection(
+                      title: 'Task desk',
+                      icon: Icons.space_dashboard_outlined,
+                      initiallyExpanded: false,
+                      child: _TaskOperationsCard(
+                        theme: theme,
+                        farmContext: _farmContext,
+                        assignedCount: assignedCount,
+                        unassignedCount: unassignedCount,
+                        waitingApprovalCount: waitingApprovalCount,
+                        approvedThisWeekCount: approvedThisWeekCount,
+                        sentBackThisWeekCount: sentBackThisWeekCount,
+                        topReviewer: topReviewer,
+                        roleSummary: roleSummary,
+                      ),
                     ),
                   ),
                 ),
@@ -464,48 +483,44 @@ class _TasksScreenState extends State<TasksScreen> {
             ),
 
             // Floating action buttons
-            floatingActionButton: Padding(
-              padding: const EdgeInsets.only(bottom: 90),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  FloatingActionButton(
-                    heroTag: 'calendar',
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const TaskCalendarScreen()),
-                      );
-                    },
-                    backgroundColor: theme.colorScheme.secondary,
-                    mini: true,
-                    child:
-                        const Icon(Icons.calendar_today, color: Colors.white),
-                  ),
-                  const SizedBox(height: 12),
-                  FloatingActionButton(
-                    heroTag: 'addTaskFAB',
-                    onPressed: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => AddTaskScreen(
-                                  currentRole: currentRole,
-                                  currentUserName: _currentUserName,
-                                )),
-                      );
-                      if (result is! TaskEntity) return;
-                      if (!context.mounted) return;
-                      context
-                          .read<TasksBloc>()
-                          .add(TasksEvent.add(task: result));
-                    },
-                    backgroundColor: theme.colorScheme.primary,
-                    child: const Icon(Icons.add, color: Colors.white),
-                  ),
-                ],
-              ),
+            floatingActionButton: AppFabStack(
+              actions: [
+                AppFabAction(
+                  heroTag: 'calendar',
+                  icon: Icons.calendar_today,
+                  tooltip: 'Task calendar',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TaskCalendarScreen(),
+                      ),
+                    );
+                  },
+                  backgroundColor: theme.colorScheme.secondary,
+                  mini: true,
+                ),
+                AppFabAction(
+                  heroTag: 'addTaskFAB',
+                  icon: Icons.add,
+                  tooltip: 'Add task',
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddTaskScreen(
+                          currentRole: currentRole,
+                          currentUserName: _currentUserName,
+                        ),
+                      ),
+                    );
+                    if (result is! TaskEntity) return;
+                    if (!context.mounted) return;
+                    context.read<TasksBloc>().add(TasksEvent.add(task: result));
+                  },
+                  backgroundColor: theme.colorScheme.primary,
+                ),
+              ],
             ),
           );
         },
@@ -995,44 +1010,12 @@ class _TaskStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: theme.cardTheme.color,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [AppColors.subtleShadow],
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  count.toString(),
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+    return MetricTile(
+      label: label,
+      value: count.toString(),
+      icon: Icons.assignment_outlined,
+      color: color,
+      compact: true,
     );
   }
 }
@@ -1052,35 +1035,14 @@ class _TaskFilterDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: onChanged == null
-            ? theme.disabledColor.withValues(alpha: 0.08)
-            : theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.3),
-        ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
+    return Opacity(
+      opacity: onChanged == null ? 0.65 : 1,
+      child: IgnorePointer(
+        ignoring: onChanged == null,
+        child: FilterDropdown(
           value: value,
-          items: items.map((item) {
-            return DropdownMenuItem(
-              value: item,
-              child: Text(
-                item,
-                style: theme.textTheme.bodyMedium,
-              ),
-            );
-          }).toList(),
-          onChanged: onChanged,
-          isExpanded: true,
-          icon: Icon(
-            Icons.arrow_drop_down,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-          ),
+          items: items,
+          onChanged: onChanged ?? (_) {},
         ),
       ),
     );
