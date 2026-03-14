@@ -92,6 +92,7 @@ class _ContactTab extends StatefulWidget {
 class _ContactTabState extends State<_ContactTab> {
   bool _loading = true;
   List<Map<String, dynamic>> _rows = const [];
+  Map<String, dynamic>? _farmContext;
 
   @override
   void initState() {
@@ -103,9 +104,13 @@ class _ContactTabState extends State<_ContactTab> {
     setState(() => _loading = true);
     try {
       final rows = await widget.service.list(widget.type);
+      final farmContext = widget.type == ContactType.staffMember
+          ? await widget.service.farmContext()
+          : null;
       if (!mounted) return;
       setState(() {
         _rows = rows;
+        _farmContext = farmContext;
         _loading = false;
       });
     } catch (e) {
@@ -158,59 +163,108 @@ class _ContactTabState extends State<_ContactTab> {
 
     return Scaffold(
       body: _rows.isEmpty
-          ? Center(
-              child: Text(
-                '${context.tr('no_items_yet')}: ${context.tr(widget.titleKey).toLowerCase()}',
-              ),
-            )
+          ? _buildEmptyState(context)
           : RefreshIndicator(
               onRefresh: _reload,
               child: ListView.separated(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
                 itemBuilder: (_, index) {
-                  final row = _rows[index];
+                  if (widget.type == ContactType.staffMember && index == 0) {
+                    return _StaffOverviewCard(contextData: _farmContext);
+                  }
+
+                  final row = _rows[widget.type == ContactType.staffMember
+                      ? index - 1
+                      : index];
                   final id = (row['id'] as num?)?.toInt();
                   final name = (row['name'] ?? '').toString();
                   final role = (row['role'] ?? '').toString();
+                  final status = (row['employment_status'] ?? '').toString();
+                  final assignmentArea =
+                      (row['assignment_area'] ?? '').toString();
                   final subtitle = [
                     if (widget.includeRole && role.isNotEmpty) role,
+                    if (widget.includeRole && status.isNotEmpty)
+                      status.replaceAll('_', ' '),
+                    if (widget.includeRole && assignmentArea.isNotEmpty)
+                      assignmentArea,
                     (row['phone'] ?? '').toString(),
                     (row['email'] ?? '').toString(),
                   ].where((e) => e.isNotEmpty).join(' • ');
 
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                    title: Text(name.isEmpty ? context.tr('unnamed') : name),
-                    subtitle: subtitle.isEmpty ? null : Text(subtitle),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined),
-                          onPressed: () async {
-                            final result =
-                                await showDialog<Map<String, dynamic>>(
-                              context: context,
-                              builder: (_) => _ContactEditorDialog(
-                                titleKey: widget.titleKey,
-                                includeRole: widget.includeRole,
-                                initial: row,
+                  return Card(
+                    margin: EdgeInsets.zero,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      leading: CircleAvatar(
+                        child: Text(
+                          (name.isEmpty ? '?' : name.characters.first)
+                              .toUpperCase(),
+                        ),
+                      ),
+                      title: Text(name.isEmpty ? context.tr('unnamed') : name),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (subtitle.isNotEmpty) Text(subtitle),
+                          if (widget.includeRole)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  if (role.isNotEmpty) _MetaChip(label: role),
+                                  if (status.isNotEmpty)
+                                    _MetaChip(
+                                      label: status.replaceAll('_', ' '),
+                                      highlighted: status == 'active',
+                                    ),
+                                  if ((row['can_login'] ?? false) == true)
+                                    const _MetaChip(
+                                      label: 'Can login',
+                                      highlighted: true,
+                                    ),
+                                ],
                               ),
-                            );
-                            if (result == null || id == null) return;
-                            await _save(result, id: id);
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: id == null ? null : () => _delete(id),
-                        ),
-                      ],
+                            ),
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined),
+                            onPressed: () async {
+                              final result =
+                                  await showDialog<Map<String, dynamic>>(
+                                context: context,
+                                builder: (_) => _ContactEditorDialog(
+                                  titleKey: widget.titleKey,
+                                  includeRole: widget.includeRole,
+                                  initial: row,
+                                ),
+                              );
+                              if (result == null || id == null) return;
+                              await _save(result, id: id);
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: id == null ? null : () => _delete(id),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 },
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemCount: _rows.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 12, color: Colors.transparent),
+                itemCount: _rows.length +
+                    (widget.type == ContactType.staffMember ? 1 : 0),
               ),
             ),
       floatingActionButton: Padding(
@@ -230,6 +284,28 @@ class _ContactTabState extends State<_ContactTab> {
           icon: const Icon(Icons.add),
           label: Text('${context.tr('add')} ${context.tr(widget.titleKey)}'),
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    if (widget.type == ContactType.staffMember) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+        children: [
+          _StaffOverviewCard(contextData: _farmContext),
+          const SizedBox(height: 16),
+          const Text(
+            'No team members yet. Add workers, managers, or accountants so task assignment and accountability stay clear.',
+            textAlign: TextAlign.center,
+          ),
+        ],
+      );
+    }
+
+    return Center(
+      child: Text(
+        '${context.tr('no_items_yet')}: ${context.tr(widget.titleKey).toLowerCase()}',
       ),
     );
   }
@@ -253,11 +329,14 @@ class _ContactEditorDialog extends StatefulWidget {
 class _ContactEditorDialogState extends State<_ContactEditorDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _roleController;
+  late final TextEditingController _assignmentAreaController;
   late final TextEditingController _phoneController;
   late final TextEditingController _emailController;
   late final TextEditingController _addressController;
   late final TextEditingController _notesController;
   final _formKey = GlobalKey<FormState>();
+  late String _employmentStatus;
+  late bool _canLogin;
 
   @override
   void initState() {
@@ -266,6 +345,9 @@ class _ContactEditorDialogState extends State<_ContactEditorDialog> {
         TextEditingController(text: (widget.initial?['name'] ?? '').toString());
     _roleController =
         TextEditingController(text: (widget.initial?['role'] ?? '').toString());
+    _assignmentAreaController = TextEditingController(
+      text: (widget.initial?['assignment_area'] ?? '').toString(),
+    );
     _phoneController = TextEditingController(
         text: (widget.initial?['phone'] ?? '').toString());
     _emailController = TextEditingController(
@@ -275,12 +357,16 @@ class _ContactEditorDialogState extends State<_ContactEditorDialog> {
     );
     _notesController = TextEditingController(
         text: (widget.initial?['notes'] ?? '').toString());
+    _employmentStatus =
+        (widget.initial?['employment_status'] ?? 'active').toString();
+    _canLogin = widget.initial?['can_login'] == true;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _roleController.dispose();
+    _assignmentAreaController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     _addressController.dispose();
@@ -316,6 +402,26 @@ class _ContactEditorDialogState extends State<_ContactEditorDialog> {
                   controller: _roleController,
                   decoration: InputDecoration(labelText: context.tr('role')),
                 ),
+              if (widget.includeRole)
+                DropdownButtonFormField<String>(
+                  initialValue: _employmentStatus,
+                  decoration:
+                      const InputDecoration(labelText: 'Employment status'),
+                  items: const [
+                    DropdownMenuItem(value: 'active', child: Text('Active')),
+                    DropdownMenuItem(
+                        value: 'seasonal', child: Text('Seasonal')),
+                    DropdownMenuItem(
+                        value: 'on_leave', child: Text('On leave')),
+                    DropdownMenuItem(
+                        value: 'inactive', child: Text('Inactive')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _employmentStatus = value);
+                    }
+                  },
+                ),
               TextFormField(
                 controller: _phoneController,
                 decoration: InputDecoration(labelText: context.tr('phone')),
@@ -324,10 +430,30 @@ class _ContactEditorDialogState extends State<_ContactEditorDialog> {
                 controller: _emailController,
                 decoration: InputDecoration(labelText: context.tr('email')),
               ),
+              if (widget.includeRole)
+                TextFormField(
+                  controller: _assignmentAreaController,
+                  decoration: const InputDecoration(
+                    labelText: 'Work area',
+                    hintText: 'Dairy unit, North field, Inventory...',
+                  ),
+                ),
               if (!widget.includeRole)
                 TextFormField(
                   controller: _addressController,
                   decoration: InputDecoration(labelText: context.tr('address')),
+                ),
+              if (widget.includeRole)
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _canLogin,
+                  title: const Text('Allow future app login'),
+                  subtitle: const Text(
+                    'Useful for managers or accountable staff who may need their own access later.',
+                  ),
+                  onChanged: (value) {
+                    setState(() => _canLogin = value);
+                  },
                 ),
               TextFormField(
                 controller: _notesController,
@@ -349,12 +475,18 @@ class _ContactEditorDialogState extends State<_ContactEditorDialog> {
             Navigator.pop(context, {
               'name': _nameController.text.trim(),
               if (widget.includeRole) 'role': _roleController.text.trim(),
+              if (widget.includeRole) 'employment_status': _employmentStatus,
               'phone': _phoneController.text.trim().isEmpty
                   ? null
                   : _phoneController.text.trim(),
               'email': _emailController.text.trim().isEmpty
                   ? null
                   : _emailController.text.trim(),
+              if (widget.includeRole)
+                'assignment_area': _assignmentAreaController.text.trim().isEmpty
+                    ? null
+                    : _assignmentAreaController.text.trim(),
+              if (widget.includeRole) 'can_login': _canLogin,
               if (!widget.includeRole)
                 'address': _addressController.text.trim().isEmpty
                     ? null
@@ -367,6 +499,101 @@ class _ContactEditorDialogState extends State<_ContactEditorDialog> {
           child: Text(context.tr('save')),
         ),
       ],
+    );
+  }
+}
+
+class _StaffOverviewCard extends StatelessWidget {
+  const _StaffOverviewCard({required this.contextData});
+
+  final Map<String, dynamic>? contextData;
+
+  @override
+  Widget build(BuildContext context) {
+    final farm = (contextData?['farm'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    final membership =
+        (contextData?['membership'] as Map?)?.cast<String, dynamic>() ??
+            const <String, dynamic>{};
+    final teamSummary =
+        (contextData?['team_summary'] as Map?)?.cast<String, dynamic>() ??
+            const <String, dynamic>{};
+    final roles = (teamSummary['roles'] as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.primary.withValues(alpha: 0.14),
+            Theme.of(context).colorScheme.secondary.withValues(alpha: 0.08),
+          ],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            (farm['name'] ?? 'Farm team').toString(),
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Signed in as ${(membership['role'] ?? 'owner').toString()}. Keep roles and work areas current so task assignment stays intuitive.',
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _MetaChip(
+                label: '${teamSummary['staff_count'] ?? 0} team members',
+                highlighted: true,
+              ),
+              _MetaChip(
+                label: '${teamSummary['active_staff_count'] ?? 0} active',
+              ),
+              ...roles.entries.take(3).map(
+                  (entry) => _MetaChip(label: '${entry.key}: ${entry.value}')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({
+    required this.label,
+    this.highlighted = false,
+  });
+
+  final String label;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: highlighted
+            ? scheme.primary.withValues(alpha: 0.14)
+            : scheme.surfaceContainerHighest.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+      ),
     );
   }
 }

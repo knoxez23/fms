@@ -53,6 +53,11 @@ class ContactDirectoryService {
     await _api.delete('${_path(type)}/$id');
   }
 
+  Future<Map<String, dynamic>> farmContext() async {
+    final response = await _api.get('/farm-context');
+    return _asMap(response.data);
+  }
+
   Map<String, dynamic> _asMap(dynamic value) {
     if (value is Map<String, dynamic>) return value;
     if (value is Map) {
