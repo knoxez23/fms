@@ -124,6 +124,71 @@ class LocalData {
         (productionTodayRows.first['eggs_total'] as num?)?.toDouble() ?? 0.0;
     final productionValueToday = (milkToday * 55.0) + (eggsToday * 15.0);
 
+    final outputSalesTodayRows = await db.rawQuery(
+      '''
+      SELECT
+        SUM(CASE WHEN LOWER(COALESCE(product_name, '')) = 'milk' THEN COALESCE(quantity, 0) ELSE 0 END) AS milk_sold,
+        SUM(CASE WHEN LOWER(COALESCE(product_name, '')) = 'eggs' THEN COALESCE(quantity, 0) ELSE 0 END) AS eggs_sold
+      FROM sales
+      WHERE DATE(sale_date) = ?
+      ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null ? [today] : [today, activeUserId],
+    );
+    final milkSoldToday =
+        (outputSalesTodayRows.first['milk_sold'] as num?)?.toDouble() ?? 0.0;
+    final eggsSoldToday =
+        (outputSalesTodayRows.first['eggs_sold'] as num?)?.toDouble() ?? 0.0;
+
+    final outputStockRows = await db.rawQuery(
+      '''
+      SELECT
+        SUM(
+          CASE
+            WHEN LOWER(COALESCE(item_name, '')) = 'milk'
+              OR (LOWER(COALESCE(category, '')) = 'dairy' AND LOWER(COALESCE(item_name, '')) LIKE '%milk%')
+            THEN COALESCE(quantity, 0)
+            ELSE 0
+          END
+        ) AS milk_stock,
+        SUM(
+          CASE
+            WHEN LOWER(COALESCE(item_name, '')) = 'eggs'
+              OR (LOWER(COALESCE(category, '')) = 'poultry' AND LOWER(COALESCE(item_name, '')) LIKE '%egg%')
+            THEN COALESCE(quantity, 0)
+            ELSE 0
+          END
+        ) AS eggs_stock,
+        SUM(
+          CASE
+            WHEN (
+              LOWER(COALESCE(item_name, '')) = 'milk'
+              OR LOWER(COALESCE(item_name, '')) = 'eggs'
+              OR (LOWER(COALESCE(category, '')) = 'dairy' AND LOWER(COALESCE(item_name, '')) LIKE '%milk%')
+              OR (LOWER(COALESCE(category, '')) = 'poultry' AND LOWER(COALESCE(item_name, '')) LIKE '%egg%')
+            )
+            THEN COALESCE(total_value, COALESCE(unit_price, 0) * COALESCE(quantity, 0))
+            ELSE 0
+          END
+        ) AS output_stock_value
+      FROM inventory
+      WHERE COALESCE(quantity, 0) > 0
+      ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null ? null : [activeUserId],
+    );
+    final milkStockOnHand =
+        (outputStockRows.first['milk_stock'] as num?)?.toDouble() ?? 0.0;
+    final eggsStockOnHand =
+        (outputStockRows.first['eggs_stock'] as num?)?.toDouble() ?? 0.0;
+    final outputStockValue =
+        (outputStockRows.first['output_stock_value'] as num?)?.toDouble() ??
+            0.0;
+    final unsoldMilkToday =
+        (milkToday - milkSoldToday) > 0 ? (milkToday - milkSoldToday) : 0.0;
+    final unsoldEggsToday =
+        (eggsToday - eggsSoldToday) > 0 ? (eggsToday - eggsSoldToday) : 0.0;
+
     final todaysFeedingResult = await db.rawQuery(
       '''
       SELECT COUNT(*) as count
@@ -296,6 +361,13 @@ class LocalData {
       "lowStockItems": lowStockItems,
       "milkToday": milkToday,
       "eggsToday": eggsToday,
+      "milkSoldToday": milkSoldToday,
+      "eggsSoldToday": eggsSoldToday,
+      "milkStockOnHand": milkStockOnHand,
+      "eggsStockOnHand": eggsStockOnHand,
+      "unsoldMilkToday": unsoldMilkToday,
+      "unsoldEggsToday": unsoldEggsToday,
+      "outputStockValue": outputStockValue,
       "productionValueToday": productionValueToday,
       "todaysFeedings": todaysFeedings,
       "todaysFeedingPreview": todaysFeedingPreview,
@@ -420,6 +492,28 @@ class LocalData {
     final activeFeedingSchedules =
         Sqflite.firstIntValue(activeFeedingSchedulesResult) ?? 0;
 
+    final outputReadyRows = await db.rawQuery(
+      '''
+      SELECT
+        SUM(
+          CASE
+            WHEN LOWER(COALESCE(item_name, '')) = 'milk'
+              OR LOWER(COALESCE(item_name, '')) = 'eggs'
+              OR (LOWER(COALESCE(category, '')) = 'dairy' AND LOWER(COALESCE(item_name, '')) LIKE '%milk%')
+              OR (LOWER(COALESCE(category, '')) = 'poultry' AND LOWER(COALESCE(item_name, '')) LIKE '%egg%')
+            THEN COALESCE(quantity, 0)
+            ELSE 0
+          END
+        ) AS ready_quantity
+      FROM inventory
+      WHERE COALESCE(quantity, 0) > 0
+      ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null ? null : [activeUserId],
+    );
+    final readyOutputQuantity =
+        (outputReadyRows.first['ready_quantity'] as num?)?.toDouble() ?? 0.0;
+
     final insights = <OperationalInsight>[
       if (overdueTasks > 0)
         OperationalInsight(
@@ -463,6 +557,18 @@ class LocalData {
           severity: OperationalInsightSeverity.warning,
           action: OperationalInsightAction.business,
           actionLabel: 'Open business',
+        ),
+      if (readyOutputQuantity > 0)
+        OperationalInsight(
+          id: 'output_ready',
+          title: readyOutputQuantity == readyOutputQuantity.roundToDouble()
+              ? '${readyOutputQuantity.toInt()} output unit${readyOutputQuantity == 1 ? '' : 's'} ready in stock'
+              : '${readyOutputQuantity.toStringAsFixed(1)} output units ready in stock',
+          description:
+              'Move stocked milk or eggs into sales while they are still fresh and visible to buyers.',
+          severity: OperationalInsightSeverity.warning,
+          action: OperationalInsightAction.business,
+          actionLabel: 'Review output',
         ),
       if (dueTodayTasks > 0 && overdueTasks == 0)
         OperationalInsight(

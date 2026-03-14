@@ -27,6 +27,7 @@ void main() {
     await db.delete('crops');
     await db.delete('sales');
     await db.delete('feeding_schedules');
+    await db.delete('production_logs');
   });
 
   test('returns high-priority operational insights from live farm records',
@@ -142,5 +143,59 @@ void main() {
     expect(summary['harvestReadyCrops'], 1);
     expect(
         summary['todaysFeedingPreview'], contains('Morning: 1 morning bucket'));
+  });
+
+  test('tracks output ready in stock and unsold production signals', () async {
+    final db = await DatabaseHelper().database;
+    final now = DateTime.now();
+
+    await db.insert('production_logs', {
+      'animal_id': 'cow-1',
+      'production_type': 'Milk',
+      'quantity': 18,
+      'unit': 'liters',
+      'date_produced': now.toIso8601String(),
+    });
+    await db.insert('production_logs', {
+      'animal_id': 'hen-1',
+      'production_type': 'Eggs',
+      'quantity': 24,
+      'unit': 'pieces',
+      'date_produced': now.toIso8601String(),
+    });
+    await db.insert('sales', {
+      'product_name': 'Milk',
+      'quantity': 10,
+      'total_amount': 550,
+      'sale_date': now.toIso8601String(),
+      'payment_status': 'paid',
+    });
+    await db.insert('inventory', {
+      'item_name': 'Milk',
+      'category': 'Dairy',
+      'quantity': 8,
+      'unit': 'liters',
+      'unit_price': 55,
+      'total_value': 440,
+    });
+    await db.insert('inventory', {
+      'item_name': 'Eggs',
+      'category': 'Poultry',
+      'quantity': 24,
+      'unit': 'pieces',
+      'unit_price': 15,
+      'total_value': 360,
+    });
+
+    final summary = await LocalData.getFarmSummary();
+    final insights = await LocalData.getOperationalInsights(limit: 10);
+
+    expect(summary['milkSoldToday'], 10.0);
+    expect(summary['milkStockOnHand'], 8.0);
+    expect(summary['eggsStockOnHand'], 24.0);
+    expect(summary['unsoldMilkToday'], 8.0);
+    expect(summary['unsoldEggsToday'], 24.0);
+    expect(summary['outputStockValue'], 800.0);
+    expect(insights.map((item) => item.id), contains('output_ready'));
   });
 }

@@ -468,6 +468,18 @@ class _BusinessFinancePanel extends StatelessWidget {
     final expenses = finance.expenses;
     final revenueByType = finance.revenueByType.take(3).toList();
     final expensesByCategory = finance.expensesByCategory.take(3).toList();
+    final milkToday = ((summary['milkToday'] as num?) ?? 0).toDouble();
+    final eggsToday = ((summary['eggsToday'] as num?) ?? 0).toDouble();
+    final milkSoldToday =
+        ((summary['milkSoldToday'] as num?) ?? 0).toDouble();
+    final eggsSoldToday =
+        ((summary['eggsSoldToday'] as num?) ?? 0).toDouble();
+    final milkStockOnHand =
+        ((summary['milkStockOnHand'] as num?) ?? 0).toDouble();
+    final eggsStockOnHand =
+        ((summary['eggsStockOnHand'] as num?) ?? 0).toDouble();
+    final outputStockValue =
+        ((summary['outputStockValue'] as num?) ?? 0).toDouble();
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -537,6 +549,17 @@ class _BusinessFinancePanel extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 14),
+          _OutputPipelineCard(
+            theme: theme,
+            milkToday: milkToday,
+            eggsToday: eggsToday,
+            milkSoldToday: milkSoldToday,
+            eggsSoldToday: eggsSoldToday,
+            milkStockOnHand: milkStockOnHand,
+            eggsStockOnHand: eggsStockOnHand,
+            outputStockValue: outputStockValue,
           ),
           const SizedBox(height: 14),
           Text(
@@ -645,6 +668,190 @@ class _BusinessFinancePanel extends StatelessWidget {
     final date = value == null ? null : DateTime.tryParse(value);
     if (date == null) return 'No date';
     return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+class _OutputPipelineCard extends StatelessWidget {
+  final ThemeData theme;
+  final double milkToday;
+  final double eggsToday;
+  final double milkSoldToday;
+  final double eggsSoldToday;
+  final double milkStockOnHand;
+  final double eggsStockOnHand;
+  final double outputStockValue;
+
+  const _OutputPipelineCard({
+    required this.theme,
+    required this.milkToday,
+    required this.eggsToday,
+    required this.milkSoldToday,
+    required this.eggsSoldToday,
+    required this.milkStockOnHand,
+    required this.eggsStockOnHand,
+    required this.outputStockValue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasOutput = milkToday > 0 ||
+        eggsToday > 0 ||
+        milkStockOnHand > 0 ||
+        eggsStockOnHand > 0;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Output pipeline',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (!hasOutput)
+            Text(
+              'No milk or egg output has moved through stock or sales yet today.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+              ),
+            )
+          else ...[
+            _OutputPipelineRow(
+              theme: theme,
+              label: 'Milk today',
+              produced: milkToday,
+              sold: milkSoldToday,
+              inStock: milkStockOnHand,
+              unit: 'liters',
+            ),
+            const SizedBox(height: 8),
+            _OutputPipelineRow(
+              theme: theme,
+              label: 'Eggs today',
+              produced: eggsToday,
+              sold: eggsSoldToday,
+              inStock: eggsStockOnHand,
+              unit: 'pieces',
+            ),
+            if (outputStockValue > 0) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Estimated output value in stock: KSh ${outputStockValue.toStringAsFixed(0)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: Colors.amber.shade900,
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _OutputPipelineRow extends StatelessWidget {
+  final ThemeData theme;
+  final String label;
+  final double produced;
+  final double sold;
+  final double inStock;
+  final String unit;
+
+  const _OutputPipelineRow({
+    required this.theme,
+    required this.label,
+    required this.produced,
+    required this.sold,
+    required this.inStock,
+    required this.unit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final unsold = (produced - sold) > 0 ? (produced - sold) : 0.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _PipelinePill(
+              theme: theme,
+              label: 'Produced ${_qty(produced)} $unit',
+              color: Colors.blueGrey,
+            ),
+            _PipelinePill(
+              theme: theme,
+              label: 'Sold ${_qty(sold)} $unit',
+              color: Colors.green,
+            ),
+            if (inStock > 0)
+              _PipelinePill(
+                theme: theme,
+                label: 'In stock ${_qty(inStock)} $unit',
+                color: Colors.orange,
+              ),
+            if (unsold > 0)
+              _PipelinePill(
+                theme: theme,
+                label: 'Still to move ${_qty(unsold)} $unit',
+                color: Colors.deepOrange,
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _qty(double value) {
+    return value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value.toStringAsFixed(1);
+  }
+}
+
+class _PipelinePill extends StatelessWidget {
+  final ThemeData theme;
+  final String label;
+  final Color color;
+
+  const _PipelinePill({
+    required this.theme,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
   }
 }
 

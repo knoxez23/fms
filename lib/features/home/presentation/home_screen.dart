@@ -305,6 +305,7 @@ class _HomeViewState extends State<HomeView>
                         summary: summary,
                         onOpenFarm: () => widget.onNavigateTab?.call(1),
                         onOpenInventory: () => widget.onNavigateTab?.call(2),
+                        onOpenBusiness: () => widget.onNavigateTab?.call(3),
                       ),
                     ),
                   ),
@@ -676,12 +677,14 @@ class _TodayBlockersSection extends StatelessWidget {
   final Map<String, dynamic> summary;
   final VoidCallback onOpenFarm;
   final VoidCallback onOpenInventory;
+  final VoidCallback onOpenBusiness;
 
   const _TodayBlockersSection({
     required this.theme,
     required this.summary,
     required this.onOpenFarm,
     required this.onOpenInventory,
+    required this.onOpenBusiness,
   });
 
   @override
@@ -693,8 +696,33 @@ class _TodayBlockersSection extends StatelessWidget {
         (summary['productionReviewsNext7Days'] as num?)?.toInt() ?? 0;
     final harvestReadyCrops =
         (summary['harvestReadyCrops'] as num?)?.toInt() ?? 0;
+    final unsoldMilkToday =
+        (summary['unsoldMilkToday'] as num?)?.toDouble() ?? 0.0;
+    final unsoldEggsToday =
+        (summary['unsoldEggsToday'] as num?)?.toDouble() ?? 0.0;
+    final milkStockOnHand =
+        (summary['milkStockOnHand'] as num?)?.toDouble() ?? 0.0;
+    final eggsStockOnHand =
+        (summary['eggsStockOnHand'] as num?)?.toDouble() ?? 0.0;
+    final readyOutputUnits =
+        unsoldMilkToday + unsoldEggsToday + milkStockOnHand + eggsStockOnHand;
 
     final blockers = <_TodayBlockerItem>[
+      if (readyOutputUnits > 0)
+        _TodayBlockerItem(
+          label: readyOutputUnits == readyOutputUnits.roundToDouble()
+              ? '${readyOutputUnits.toInt()} output unit${readyOutputUnits == 1 ? '' : 's'} ready'
+              : '${readyOutputUnits.toStringAsFixed(1)} output units ready',
+          detail: _readyOutputDetail(
+            milkStockOnHand: milkStockOnHand,
+            eggsStockOnHand: eggsStockOnHand,
+            unsoldMilkToday: unsoldMilkToday,
+            unsoldEggsToday: unsoldEggsToday,
+          ),
+          color: Colors.amber.shade800,
+          icon: Icons.storefront_outlined,
+          onTap: onOpenBusiness,
+        ),
       if (feedGaps > 0)
         _TodayBlockerItem(
           label: '$feedGaps feed gap${feedGaps == 1 ? '' : 's'}',
@@ -769,6 +797,36 @@ class _TodayBlockersSection extends StatelessWidget {
           )
           .toList(),
     );
+  }
+
+  String _readyOutputDetail({
+    required double milkStockOnHand,
+    required double eggsStockOnHand,
+    required double unsoldMilkToday,
+    required double unsoldEggsToday,
+  }) {
+    final parts = <String>[];
+    if (milkStockOnHand > 0) {
+      parts.add(
+        milkStockOnHand == milkStockOnHand.roundToDouble()
+            ? '${milkStockOnHand.toInt()} milk in stock'
+            : '${milkStockOnHand.toStringAsFixed(1)} milk in stock',
+      );
+    }
+    if (eggsStockOnHand > 0) {
+      parts.add(
+        eggsStockOnHand == eggsStockOnHand.roundToDouble()
+            ? '${eggsStockOnHand.toInt()} eggs in stock'
+            : '${eggsStockOnHand.toStringAsFixed(1)} eggs in stock',
+      );
+    }
+    if (unsoldMilkToday > 0 || unsoldEggsToday > 0) {
+      parts.add('today’s output is not fully moved yet');
+    }
+    if (parts.isEmpty) {
+      return 'Move fresh output into sales while buyers and quality window are still in your favor.';
+    }
+    return '${parts.join(' • ')}. Move fresh output into sales soon.';
   }
 }
 
