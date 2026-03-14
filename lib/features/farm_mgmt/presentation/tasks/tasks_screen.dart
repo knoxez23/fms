@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pamoja_twalima/core/di/injection.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/animations/animated_card.dart';
@@ -23,9 +24,12 @@ class TasksScreen extends StatefulWidget {
 class _TasksScreenState extends State<TasksScreen> {
   final ContactDirectoryService _contactService =
       ContactDirectoryService(ApiService());
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
   String _selectedFilter = 'All';
   String _selectedStatus = 'All';
   String _selectedAssignee = 'Anyone';
+  String _queueMode = 'Overview';
+  String _currentUserName = 'Self';
   Map<String, dynamic>? _farmContext;
   List<String> _staffNames = const [];
 
@@ -54,6 +58,12 @@ class _TasksScreenState extends State<TasksScreen> {
         ..._staffNames.where((name) => name != 'Self'),
       ];
 
+  List<String> get _queueModes => [
+        'Overview',
+        'My Queue',
+        'Team Queue',
+      ];
+
   @override
   void initState() {
     super.initState();
@@ -64,15 +74,26 @@ class _TasksScreenState extends State<TasksScreen> {
     try {
       final rows = await _contactService.list(ContactType.staffMember);
       final contextData = await _contactService.farmContext();
+      final currentUserName = await _storage.read(key: 'user_name');
       if (!mounted) return;
+      final membership = _coerceMap(contextData['membership']);
+      final membershipRole =
+          (membership['role'] ?? 'owner').toString().toLowerCase();
       setState(() {
         _farmContext = contextData;
+        _currentUserName = currentUserName?.trim().isNotEmpty == true
+            ? currentUserName!.trim()
+            : 'Self';
         _staffNames = rows
             .map((row) => (row['name'] ?? '').toString().trim())
             .where((name) => name.isNotEmpty)
             .toSet()
             .toList()
           ..sort();
+        if (membershipRole == 'worker' || membershipRole == 'staff') {
+          _queueMode = 'My Queue';
+          _selectedAssignee = _currentUserName;
+        }
       });
     } catch (_) {}
   }
@@ -115,7 +136,19 @@ class _TasksScreenState extends State<TasksScreen> {
               'Self' => assignee == 'Self',
               _ => assignee == _selectedAssignee,
             };
-            return categoryMatch && statusMatch && assigneeMatch;
+            final queueMatch = switch (_queueMode) {
+              'My Queue' =>
+                assignee == _currentUserName ||
+                    assignee == 'Self' ||
+                    assignee == null ||
+                    assignee.isEmpty,
+              'Team Queue' => assignee != _currentUserName && assignee != 'Self',
+              _ => true,
+            };
+            return categoryMatch &&
+                statusMatch &&
+                assigneeMatch &&
+                queueMatch;
           }).toList();
 
           final pendingCount =
@@ -130,6 +163,9 @@ class _TasksScreenState extends State<TasksScreen> {
           final unassignedCount = tasks.length - assignedCount;
           final staffSummary = _coerceMap(_farmContext?['team_summary']);
           final roleSummary = _coerceMap(staffSummary['roles']);
+          final membership = _coerceMap(_farmContext?['membership']);
+          final currentRole =
+              (membership['role'] ?? 'owner').toString().toLowerCase();
 
           return AppScaffold(
             backgroundColor: theme.colorScheme.surface,
@@ -181,6 +217,29 @@ class _TasksScreenState extends State<TasksScreen> {
                 // Filter Row
                 SliverToBoxAdapter(
                   child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: _QueueModeBar(
+                      theme: theme,
+                      currentUserName: _currentUserName,
+                      currentRole: currentRole,
+                      selectedMode: _queueMode,
+                      modes: _queueModes,
+                      onSelected: (mode) {
+                        setState(() {
+                          _queueMode = mode;
+                          if (mode == 'My Queue') {
+                            _selectedAssignee = _currentUserName;
+                          } else if (mode == 'Team Queue' &&
+                              _selectedAssignee == _currentUserName) {
+                            _selectedAssignee = 'Anyone';
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Wrap(
                       spacing: 12,
@@ -209,12 +268,19 @@ class _TasksScreenState extends State<TasksScreen> {
                         SizedBox(
                           width: 200,
                           child: _TaskFilterDropdown(
-                            value: _assigneeOptions.contains(_selectedAssignee)
+                            value: _queueMode == 'My Queue'
+                                ? (_assigneeOptions.contains(_currentUserName)
+                                    ? _currentUserName
+                                    : 'Self')
+                                : _assigneeOptions.contains(_selectedAssignee)
                                 ? _selectedAssignee
                                 : _assigneeOptions.first,
                             items: _assigneeOptions,
-                            onChanged: (value) =>
-                                setState(() => _selectedAssignee = value!),
+                            onChanged: _queueMode == 'My Queue'
+                                ? null
+                                : (value) => setState(
+                                      () => _selectedAssignee = value!,
+                                    ),
                             theme: theme,
                           ),
                         ),
@@ -471,6 +537,78 @@ class _TaskOperationsCard extends StatelessWidget {
   }
 }
 
+class _QueueModeBar extends StatelessWidget {
+  const _QueueModeBar({
+    required this.theme,
+    required this.currentUserName,
+    required this.currentRole,
+    required this.selectedMode,
+    required this.modes,
+    required this.onSelected,
+  });
+
+  final ThemeData theme;
+  final String currentUserName;
+  final String currentRole;
+  final String selectedMode;
+  final List<String> modes;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final roleLabel = currentRole.isEmpty ? 'owner' : currentRole;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [AppColors.subtleShadow],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$currentUserName • ${_titleCase(roleLabel)} mode',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            selectedMode == 'My Queue'
+                ? 'Focused on the tasks that need your attention first.'
+                : selectedMode == 'Team Queue'
+                    ? 'Review what is sitting with the wider team and where workload may be uneven.'
+                    : 'See the whole farm task picture before drilling into individual queues.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.68),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: modes
+                .map(
+                  (mode) => ChoiceChip(
+                    label: Text(mode),
+                    selected: selectedMode == mode,
+                    onSelected: (_) => onSelected(mode),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _titleCase(String value) {
+    if (value.isEmpty) return value;
+    return value[0].toUpperCase() + value.substring(1);
+  }
+}
+
 class _TaskMetaChip extends StatelessWidget {
   const _TaskMetaChip({
     required this.label,
@@ -559,7 +697,7 @@ class _TaskStat extends StatelessWidget {
 class _TaskFilterDropdown extends StatelessWidget {
   final String value;
   final List<String> items;
-  final Function(String?) onChanged;
+  final ValueChanged<String?>? onChanged;
   final ThemeData theme;
 
   const _TaskFilterDropdown({
@@ -574,7 +712,9 @@ class _TaskFilterDropdown extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: theme.cardTheme.color,
+        color: onChanged == null
+            ? theme.disabledColor.withValues(alpha: 0.08)
+            : theme.cardTheme.color,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: theme.dividerColor.withValues(alpha: 0.3),
