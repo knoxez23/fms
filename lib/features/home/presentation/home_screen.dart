@@ -491,20 +491,37 @@ class _HomeViewState extends State<HomeView>
     final smartReminders =
         (summary['smartReminderCount'] as num?)?.toInt() ?? 0;
     final freshnessRisk = (summary['freshnessRiskCount'] as num?)?.toInt() ?? 0;
+    final dueTodayTasks = (summary['dueTodayTasks'] as num?)?.toInt() ?? 0;
+    final approvalPendingTasks =
+        (summary['approvalPendingTasks'] as num?)?.toInt() ?? 0;
+    final missedFeedingsToday =
+        (summary['missedFeedingsToday'] as num?)?.toInt() ?? 0;
     return (lowStock > 0 ? 1 : 0) +
         (pendingTasks > 0 ? 1 : 0) +
         (smartReminders > 0 ? 1 : 0) +
         (freshnessRisk > 0 ? 1 : 0) +
+        (dueTodayTasks > 0 ? 1 : 0) +
+        (approvalPendingTasks > 0 ? 1 : 0) +
+        (missedFeedingsToday > 0 ? 1 : 0) +
         (_weatherSnapshot?.current == null ? 1 : 0);
   }
 
   void _openNotifications(Map<String, dynamic> summary) {
     final lowStock = (summary['lowStockItems'] as num?)?.toInt() ?? 0;
     final pendingTasks = (summary['pendingTasks'] as num?)?.toInt() ?? 0;
+    final dueTodayTasks = (summary['dueTodayTasks'] as num?)?.toInt() ?? 0;
+    final overdueTasks = (summary['overdueTasks'] as num?)?.toInt() ?? 0;
+    final approvalPendingTasks =
+        (summary['approvalPendingTasks'] as num?)?.toInt() ?? 0;
+    final missedFeedingsToday =
+        (summary['missedFeedingsToday'] as num?)?.toInt() ?? 0;
     final smartReminders =
         (summary['smartReminderCount'] as num?)?.toInt() ?? 0;
     final smartReminderPreview =
         (summary['smartReminderPreview'] ?? '').toString().trim();
+    final todayAgendaPreview =
+        (summary['todayAgendaPreview'] ?? '').toString().trim();
+    final advicePrimary = (summary['advicePrimary'] ?? '').toString().trim();
     final freshnessRisk = (summary['freshnessRiskCount'] as num?)?.toInt() ?? 0;
     final pendingCollections =
         (summary['pendingCollectionsCount'] as num?)?.toInt() ?? 0;
@@ -529,6 +546,28 @@ class _HomeViewState extends State<HomeView>
           title: context.tr('pending_tasks_alert'),
           subtitle: '$pendingTasks task(s) are still pending completion.',
         ),
+      if (overdueTasks > 0 || dueTodayTasks > 0)
+        (
+          icon: Icons.today_outlined,
+          title: 'Today\'s work plan',
+          subtitle: todayAgendaPreview.isEmpty
+              ? '$overdueTasks overdue and $dueTodayTasks due today.'
+              : todayAgendaPreview,
+        ),
+      if (missedFeedingsToday > 0)
+        (
+          icon: Icons.local_dining_outlined,
+          title: 'Feeding still needs logging',
+          subtitle:
+              '$missedFeedingsToday feeding session${missedFeedingsToday == 1 ? '' : 's'} are active but not logged yet.',
+        ),
+      if (approvalPendingTasks > 0)
+        (
+          icon: Icons.verified_outlined,
+          title: 'Approvals waiting',
+          subtitle:
+              '$approvalPendingTasks sensitive task${approvalPendingTasks == 1 ? '' : 's'} need manager review.',
+        ),
       if (smartReminders > 0)
         (
           icon: Icons.notifications_active_outlined,
@@ -550,6 +589,12 @@ class _HomeViewState extends State<HomeView>
           title: 'Collections follow-up',
           subtitle:
               '$pendingCollections sale${pendingCollections == 1 ? '' : 's'} still await payment confirmation.',
+        ),
+      if (advicePrimary.isNotEmpty)
+        (
+          icon: Icons.tips_and_updates_outlined,
+          title: 'Today\'s advice',
+          subtitle: advicePrimary,
         ),
       if (weatherMissing)
         (
