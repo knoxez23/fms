@@ -185,7 +185,10 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i329.GetOverview>(
         () => _i329.GetOverview(gh<_i873.FarmSummaryRepository>()));
     gh.lazySingleton<_i415.SalesRepository>(
-        () => _i379.SalesRepositoryImpl(gh<_i970.SaleService>()));
+        () => _i379.SalesRepositoryImpl(
+              gh<_i970.SaleService>(),
+              gh<_i422.InventoryRepository>(),
+            ));
     gh.lazySingleton<_i377.CropRepository>(
         () => _i240.CropRepositoryImpl(gh<_i1004.SyncData>()));
     gh.factory<_i16.OverviewBloc>(
