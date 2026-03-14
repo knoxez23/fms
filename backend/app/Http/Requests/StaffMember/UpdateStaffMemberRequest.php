@@ -16,8 +16,11 @@ class UpdateStaffMemberRequest extends FormRequest
         return [
             'name' => 'sometimes|required|string|max:255',
             'role' => 'nullable|string|max:255',
+            'employment_status' => 'nullable|in:active,inactive,seasonal,on_leave',
             'phone' => 'nullable|string|max:30',
             'email' => 'nullable|email|max:255',
+            'assignment_area' => 'nullable|string|max:255',
+            'can_login' => 'nullable|boolean',
             'notes' => 'nullable|string|max:1000',
         ];
     }

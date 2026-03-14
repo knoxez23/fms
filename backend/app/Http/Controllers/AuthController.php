@@ -6,6 +6,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Rules\StrongPassword;
 use App\Services\Auth\TokenService;
+use App\Services\Farm\FarmContextService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -14,9 +15,21 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    public function __construct(private readonly FarmContextService $farmContextService)
+    {
+    }
+
     public function me(Request $request)
     {
-        return response()->json($request->user());
+        $user = $request->user()->load('roles');
+        $context = $this->farmContextService->currentContext((int) $user->id);
+
+        return response()->json([
+            ...$user->toArray(),
+            'roles' => $user->roles->pluck('name')->values()->all(),
+            'current_farm' => $context['farm'],
+            'current_membership' => $context['membership'],
+        ]);
     }
 
     public function updateProfile(Request $request)
@@ -64,13 +77,27 @@ class AuthController extends Controller
             ]);
         }
 
+        $membership = $this->farmContextService->createDefaultFarmForUser($user);
+
         $tokenService = new TokenService();
         $tokens = $tokenService->createTokenPair($user);
 
         Log::info('User registered', ['user_id' => $user->id, 'email' => $user->email]);
 
         return response()->json([
-            'user' => $user,
+            'user' => [
+                ...$user->toArray(),
+                'current_farm' => [
+                    'id' => $membership->farm_id,
+                    'name' => $membership->farm->name,
+                    'location' => $membership->farm->location,
+                ],
+                'current_membership' => [
+                    'id' => $membership->id,
+                    'role' => $membership->role,
+                    'status' => $membership->status,
+                ],
+            ],
             ...$tokens,
         ], 201);
     }
@@ -98,7 +125,11 @@ class AuthController extends Controller
         Log::info('User logged in', ['user_id' => $user->id, 'email' => $user->email]);
 
         return response()->json([
-            'user' => $user,
+            'user' => [
+                ...$user->toArray(),
+                'current_farm' => $this->farmContextService->currentContext((int) $user->id)['farm'],
+                'current_membership' => $this->farmContextService->currentContext((int) $user->id)['membership'],
+            ],
             ...$tokens,
         ]);
     }

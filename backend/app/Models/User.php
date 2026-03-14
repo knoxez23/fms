@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -79,6 +80,16 @@ class User extends Authenticatable
     public function staffMembers()
     {
         return $this->hasMany(StaffMember::class);
+    }
+
+    public function farmMemberships(): HasMany
+    {
+        return $this->hasMany(FarmMembership::class);
+    }
+
+    public function ownedFarms(): HasMany
+    {
+        return $this->hasMany(Farm::class, 'owner_user_id');
     }
 
     public function roles(): BelongsToMany

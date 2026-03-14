@@ -5,11 +5,15 @@ namespace App\Services\Task;
 use App\Models\StaffMember;
 use App\Models\Task;
 use App\Services\Audit\AuditEventService;
+use App\Services\Farm\FarmContextService;
 use Illuminate\Support\Collection;
 
 class TaskService
 {
-    public function __construct(private readonly AuditEventService $auditService)
+    public function __construct(
+        private readonly AuditEventService $auditService,
+        private readonly FarmContextService $farmContextService,
+    )
     {
     }
 
@@ -116,7 +120,16 @@ class TaskService
             return $validated;
         }
 
+        $farmId = $this->farmContextService->requireCurrentFarm($userId)->id;
+
         $staff = StaffMember::where('user_id', $userId)
+            ->where(function ($query) use ($farmId, $userId) {
+                $query->where('farm_id', $farmId)
+                    ->orWhere(function ($legacy) use ($userId) {
+                        $legacy->whereNull('farm_id')
+                            ->where('user_id', $userId);
+                    });
+            })
             ->where('id', $validated['staff_member_id'])
             ->firstOrFail();
 

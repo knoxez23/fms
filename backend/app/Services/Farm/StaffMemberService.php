@@ -8,7 +8,10 @@ use Illuminate\Support\Collection;
 
 class StaffMemberService
 {
-    public function __construct(private readonly AuditEventService $auditService)
+    public function __construct(
+        private readonly AuditEventService $auditService,
+        private readonly FarmContextService $farmContextService,
+    )
     {
     }
 
@@ -17,12 +20,29 @@ class StaffMemberService
      */
     public function listForUser(int $userId): Collection
     {
-        return StaffMember::where('user_id', $userId)->orderBy('name')->get();
+        $farmId = $this->farmContextService->requireCurrentFarm($userId)->id;
+
+        return StaffMember::where('user_id', $userId)
+            ->where(function ($query) use ($farmId, $userId) {
+                $query->where('farm_id', $farmId)
+                    ->orWhere(function ($legacy) use ($userId) {
+                        $legacy->whereNull('farm_id')
+                            ->where('user_id', $userId);
+                    });
+            })
+            ->orderBy('name')
+            ->get();
     }
 
     public function createForUser(int $userId, array $validated): StaffMember
     {
-        $staffMember = StaffMember::create(array_merge($validated, ['user_id' => $userId]));
+        $farm = $this->farmContextService->requireCurrentFarm($userId);
+        $staffMember = StaffMember::create(array_merge($validated, [
+            'user_id' => $userId,
+            'farm_id' => $farm->id,
+            'employment_status' => $validated['employment_status'] ?? 'active',
+            'can_login' => (bool) ($validated['can_login'] ?? false),
+        ]));
 
         $this->auditService->record(
             userId: $userId,
@@ -32,7 +52,10 @@ class StaffMemberService
             metadata: [
                 'name' => $staffMember->name,
                 'role' => $staffMember->role,
-                'summary' => "Added staff member {$staffMember->name}" . ($staffMember->role ? " ({$staffMember->role})" : '') . '.',
+                'employment_status' => $staffMember->employment_status,
+                'assignment_area' => $staffMember->assignment_area,
+                'farm_name' => $farm->name,
+                'summary' => "Added staff member {$staffMember->name}" . ($staffMember->role ? " ({$staffMember->role})" : '') . " to {$farm->name}.",
             ]
         );
 
@@ -41,7 +64,18 @@ class StaffMemberService
 
     public function showForUser(int $userId, string $id): StaffMember
     {
-        return StaffMember::where('user_id', $userId)->where('id', $id)->firstOrFail();
+        $farmId = $this->farmContextService->requireCurrentFarm($userId)->id;
+
+        return StaffMember::where('user_id', $userId)
+            ->where(function ($query) use ($farmId, $userId) {
+                $query->where('farm_id', $farmId)
+                    ->orWhere(function ($legacy) use ($userId) {
+                        $legacy->whereNull('farm_id')
+                            ->where('user_id', $userId);
+                    });
+            })
+            ->where('id', $id)
+            ->firstOrFail();
     }
 
     public function updateForUser(int $userId, string $id, array $validated): StaffMember
@@ -57,6 +91,8 @@ class StaffMemberService
             metadata: [
                 'name' => $staffMember->name,
                 'role' => $staffMember->role,
+                'employment_status' => $staffMember->employment_status,
+                'assignment_area' => $staffMember->assignment_area,
                 'changed_fields' => array_keys($validated),
                 'summary' => "Updated staff member {$staffMember->name}.",
             ]
@@ -81,6 +117,7 @@ class StaffMemberService
             metadata: [
                 'name' => $name,
                 'role' => $role,
+                'employment_status' => $staffMember->employment_status,
                 'summary' => "Deleted staff member {$name}.",
             ]
         );

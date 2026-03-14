@@ -13,10 +13,14 @@ class StaffMemberResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'farm_id' => $this->farm_id,
             'name' => $this->name,
             'role' => $this->role,
+            'employment_status' => $this->employment_status,
             'phone' => $this->phone,
             'email' => $this->email,
+            'assignment_area' => $this->assignment_area,
+            'can_login' => (bool) $this->can_login,
             'notes' => $this->notes,
             'created_at' => optional($this->created_at)?->toISOString(),
             'updated_at' => optional($this->updated_at)?->toISOString(),

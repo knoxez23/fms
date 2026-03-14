@@ -119,6 +119,26 @@ test('tasks accepts owned staff_member_id and mirrors assigned_to', function () 
     ]);
 });
 
+test('staff records support richer role and work context fields', function () {
+    $response = $this->postJson('/api/v1/staff-members', [
+        'name' => 'Grace',
+        'role' => 'Accountant',
+        'employment_status' => 'active',
+        'assignment_area' => 'Finance desk',
+        'can_login' => true,
+    ], [
+        'Authorization' => "Bearer {$this->token}",
+    ]);
+
+    $response->assertCreated()->assertJsonFragment([
+        'name' => 'Grace',
+        'role' => 'Accountant',
+        'employment_status' => 'active',
+        'assignment_area' => 'Finance desk',
+        'can_login' => true,
+    ]);
+});
+
 test('tasks rejects staff_member_id that belongs to another user', function () {
     $otherStaff = StaffMember::create([
         'user_id' => $this->otherUser->id,

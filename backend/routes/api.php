@@ -10,6 +10,7 @@ use App\Http\Controllers\CropController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\FeedingLogController;
 use App\Http\Controllers\FeedingScheduleController;
+use App\Http\Controllers\FarmContextController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\SaleController;
@@ -34,6 +35,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/user', [AuthController::class, 'me']);
         Route::patch('/user', [AuthController::class, 'updateProfile']);
+        Route::get('/farm-context', [FarmContextController::class, 'show']);
 
         Route::post('/logout', [AuthController::class, 'logout']);
 
