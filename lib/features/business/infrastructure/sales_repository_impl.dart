@@ -4,12 +4,15 @@ import '../domain/entities/sale_entity.dart';
 import '../domain/value_objects/value_objects.dart';
 import 'package:pamoja_twalima/data/repositories/local_data.dart';
 import 'package:pamoja_twalima/data/services/sale_service.dart';
+import 'package:pamoja_twalima/features/inventory/domain/repositories/inventory_repository.dart';
+import 'package:pamoja_twalima/features/inventory/domain/entities/inventory_item.dart';
 
 @LazySingleton(as: SalesRepository)
 class SalesRepositoryImpl implements SalesRepository {
   final SaleService _service;
+  final InventoryRepository _inventoryRepository;
 
-  SalesRepositoryImpl(this._service);
+  SalesRepositoryImpl(this._service, this._inventoryRepository);
 
   @override
   Future<List<SaleEntity>> getSales() async {
@@ -35,14 +38,16 @@ class SalesRepositoryImpl implements SalesRepository {
     try {
       final created = await _service.create(payload);
       await LocalData.insertSale(created);
-      return _mapToEntity(created);
+      final entity = _mapToEntity(created);
+      await _deductOutputStockIfMatched(entity);
+      return entity;
     } catch (_) {
       final localId = await LocalData.insertSale(payload);
       await LocalData.insertPendingSale({
         ...payload,
         'local_id': localId,
       });
-      return SaleEntity(
+      final entity = SaleEntity(
         id: localId.toString(),
         productName: sale.productName,
         quantity: sale.quantity,
@@ -57,6 +62,8 @@ class SalesRepositoryImpl implements SalesRepository {
         animal: sale.animal,
         notes: sale.notes,
       );
+      await _deductOutputStockIfMatched(entity);
+      return entity;
     }
   }
 
@@ -80,10 +87,117 @@ class SalesRepositoryImpl implements SalesRepository {
   Future<void> deleteSale(String id) async {
     final parsed = int.tryParse(id);
     if (parsed == null) return;
+    final existing = await _findSaleSnapshot(parsed);
     try {
       await _service.delete(parsed);
     } finally {
       await LocalData.deleteSaleByIdOrServerId(parsed);
+      if (existing != null) {
+        await _restoreOutputStockIfMatched(existing);
+      }
+    }
+  }
+
+  Future<void> _deductOutputStockIfMatched(SaleEntity sale) async {
+    final matched = await _findMatchingOutputStock(sale);
+    if (matched == null) return;
+    if (matched.quantity < sale.quantity.value) return;
+
+    await _inventoryRepository.updateItem(
+      InventoryItem(
+        id: matched.id,
+        clientUuid: matched.clientUuid,
+        supplierId: matched.supplierId,
+        itemName: matched.itemName,
+        category: matched.category,
+        quantity: matched.quantity - sale.quantity.value,
+        unit: matched.unit,
+        minStock: matched.minStock,
+        unitPrice: matched.unitPrice,
+        totalValue: matched.unitPrice != null
+            ? (matched.quantity - sale.quantity.value) * matched.unitPrice!
+            : matched.totalValue,
+        supplier: matched.supplier,
+        expiryDate: matched.expiryDate,
+        lastRestock: matched.lastRestock,
+        isSynced: false,
+        hasConflict: matched.hasConflict,
+      ),
+    );
+  }
+
+  Future<void> _restoreOutputStockIfMatched(SaleEntity sale) async {
+    final matched = await _findMatchingOutputStock(sale);
+    if (matched == null) return;
+
+    await _inventoryRepository.updateItem(
+      InventoryItem(
+        id: matched.id,
+        clientUuid: matched.clientUuid,
+        supplierId: matched.supplierId,
+        itemName: matched.itemName,
+        category: matched.category,
+        quantity: matched.quantity + sale.quantity.value,
+        unit: matched.unit,
+        minStock: matched.minStock,
+        unitPrice: matched.unitPrice,
+        totalValue: matched.unitPrice != null
+            ? (matched.quantity + sale.quantity.value) * matched.unitPrice!
+            : matched.totalValue,
+        supplier: matched.supplier,
+        expiryDate: matched.expiryDate,
+        lastRestock: matched.lastRestock,
+        isSynced: false,
+        hasConflict: matched.hasConflict,
+      ),
+    );
+  }
+
+  Future<InventoryItem?> _findMatchingOutputStock(SaleEntity sale) async {
+    if (!_isOutputProduct(sale.productName)) return null;
+    final items = await _inventoryRepository.getItems();
+    final normalizedProduct = sale.productName.trim().toLowerCase();
+    final normalizedCategory = _outputCategoryFor(sale.productName);
+
+    for (final item in items) {
+      if (item.unit.trim().toLowerCase() != sale.unit.trim().toLowerCase()) {
+        continue;
+      }
+      final itemName = item.itemName.trim().toLowerCase();
+      final itemCategory = item.category.trim().toLowerCase();
+      if (itemName == normalizedProduct && itemCategory == normalizedCategory) {
+        return item;
+      }
+    }
+
+    return null;
+  }
+
+  Future<SaleEntity?> _findSaleSnapshot(int id) async {
+    final rows = await LocalData.getSales();
+    for (final row in rows) {
+      final localId = row['id'];
+      final serverId = row['server_id'];
+      if (localId == id || serverId == id) {
+        return _mapToEntity(Map<String, dynamic>.from(row));
+      }
+    }
+    return null;
+  }
+
+  bool _isOutputProduct(String productName) {
+    final normalized = productName.trim().toLowerCase();
+    return normalized == 'milk' || normalized == 'eggs';
+  }
+
+  String _outputCategoryFor(String productName) {
+    switch (productName.trim().toLowerCase()) {
+      case 'milk':
+        return 'dairy';
+      case 'eggs':
+        return 'poultry';
+      default:
+        return '';
     }
   }
 
