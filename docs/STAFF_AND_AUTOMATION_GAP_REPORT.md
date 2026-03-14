@@ -7,9 +7,26 @@ The app is now materially stronger in three areas:
 - farm operations can trigger finance, stock, and marketplace draft flows
 - local/session data isolation is much safer on shared devices
 - the dashboard is becoming an operating assistant instead of a record counter
+- onboarding can now seed a real farm workspace with counts, tracking mode, custom livestock/crops/materials, practical feed units, and setup photos
 
 The biggest remaining gap is not feature count. It is system closure.
 The app still needs a tighter operating model where one farm action updates all related records, reminders, responsibility, and commercial readiness without the farmer re-entering the same information.
+
+## What The Setup Wizard Now Covers
+
+The farm setup flow is no longer just a preset picker. It now supports:
+
+- common animal and crop presets
+- custom livestock, crops, and materials
+- real animal counts
+- group vs individual animal tracking
+- optional animal naming and auto-generated names
+- practical farm feed units such as buckets and scoops
+- custom material quantities and units
+- optional local setup photos for animals and crops
+- starter tasks, stock, and feeding plans derived from that richer setup
+
+That is now a solid onboarding base. The remaining work is less about collecting data and more about closing the operating loops after setup.
 
 ## Staff Module Recommendation
 

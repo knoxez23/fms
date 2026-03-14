@@ -7,6 +7,7 @@ class AnimalEntity {
   final String? breed;
   final DateTime? birthDate;
   final double? weight;
+  final String? notes;
 
   AnimalEntity({
     this.id,
@@ -15,6 +16,7 @@ class AnimalEntity {
     this.breed,
     this.birthDate,
     this.weight,
+    this.notes,
   });
 
   bool get canBreed {

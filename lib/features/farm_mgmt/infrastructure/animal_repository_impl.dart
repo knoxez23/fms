@@ -46,6 +46,7 @@ class AnimalRepositoryImpl implements AnimalRepository {
       breed: model.breed,
       birthDate: null,
       weight: model.weight,
+      notes: model.notes,
     );
   }
 
@@ -61,7 +62,7 @@ class AnimalRepositoryImpl implements AnimalRepository {
           : (DateTime.now().difference(entity.birthDate!).inDays ~/ 365),
       healthStatus: null,
       dateAcquired: null,
-      notes: null,
+      notes: entity.notes,
       userId: null,
     );
   }
@@ -74,6 +75,7 @@ class AnimalRepositoryImpl implements AnimalRepository {
       breed: entity.breed,
       birthDate: entity.birthDate,
       weight: entity.weight,
+      notes: entity.notes,
     );
   }
 }

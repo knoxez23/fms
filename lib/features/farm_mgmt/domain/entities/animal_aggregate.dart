@@ -45,6 +45,7 @@ class AnimalAggregate {
       breed: animal.breed,
       birthDate: animal.birthDate,
       weight: newWeight,
+      notes: animal.notes,
     );
   }
 }
