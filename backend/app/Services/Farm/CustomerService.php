@@ -3,10 +3,15 @@
 namespace App\Services\Farm;
 
 use App\Models\Customer;
+use App\Services\Audit\AuditEventService;
 use Illuminate\Support\Collection;
 
 class CustomerService
 {
+    public function __construct(private readonly AuditEventService $auditService)
+    {
+    }
+
     /**
      * @return Collection<int, Customer>
      */
@@ -17,7 +22,20 @@ class CustomerService
 
     public function createForUser(int $userId, array $validated): Customer
     {
-        return Customer::create(array_merge($validated, ['user_id' => $userId]));
+        $customer = Customer::create(array_merge($validated, ['user_id' => $userId]));
+
+        $this->auditService->record(
+            userId: $userId,
+            eventType: 'customer.created',
+            entityType: 'customer',
+            entityId: (string) $customer->id,
+            metadata: [
+                'name' => $customer->name,
+                'summary' => "Added customer {$customer->name}.",
+            ]
+        );
+
+        return $customer;
     }
 
     public function showForUser(int $userId, string $id): Customer
@@ -30,12 +48,37 @@ class CustomerService
         $customer = $this->showForUser($userId, $id);
         $customer->update($validated);
 
+        $this->auditService->record(
+            userId: $userId,
+            eventType: 'customer.updated',
+            entityType: 'customer',
+            entityId: (string) $customer->id,
+            metadata: [
+                'name' => $customer->name,
+                'changed_fields' => array_keys($validated),
+                'summary' => "Updated customer {$customer->name}.",
+            ]
+        );
+
         return $customer;
     }
 
     public function deleteForUser(int $userId, string $id): void
     {
         $customer = $this->showForUser($userId, $id);
+        $customerRef = (string) $customer->id;
+        $name = $customer->name;
         $customer->delete();
+
+        $this->auditService->record(
+            userId: $userId,
+            eventType: 'customer.deleted',
+            entityType: 'customer',
+            entityId: $customerRef,
+            metadata: [
+                'name' => $name,
+                'summary' => "Deleted customer {$name}.",
+            ]
+        );
     }
 }

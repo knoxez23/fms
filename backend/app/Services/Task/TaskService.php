@@ -35,6 +35,20 @@ class TaskService
                 $existing->fill($validated);
                 $existing->save();
 
+                $this->auditService->record(
+                    userId: $userId,
+                    eventType: 'task.upserted',
+                    entityType: 'task',
+                    entityId: (string) $existing->id,
+                    metadata: [
+                        'title' => $existing->title,
+                        'source_event_type' => $existing->source_event_type,
+                        'source_event_id' => $existing->source_event_id,
+                        'changed_fields' => array_keys($validated),
+                        'summary' => "Upserted task {$existing->title}.",
+                    ]
+                );
+
                 return $existing;
             }
         }

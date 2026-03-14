@@ -6,12 +6,17 @@ use App\Models\Animal;
 use App\Models\FeedingLog;
 use App\Models\Inventory;
 use App\Models\User;
+use App\Services\Audit\AuditEventService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class FeedingLogService
 {
+    public function __construct(private readonly AuditEventService $auditService)
+    {
+    }
+
     /**
      * @return Collection<int, FeedingLog>
      */
@@ -23,8 +28,8 @@ class FeedingLogService
 
     public function createForUser(User $user, array $validated): FeedingLog
     {
-        $this->findOwnedAnimal($user, (int) $validated['animal_id']);
-        return DB::transaction(function () use ($user, $validated): FeedingLog {
+        $animal = $this->findOwnedAnimal($user, (int) $validated['animal_id']);
+        $created = DB::transaction(function () use ($user, $validated): FeedingLog {
             $inventory = $this->resolveOwnedInventory($user, $validated['inventory_id'] ?? null);
             if ($inventory !== null) {
                 $this->consumeInventory(
@@ -36,6 +41,22 @@ class FeedingLogService
 
             return FeedingLog::create($validated);
         });
+
+        $this->auditService->record(
+            userId: $user->id,
+            eventType: 'feeding_log.created',
+            entityType: 'feeding_log',
+            entityId: (string) $created->id,
+            metadata: [
+                'animal_name' => $animal->name,
+                'feed_type' => $created->feed_type,
+                'quantity' => $created->quantity,
+                'unit' => $created->unit,
+                'summary' => "Logged feeding for {$animal->name}.",
+            ]
+        );
+
+        return $created;
     }
 
     public function showForUser(User $user, string $id): FeedingLog
@@ -54,7 +75,7 @@ class FeedingLogService
             $this->findOwnedAnimal($user, (int) $validated['animal_id']);
         }
 
-        return DB::transaction(function () use ($feedingLog, $user, $validated): FeedingLog {
+        $updated = DB::transaction(function () use ($feedingLog, $user, $validated): FeedingLog {
             $existingInventory = $this->resolveOwnedInventory($user, $feedingLog->inventory_id);
             if ($existingInventory !== null) {
                 $this->restoreInventory(
@@ -86,12 +107,34 @@ class FeedingLogService
             $feedingLog->update($validated);
             return $feedingLog->fresh();
         });
+
+        $animal = $this->findOwnedAnimal($user, (int) $updated->animal_id);
+        $this->auditService->record(
+            userId: $user->id,
+            eventType: 'feeding_log.updated',
+            entityType: 'feeding_log',
+            entityId: (string) $updated->id,
+            metadata: [
+                'animal_name' => $animal->name,
+                'feed_type' => $updated->feed_type,
+                'quantity' => $updated->quantity,
+                'unit' => $updated->unit,
+                'changed_fields' => array_keys($validated),
+                'summary' => "Updated feeding log for {$animal->name}.",
+            ]
+        );
+
+        return $updated;
     }
 
     public function deleteForUser(User $user, string $id): void
     {
         $feedingLog = FeedingLog::findOrFail($id);
-        $this->findOwnedAnimal($user, (int) $feedingLog->animal_id);
+        $animal = $this->findOwnedAnimal($user, (int) $feedingLog->animal_id);
+        $logRef = (string) $feedingLog->id;
+        $feedType = $feedingLog->feed_type;
+        $quantity = $feedingLog->quantity;
+        $unit = $feedingLog->unit;
         DB::transaction(function () use ($feedingLog, $user): void {
             $inventory = $this->resolveOwnedInventory($user, $feedingLog->inventory_id);
             if ($inventory !== null) {
@@ -103,6 +146,20 @@ class FeedingLogService
             }
             $feedingLog->delete();
         });
+
+        $this->auditService->record(
+            userId: $user->id,
+            eventType: 'feeding_log.deleted',
+            entityType: 'feeding_log',
+            entityId: $logRef,
+            metadata: [
+                'animal_name' => $animal->name,
+                'feed_type' => $feedType,
+                'quantity' => $quantity,
+                'unit' => $unit,
+                'summary' => "Deleted feeding log for {$animal->name}.",
+            ]
+        );
     }
 
     private function findOwnedAnimal(User $user, int $animalId): Animal
