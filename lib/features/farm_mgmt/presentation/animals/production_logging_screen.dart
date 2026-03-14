@@ -14,6 +14,9 @@ import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/animal_entity.
 import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/production_log_entity.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/value_objects/value_objects.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/infrastructure/production_log_repository_impl.dart';
+import 'package:pamoja_twalima/features/inventory/domain/entities/inventory_item.dart';
+import 'package:pamoja_twalima/features/inventory/domain/repositories/inventory_repository.dart';
+import 'package:pamoja_twalima/features/inventory/presentation/add_inventory_screen.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/bloc/animals/animals_bloc.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/bloc/production/production_log_cubit.dart';
 
@@ -590,7 +593,7 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Create sale draft?',
+                  'What next for this output?',
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -602,7 +605,7 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Create a quick draft now or open a prefilled sale form. Suggested unit price: KSh ${estimatedPrice.toStringAsFixed(0)}',
+                  'Create a sale draft, move it into stock, or open a prefilled sale form. Suggested unit price: KSh ${estimatedPrice.toStringAsFixed(0)}',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
@@ -616,6 +619,15 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
                         onPressed: () =>
                             Navigator.of(sheetContext).pop('quick'),
                         child: const Text('Quick Draft'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () =>
+                            Navigator.of(sheetContext).pop('stock'),
+                        child: const Text('Create Stock Draft'),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -672,6 +684,11 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
           const SnackBar(content: Text('Failed to save quick sale draft.')),
         );
       }
+      return;
+    }
+
+    if (draftAction == 'stock') {
+      await _openProductionStockDraft(entity, animalName);
       return;
     }
 
@@ -766,6 +783,98 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
         return 15;
       default:
         return 0;
+    }
+  }
+
+  Future<void> _openProductionStockDraft(
+    ProductionLogEntity entity,
+    String animalName,
+  ) async {
+    final result = await Navigator.push<Object?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddInventoryScreen(
+          initialName: entity.productType,
+          initialCategory: _inventoryCategoryForProduct(entity.productType),
+          initialQuantity: entity.quantity.value.toStringAsFixed(
+            entity.quantity.value == entity.quantity.value.roundToDouble()
+                ? 0
+                : 1,
+          ),
+          initialUnit: entity.unit.value,
+          initialMinStock: '0',
+          initialCost: _suggestedUnitPrice(entity.productType) > 0
+              ? _suggestedUnitPrice(entity.productType).toStringAsFixed(0)
+              : null,
+          initialNotes:
+              'Stock draft created from ${entity.productType.toLowerCase()} production log for $animalName on ${_formatDate(entity.recordedAt)}.',
+          automationMessage:
+              'Prefilled from a ${entity.productType.toLowerCase()} production log for $animalName. Confirm final stock quantity and value before saving.',
+          resolutionRules: [
+            TaskResolutionRule(
+              sourceEventType: 'production',
+              sourceEventId: entity.animalId,
+            ),
+            TaskResolutionRule(
+              sourceEventType: 'setup',
+              sourceEventId: entity.animalId,
+              titleContains: const ['production review', 'feed efficiency'],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final draft = switch (result) {
+      InventoryDraftResult inventoryDraft => inventoryDraft,
+      Map<String, dynamic> item => InventoryDraftResult(item: item),
+      _ => null,
+    };
+    if (draft == null) return;
+
+    final item = InventoryItem(
+      itemName: (draft.item['itemName'] ?? entity.productType).toString(),
+      category: (draft.item['category'] ??
+              _inventoryCategoryForProduct(entity.productType))
+          .toString(),
+      quantity: ((draft.item['quantity'] as num?) ?? entity.quantity.value)
+          .toDouble(),
+      unit: (draft.item['unit'] ?? entity.unit.value).toString(),
+      minStock: (draft.item['minStock'] as int?) ?? 0,
+      supplier: draft.item['supplier']?.toString(),
+      supplierId: draft.item['supplierId']?.toString(),
+      unitPrice: (draft.item['unitPrice'] as num?)?.toDouble(),
+      totalValue: (draft.item['totalValue'] as num?)?.toDouble(),
+      lastRestock: draft.item['lastRestock'] as DateTime? ?? entity.recordedAt,
+      isSynced: false,
+    );
+
+    try {
+      await getIt<InventoryRepository>().addItem(item);
+      await _syncData.completeTaskRules(draft.taskResolutionRules);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Production stock draft saved successfully.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to save production stock draft.')),
+      );
+    }
+  }
+
+  String _inventoryCategoryForProduct(String productType) {
+    switch (productType.toLowerCase()) {
+      case 'milk':
+      case 'yogurt':
+      case 'cheese':
+      case 'butter':
+        return 'Dairy';
+      case 'eggs':
+        return 'Poultry';
+      default:
+        return 'Other';
     }
   }
 
