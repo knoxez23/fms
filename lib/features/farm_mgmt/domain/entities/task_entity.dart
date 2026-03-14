@@ -10,10 +10,12 @@ class TaskEntity {
   final String? staffMemberId;
   final String? sourceEventType;
   final String? sourceEventId;
+  final String? completionNotes;
   final bool approvalRequired;
   final String approvalStatus;
   final String? approvedBy;
   final DateTime? approvedAt;
+  final String? approvalComment;
 
   TaskEntity({
     this.id,
@@ -25,10 +27,12 @@ class TaskEntity {
     this.staffMemberId,
     this.sourceEventType,
     this.sourceEventId,
+    this.completionNotes,
     this.approvalRequired = false,
     this.approvalStatus = 'not_required',
     this.approvedBy,
     this.approvedAt,
+    this.approvalComment,
   });
 
   bool get isOverdue {

@@ -21,10 +21,12 @@ class Task extends Model
         'staff_member_id',
         'source_event_type',
         'source_event_id',
+        'completion_notes',
         'approval_required',
         'approval_status',
         'approved_by',
         'approved_at',
+        'approval_comment',
         'user_id',
     ];
 

@@ -29,6 +29,8 @@ class TaskDetailScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final item = entity;
     final canApprove = _canApprove(currentRole);
+    final canManageTask = _canManageTask(currentRole);
+    final canCompleteTask = _canCompleteTask(item);
 
     return AppScaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -37,10 +39,11 @@ class TaskDetailScreen extends StatelessWidget {
         title: 'Task Details',
         variant: AppBarVariant.standard,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () => _editTask(context, item),
-          ),
+          if (canManageTask)
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () => _editTask(context, item),
+            ),
         ],
       ),
       body: SingleChildScrollView(
@@ -70,9 +73,13 @@ class TaskDetailScreen extends StatelessWidget {
             ],
             _ActionRow(
               theme: theme,
-              isCompleted: item.isCompleted,
-              onToggleStatus: () => _toggleStatus(context, item),
-              onDelete: () => _deleteTask(context, item),
+              task: item,
+              canManageTask: canManageTask,
+              canCompleteTask: canCompleteTask,
+              onToggleStatus:
+                  canCompleteTask ? () => _toggleStatus(context, item) : null,
+              onDelete: canManageTask ? () => _deleteTask(context, item) : null,
+              onAddCompletionNote: () => _captureCompletion(context, item),
             ),
           ],
         ),
@@ -81,6 +88,10 @@ class TaskDetailScreen extends StatelessWidget {
   }
 
   void _toggleStatus(BuildContext context, TaskEntity task) {
+    if (!task.isCompleted && task.approvalRequired && !task.isApproved) {
+      _captureCompletion(context, task);
+      return;
+    }
     final updated = TaskEntity(
       id: task.id,
       title: task.title,
@@ -91,10 +102,12 @@ class TaskDetailScreen extends StatelessWidget {
       staffMemberId: task.staffMemberId,
       sourceEventType: task.sourceEventType,
       sourceEventId: task.sourceEventId,
+      completionNotes: task.completionNotes,
       approvalRequired: task.approvalRequired,
       approvalStatus: task.approvalStatus,
       approvedBy: task.approvedBy,
       approvedAt: task.approvedAt,
+      approvalComment: task.approvalComment,
     );
     context.read<TasksBloc>().add(TasksEvent.update(task: updated));
     Navigator.pop(context);
@@ -104,7 +117,20 @@ class TaskDetailScreen extends StatelessWidget {
     BuildContext context,
     TaskEntity task,
     String status,
-  ) {
+  ) async {
+    final comment = await _promptForNote(
+      context,
+      title: status == 'approved' ? 'Approve Task' : 'Send Back for Changes',
+      label: status == 'approved'
+          ? 'Manager note'
+          : 'What needs to be changed?',
+      hint: status == 'approved'
+          ? 'Optional sign-off note for the worker'
+          : 'Tell the worker what still needs attention',
+      required: status == 'rejected',
+      initialValue: task.approvalComment,
+    );
+    if (comment == null) return;
     final updated = TaskEntity(
       id: task.id,
       title: task.title,
@@ -115,11 +141,14 @@ class TaskDetailScreen extends StatelessWidget {
       staffMemberId: task.staffMemberId,
       sourceEventType: task.sourceEventType,
       sourceEventId: task.sourceEventId,
+      completionNotes: task.completionNotes,
       approvalRequired: task.approvalRequired,
       approvalStatus: status,
       approvedBy: status == 'approved' ? currentRole : null,
       approvedAt: status == 'approved' ? DateTime.now() : null,
+      approvalComment: comment.trim().isEmpty ? null : comment.trim(),
     );
+    if (!context.mounted) return;
     context.read<TasksBloc>().add(TasksEvent.update(task: updated));
     Navigator.pop(context);
   }
@@ -194,10 +223,12 @@ class TaskDetailScreen extends StatelessWidget {
       staffMemberId: staffIdByName[selected],
       sourceEventType: task.sourceEventType,
       sourceEventId: task.sourceEventId,
+      completionNotes: task.completionNotes,
       approvalRequired: task.approvalRequired,
       approvalStatus: task.approvalStatus,
       approvedBy: task.approvedBy,
       approvedAt: task.approvedAt,
+      approvalComment: task.approvalComment,
     );
     if (!context.mounted) return;
     context.read<TasksBloc>().add(TasksEvent.update(task: updated));
@@ -222,6 +253,113 @@ class TaskDetailScreen extends StatelessWidget {
   bool _canApprove(String role) {
     return const {'owner', 'manager', 'accountant'}
         .contains(role.trim().toLowerCase());
+  }
+
+  bool _canManageTask(String role) {
+    return _canApprove(role);
+  }
+
+  bool _canCompleteTask(TaskEntity task) {
+    if (task.isCompleted) return true;
+    return true;
+  }
+
+  Future<void> _captureCompletion(BuildContext context, TaskEntity task) async {
+    final note = await _promptForNote(
+      context,
+      title: task.approvalRequired && !task.isApproved
+          ? 'Mark Work Done'
+          : (task.isCompleted ? 'Reopen Task' : 'Complete Task'),
+      label: task.approvalRequired && !task.isApproved
+          ? 'What was completed?'
+          : 'Completion note',
+      hint: task.approvalRequired && !task.isApproved
+          ? 'Tell the manager what was done so they can review it quickly'
+          : 'Optional note about what was done',
+      required: task.approvalRequired && !task.isApproved && !task.isCompleted,
+      initialValue: task.completionNotes,
+    );
+    if (note == null) return;
+
+    final isCompleting = !task.isCompleted;
+    final updated = TaskEntity(
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      dueDate: task.dueDate,
+      isCompleted: isCompleting,
+      assignedTo: task.assignedTo,
+      staffMemberId: task.staffMemberId,
+      sourceEventType: task.sourceEventType,
+      sourceEventId: task.sourceEventId,
+      completionNotes: note.trim().isEmpty ? null : note.trim(),
+      approvalRequired: task.approvalRequired,
+      approvalStatus: task.approvalRequired
+          ? (isCompleting ? 'pending' : task.approvalStatus)
+          : task.approvalStatus,
+      approvedBy: isCompleting && task.approvalRequired ? null : task.approvedBy,
+      approvedAt: isCompleting && task.approvalRequired ? null : task.approvedAt,
+      approvalComment:
+          isCompleting && task.approvalRequired ? null : task.approvalComment,
+    );
+    if (!context.mounted) return;
+    context.read<TasksBloc>().add(TasksEvent.update(task: updated));
+    Navigator.pop(context);
+  }
+
+  Future<String?> _promptForNote(
+    BuildContext context, {
+    required String title,
+    required String label,
+    required String hint,
+    required bool required,
+    String? initialValue,
+  }) async {
+    final controller = TextEditingController(text: initialValue ?? '');
+    try {
+      return await showDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          String? errorText;
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: Text(title),
+                content: TextField(
+                  controller: controller,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    labelText: label,
+                    hintText: hint,
+                    errorText: errorText,
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, null),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (required && controller.text.trim().isEmpty) {
+                        setDialogState(() {
+                          errorText = 'Please add a note before continuing';
+                        });
+                        return;
+                      }
+                      Navigator.pop(dialogContext, controller.text);
+                    },
+                    child: const Text('Save'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      controller.dispose();
+    }
   }
 }
 
@@ -323,6 +461,23 @@ class _TaskCard extends StatelessWidget {
                   style: theme.textTheme.bodyMedium,
                 ),
               ],
+            ),
+          ],
+          if ((task.completionNotes ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _InfoPanel(
+              icon: Icons.task_alt_outlined,
+              title: 'Completion note',
+              body: task.completionNotes!.trim(),
+            ),
+          ],
+          if ((task.approvalComment ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _InfoPanel(
+              icon: Icons.feedback_outlined,
+              title:
+                  task.isRejected ? 'Manager feedback' : 'Approval note',
+              body: task.approvalComment!.trim(),
             ),
           ],
           if (task.assignedTo != null && task.assignedTo!.trim().isNotEmpty) ...[
@@ -465,39 +620,120 @@ class _ApprovalCard extends StatelessWidget {
   }
 }
 
+class _InfoPanel extends StatelessWidget {
+  const _InfoPanel({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: theme.colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(body, style: theme.textTheme.bodyMedium),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ActionRow extends StatelessWidget {
   final ThemeData theme;
-  final bool isCompleted;
-  final VoidCallback onToggleStatus;
-  final VoidCallback onDelete;
+  final TaskEntity task;
+  final bool canManageTask;
+  final bool canCompleteTask;
+  final VoidCallback? onToggleStatus;
+  final VoidCallback? onDelete;
+  final VoidCallback onAddCompletionNote;
 
   const _ActionRow({
     required this.theme,
-    required this.isCompleted,
+    required this.task,
+    required this.canManageTask,
+    required this.canCompleteTask,
     required this.onToggleStatus,
     required this.onDelete,
+    required this.onAddCompletionNote,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final showComplete = canCompleteTask;
+    final completeLabel = task.isCompleted
+        ? 'Reopen'
+        : task.approvalRequired && !task.isApproved
+            ? 'Mark Done for Review'
+            : 'Complete';
+    return Column(
       children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: onToggleStatus,
-            icon: Icon(isCompleted ? Icons.refresh : Icons.check_circle),
-            label: Text(isCompleted ? 'Reopen' : 'Complete'),
-          ),
+        Row(
+          children: [
+            if (showComplete)
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onToggleStatus,
+                  icon: Icon(task.isCompleted ? Icons.refresh : Icons.check_circle),
+                  label: Text(completeLabel),
+                ),
+              ),
+            if (showComplete && canManageTask) const SizedBox(width: 12),
+            if (canManageTask)
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: onDelete,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  icon: const Icon(Icons.delete_outline, color: Colors.white),
+                  label: const Text('Delete',
+                      style: TextStyle(color: Colors.white)),
+                ),
+              ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: onDelete,
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            icon: const Icon(Icons.delete_outline, color: Colors.white),
-            label: const Text('Delete', style: TextStyle(color: Colors.white)),
-          ),
-        ),
+        if (!task.isCompleted) ...[
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: onAddCompletionNote,
+              icon: const Icon(Icons.note_add_outlined),
+              label: Text(
+                (task.completionNotes ?? '').trim().isEmpty
+                    ? 'Add worker note'
+                    : 'Update worker note',
+                ),
+              ),
+            ),
+        ],
       ],
     );
   }

@@ -27,10 +27,12 @@ class TaskResource extends JsonResource
             'staff_member_id' => $this->staff_member_id,
             'source_event_type' => $this->source_event_type,
             'source_event_id' => $this->source_event_id,
+            'completion_notes' => $this->completion_notes,
             'approval_required' => (bool) $this->approval_required,
             'approval_status' => $this->approval_status,
             'approved_by' => $this->approved_by,
             'approved_at' => optional($this->approved_at)?->toISOString(),
+            'approval_comment' => $this->approval_comment,
             'created_at' => optional($this->created_at)?->toISOString(),
             'updated_at' => optional($this->updated_at)?->toISOString(),
         ];

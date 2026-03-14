@@ -131,27 +131,33 @@ test('task approval fields persist and can be approved by owner role', function 
         'title' => 'Approve pump repair payment',
         'status' => 'pending',
         'priority' => 'high',
+        'completion_notes' => 'Worker replaced the damaged valve and restarted the pump.',
         'approval_required' => true,
     ], $this->headers);
 
     $response->assertStatus(201)
         ->assertJsonPath('approval_required', true)
-        ->assertJsonPath('approval_status', 'pending');
+        ->assertJsonPath('approval_status', 'pending')
+        ->assertJsonPath('completion_notes', 'Worker replaced the damaged valve and restarted the pump.');
 
     $taskId = $response->json('id');
 
     $this->putJson("/api/v1/tasks/{$taskId}", [
         'approval_required' => true,
         'approval_status' => 'approved',
+        'approval_comment' => 'Good work. Ready to close.',
     ], $this->headers)
         ->assertStatus(200)
-        ->assertJsonPath('approval_status', 'approved');
+        ->assertJsonPath('approval_status', 'approved')
+        ->assertJsonPath('approval_comment', 'Good work. Ready to close.');
 
     $this->assertDatabaseHas('tasks', [
         'id' => $taskId,
         'approval_required' => true,
         'approval_status' => 'approved',
         'approved_by' => (string) $this->user->id,
+        'completion_notes' => 'Worker replaced the damaged valve and restarted the pump.',
+        'approval_comment' => 'Good work. Ready to close.',
     ]);
 });
 

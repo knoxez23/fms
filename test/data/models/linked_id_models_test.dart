@@ -40,16 +40,22 @@ void main() {
     final task = Task(
       id: 6,
       title: 'Approve generator repair spend',
+      completionNotes: 'Worker replaced worn belt and tested the unit.',
       approvalRequired: true,
       approvalStatus: 'pending',
       approvedBy: '12',
       approvedAt: '2026-03-14T09:30:00.000Z',
+      approvalComment: 'Check the fuel line before final sign-off.',
     );
 
     final map = task.toMap();
+    expect(map['completion_notes'],
+        equals('Worker replaced worn belt and tested the unit.'));
     expect(map['approval_required'], equals(1));
     expect(map['approval_status'], equals('pending'));
     expect(map['approved_by'], equals('12'));
     expect(map['approved_at'], equals('2026-03-14T09:30:00.000Z'));
+    expect(map['approval_comment'],
+        equals('Check the fuel line before final sign-off.'));
   });
 }

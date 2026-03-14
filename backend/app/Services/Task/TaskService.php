@@ -52,6 +52,7 @@ class TaskService
                         'source_event_id' => $existing->source_event_id,
                         'changed_fields' => array_keys($validated),
                         'approval_status' => $existing->approval_status,
+                        'completion_notes' => $existing->completion_notes,
                         'summary' => "Upserted task {$existing->title}.",
                     ]
                 );
@@ -73,6 +74,7 @@ class TaskService
                 'source_event_id' => $task->source_event_id,
                 'approval_required' => (bool) $task->approval_required,
                 'approval_status' => $task->approval_status,
+                'completion_notes' => $task->completion_notes,
                 'summary' => $task->approval_required
                     ? "Created approval task {$task->title}."
                     : "Created task {$task->title}.",
@@ -99,6 +101,8 @@ class TaskService
                 'source_event_type' => $task->source_event_type,
                 'source_event_id' => $task->source_event_id,
                 'approval_status' => $task->approval_status,
+                'completion_notes' => $task->completion_notes,
+                'approval_comment' => $task->approval_comment,
                 'summary' => match ($task->approval_status) {
                     'approved' => "Approved task {$task->title}.",
                     'rejected' => "Sent task {$task->title} back for changes.",
@@ -197,6 +201,10 @@ class TaskService
         } elseif (! array_key_exists('approved_by', $validated)) {
             $validated['approved_by'] = $existingTask?->approved_by;
             $validated['approved_at'] = $existingTask?->approved_at;
+        }
+
+        if (! array_key_exists('approval_comment', $validated)) {
+            $validated['approval_comment'] = $existingTask?->approval_comment;
         }
 
         return $validated;

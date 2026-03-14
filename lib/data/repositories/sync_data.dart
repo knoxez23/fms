@@ -385,10 +385,12 @@ class SyncData {
       'staff_member_id': task.staffMemberId,
       'source_event_type': task.sourceEventType,
       'source_event_id': task.sourceEventId,
+      'completion_notes': task.completionNotes,
       'approval_required': task.approvalRequired,
       'approval_status': task.approvalStatus,
       'approved_by': task.approvedBy,
       'approved_at': task.approvedAt,
+      'approval_comment': task.approvalComment,
     }..removeWhere((key, value) => value == null);
   }
 

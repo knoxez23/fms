@@ -55,7 +55,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'pamoja_twalima.db');
     return await openDatabase(
       path,
-      version: 24,
+      version: 25,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -123,10 +123,12 @@ class DatabaseHelper {
         staff_member_id INTEGER,
         source_event_type TEXT,
         source_event_id TEXT,
+        completion_notes TEXT,
         approval_required INTEGER DEFAULT 0,
         approval_status TEXT DEFAULT 'not_required',
         approved_by TEXT,
         approved_at TEXT,
+        approval_comment TEXT,
         is_synced INTEGER DEFAULT 1,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         user_id INTEGER,
@@ -675,6 +677,19 @@ class DatabaseHelper {
       }
       try {
         await db.execute('ALTER TABLE tasks ADD COLUMN approved_at TEXT');
+      } catch (e) {
+        // Column may already exist
+      }
+    }
+
+    if (oldVersion < 25) {
+      try {
+        await db.execute('ALTER TABLE tasks ADD COLUMN completion_notes TEXT');
+      } catch (e) {
+        // Column may already exist
+      }
+      try {
+        await db.execute('ALTER TABLE tasks ADD COLUMN approval_comment TEXT');
       } catch (e) {
         // Column may already exist
       }
