@@ -9,6 +9,7 @@ import 'package:pamoja_twalima/features/marketplace/presentation/sell_product_sc
 import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/di/injection.dart';
+import 'package:pamoja_twalima/data/repositories/local_data.dart';
 import 'package:pamoja_twalima/features/marketplace/presentation/bloc/marketplace/marketplace_bloc.dart';
 import 'package:pamoja_twalima/features/marketplace/domain/entities/product_entity.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
@@ -115,7 +116,18 @@ class _MarketplaceViewState extends State<MarketplaceView> {
               _buildSearchFilterBar(theme),
 
               // 📊 Marketplace Stats
-              _buildMarketplaceStats(theme),
+              FutureBuilder<Map<String, dynamic>>(
+                future: LocalData.getFarmSummary(),
+                builder: (context, snapshot) {
+                  final summary = snapshot.data ?? const <String, dynamic>{};
+                  return Column(
+                    children: [
+                      _buildMarketplaceTrustPanel(theme, summary),
+                      _buildMarketplaceStats(theme, filteredProducts.length, summary),
+                    ],
+                  );
+                },
+              ),
 
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -199,7 +211,16 @@ class _MarketplaceViewState extends State<MarketplaceView> {
     );
   }
 
-  Widget _buildMarketplaceStats(ThemeData theme) {
+  Widget _buildMarketplaceStats(
+    ThemeData theme,
+    int visibleProducts,
+    Map<String, dynamic> summary,
+  ) {
+    final trustScore = ((summary['marketplaceTrustScore'] as num?) ?? 0).toInt();
+    final verificationScore =
+        ((summary['verificationScore'] as num?) ?? 0).toInt();
+    final readyOutput = (((summary['milkStockOnHand'] as num?) ?? 0).toDouble()) +
+        (((summary['eggsStockOnHand'] as num?) ?? 0).toDouble());
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
@@ -212,28 +233,121 @@ class _MarketplaceViewState extends State<MarketplaceView> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _StatItem(
-            value: '1.2K+',
-            label: 'Products',
+            value: '$visibleProducts',
+            label: 'Visible Lots',
             icon: LucideIcons.package,
             theme: theme,
           ),
           _StatItem(
-            value: '500+',
-            label: 'Sellers',
+            value: readyOutput.toStringAsFixed(readyOutput == readyOutput.roundToDouble() ? 0 : 1),
+            label: 'Ready Output',
             icon: LucideIcons.users,
             theme: theme,
           ),
           _StatItem(
-            value: '98%',
-            label: 'Satisfaction',
+            value: '$trustScore',
+            label: 'Trust Score',
             icon: LucideIcons.star,
             theme: theme,
           ),
           _StatItem(
-            value: '50+',
-            label: 'Countries',
+            value: '$verificationScore',
+            label: 'Verification',
             icon: LucideIcons.globe,
             theme: theme,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMarketplaceTrustPanel(
+    ThemeData theme,
+    Map<String, dynamic> summary,
+  ) {
+    final trustScore = ((summary['marketplaceTrustScore'] as num?) ?? 0).toInt();
+    final trustBand = (summary['marketplaceTrustBand'] ?? 'Needs work').toString();
+    final verificationScore =
+        ((summary['verificationScore'] as num?) ?? 0).toInt();
+    final freshnessRiskCount =
+        ((summary['freshnessRiskCount'] as num?) ?? 0).toInt();
+    final outputValue =
+        ((summary['outputStockValue'] as num?) ?? 0).toDouble();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.16),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Sell with confidence',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            freshnessRiskCount > 0
+                ? 'Move aging fresh output first, then publish the strongest lots.'
+                : 'Your current stock and farm records are in a good position for buyer trust.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.78),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _buildTrustChip(theme, 'Trust $trustScore', trustBand),
+              _buildTrustChip(theme, 'Verification $verificationScore', 'Farm record strength'),
+              _buildTrustChip(
+                theme,
+                freshnessRiskCount == 0 ? 'Freshness ready' : '$freshnessRiskCount freshness alerts',
+                freshnessRiskCount == 0 ? 'No immediate aging risk' : 'Sell oldest stock first',
+              ),
+              _buildTrustChip(
+                theme,
+                'KSh ${outputValue.toStringAsFixed(0)}',
+                'Output value currently in stock',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrustChip(ThemeData theme, String label, String detail) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            detail,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.68),
+            ),
           ),
         ],
       ),
@@ -473,6 +587,12 @@ class _MarketplaceViewState extends State<MarketplaceView> {
   }
 
   Map<String, dynamic> _mapProductToView(ProductEntity product) {
+    final lowerName = product.name.value.trim().toLowerCase();
+    final freshnessSensitive = lowerName == 'milk' || lowerName == 'eggs';
+    final stockBacked = product.quantity > 0;
+    final trustScore = stockBacked
+        ? (freshnessSensitive ? 82 : 74)
+        : 48;
     return {
       'id': product.id ?? product.name.value,
       'name': product.name.value,
@@ -482,14 +602,21 @@ class _MarketplaceViewState extends State<MarketplaceView> {
       'status': product.isAvailable ? 'Available' : 'Out of stock',
       'quantity': product.quantity,
       'unit': product.unit,
-      'desc': '',
+      'desc': stockBacked
+          ? 'Stock-backed listing ready for buyers.'
+          : 'Add stock first so availability and trust stay accurate.',
       'seller': {
-        'name': 'Local Seller',
-        'verified': true,
-        'rating': 4.5,
+        'name': 'Farmly Seller',
+        'verified': trustScore >= 70,
+        'rating': trustScore / 20,
+        'reviews': stockBacked ? 12 : 2,
       },
-      'exportReady': false,
+      'exportReady': stockBacked && !freshnessSensitive,
+      'trustScore': trustScore,
+      'stockBacked': stockBacked,
       'listedDate': DateTime.now().toIso8601String(),
+      'views': stockBacked ? 120 : 20,
+      'sales': stockBacked ? 8 : 1,
     };
   }
 
@@ -850,11 +977,9 @@ class ProductCard extends StatelessWidget {
                 ClipRRect(
                   borderRadius:
                       const BorderRadius.vertical(top: Radius.circular(16)),
-                  child: Image.asset(
-                    product['image'],
+                  child: _ProductVisual(
+                    product: product,
                     height: 120,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
                   ),
                 ),
                 // Export Badge
@@ -871,6 +996,27 @@ class ProductCard extends StatelessWidget {
                       ),
                       child: Text(
                         'EXPORT',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (product['stockBacked'] == true)
+                  Positioned(
+                    top: 8,
+                    right: 44,
+                    child: Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'STOCK READY',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -962,6 +1108,14 @@ class ProductCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Trust ${product['trustScore']}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const Spacer(),
                     // Add to Cart Button
                     SizedBox(
@@ -1001,11 +1155,10 @@ class ProductCard extends StatelessWidget {
             ClipRRect(
               borderRadius:
                   const BorderRadius.horizontal(left: Radius.circular(12)),
-              child: Image.asset(
-                product['image'],
+              child: _ProductVisual(
+                product: product,
                 width: 100,
                 height: 100,
-                fit: BoxFit.cover,
               ),
             ),
             Expanded(
@@ -1053,12 +1206,70 @@ class ProductCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 6),
+                    Text(
+                      product['stockBacked'] == true
+                          ? 'Stock-backed • Trust ${product['trustScore']}'
+                          : 'Needs stock backing before publishing widely',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ProductVisual extends StatelessWidget {
+  const _ProductVisual({
+    required this.product,
+    this.width,
+    required this.height,
+  });
+
+  final Map<String, dynamic> product;
+  final double? width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final image = product['image'];
+    if (image is String && image.isNotEmpty) {
+      return Image.asset(
+        image,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+      );
+    }
+
+    final category = (product['category'] ?? '').toString().toLowerCase();
+    final icon = switch (category) {
+      'dairy' => Icons.local_drink_outlined,
+      'poultry' => Icons.egg_outlined,
+      'livestock' => Icons.pets_outlined,
+      'vegetables' => Icons.spa_outlined,
+      'fruits' => Icons.local_florist_outlined,
+      _ => Icons.inventory_2_outlined,
+    };
+
+    return Container(
+      width: width,
+      height: height,
+      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+      alignment: Alignment.center,
+      child: Icon(
+        icon,
+        color: theme.colorScheme.primary,
+        size: 36,
       ),
     );
   }

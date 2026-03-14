@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/data/repositories/local_data.dart';
 import 'package:pamoja_twalima/data/repositories/sync_data.dart';
 import 'package:pamoja_twalima/features/marketplace/domain/entities/product_entity.dart';
 import 'package:pamoja_twalima/features/marketplace/domain/value_objects/value_objects.dart';
@@ -239,14 +240,75 @@ class _SellProductScreenState extends State<SellProductScreen> {
   Widget _buildProductInfoStep(ThemeData theme) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: Form(
+        child: Form(
         key: _formKey,
         child: Column(
               children: [
+                FutureBuilder<Map<String, dynamic>>(
+                  future: LocalData.getFarmSummary(),
+                  builder: (context, snapshot) {
+                    final summary = snapshot.data ?? const <String, dynamic>{};
+                    final trustScore =
+                        ((summary['marketplaceTrustScore'] as num?) ?? 0)
+                            .toInt();
+                    final freshnessRisk =
+                        ((summary['freshnessRiskCount'] as num?) ?? 0).toInt();
+                    return _AnimatedCard(
+                      index: 0,
+                      theme: theme,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Before you publish',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              freshnessRisk > 0
+                                  ? 'You have fresh output aging in stock. Publish the oldest lot first and keep quantity accurate.'
+                                  : 'Keep quantity, unit, and price aligned with your real stock so buyers trust the listing.',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.78),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                _TrustHintChip(
+                                  label: 'Trust $trustScore',
+                                  detail: (summary['marketplaceTrustBand'] ??
+                                          'Needs work')
+                                      .toString(),
+                                ),
+                                _TrustHintChip(
+                                  label: freshnessRisk == 0
+                                      ? 'Freshness ready'
+                                      : '$freshnessRisk freshness alert${freshnessRisk == 1 ? '' : 's'}',
+                                  detail: freshnessRisk == 0
+                                      ? 'No immediate aging risk'
+                                      : 'Sell oldest stock first',
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
                 if (widget.automationMessage != null &&
                     widget.automationMessage!.trim().isNotEmpty) ...[
                   _AnimatedCard(
-                    index: 0,
+                    index: 1,
                     theme: theme,
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -1192,6 +1254,46 @@ class _AnimatedCardState extends State<_AnimatedCard>
           ),
           child: widget.child,
         ),
+      ),
+    );
+  }
+}
+
+class _TrustHintChip extends StatelessWidget {
+  final String label;
+  final String detail;
+
+  const _TrustHintChip({
+    required this.label,
+    required this.detail,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            detail,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
       ),
     );
   }
