@@ -55,7 +55,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'pamoja_twalima.db');
     return await openDatabase(
       path,
-      version: 26,
+      version: 27,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -143,7 +143,12 @@ class DatabaseHelper {
         client_uuid TEXT,
         item_name TEXT NOT NULL,
         category TEXT,
+        lot_code TEXT,
+        source_type TEXT,
+        source_ref TEXT,
+        source_label TEXT,
         quantity REAL,
+        reserved_quantity REAL DEFAULT 0,
         unit TEXT,
         min_stock INTEGER DEFAULT 0,
         unit_price REAL,
@@ -151,6 +156,8 @@ class DatabaseHelper {
         supplier TEXT,
         supplier_id INTEGER,
         notes TEXT,
+        expiry_date TEXT,
+        freshness_hours INTEGER,
         last_restock TEXT,
         last_updated TEXT DEFAULT CURRENT_TIMESTAMP,
         is_synced INTEGER DEFAULT 0,
@@ -702,6 +709,24 @@ class DatabaseHelper {
             'ALTER TABLE sales ADD COLUMN stock_deduction_plan TEXT');
       } catch (e) {
         // Column may already exist
+      }
+    }
+
+    if (oldVersion < 27) {
+      for (final statement in [
+        'ALTER TABLE inventory ADD COLUMN lot_code TEXT',
+        'ALTER TABLE inventory ADD COLUMN source_type TEXT',
+        'ALTER TABLE inventory ADD COLUMN source_ref TEXT',
+        'ALTER TABLE inventory ADD COLUMN source_label TEXT',
+        'ALTER TABLE inventory ADD COLUMN reserved_quantity REAL DEFAULT 0',
+        'ALTER TABLE inventory ADD COLUMN expiry_date TEXT',
+        'ALTER TABLE inventory ADD COLUMN freshness_hours INTEGER',
+      ]) {
+        try {
+          await db.execute(statement);
+        } catch (e) {
+          // Column may already exist
+        }
       }
     }
 

@@ -229,6 +229,11 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
       InventoryItem(
         itemName: crop.name,
         category: _inventoryCategoryFor(crop.name),
+        lotCode:
+            'HARV-${(crop.id.isEmpty ? crop.name : crop.id).toUpperCase().replaceAll(RegExp(r"[^A-Z0-9]"), "")}',
+        sourceType: 'Harvest',
+        sourceRef: crop.id,
+        sourceLabel: '${crop.name} harvest',
         quantity: quantity,
         unit: unit,
         minStock: 0,
@@ -288,6 +293,11 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
           initialCategory: 'Crops',
           initialUnit: 'kg',
           initialMinStock: '0',
+          initialLotCode:
+              'HARV-${(crop.id.isEmpty ? crop.name : crop.id).toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '')}',
+          initialSourceType: 'Harvest',
+          initialSourceRef: crop.id,
+          initialSourceLabel: '${crop.name} harvest',
           initialNotes:
               'Harvest stock drafted from ${crop.name} crop${crop.harvestDate == 'Not set' ? '' : ' scheduled for ${crop.harvestDate}'}',
           automationMessage:
@@ -321,13 +331,21 @@ class _CropDetailScreenState extends State<CropDetailScreen> {
     final item = InventoryItem(
       itemName: (draft.item['itemName'] ?? '').toString(),
       category: (draft.item['category'] ?? 'Crops').toString(),
+      lotCode: draft.item['lotCode']?.toString(),
+      sourceType: draft.item['sourceType']?.toString(),
+      sourceRef: draft.item['sourceRef']?.toString(),
+      sourceLabel: draft.item['sourceLabel']?.toString(),
       quantity: ((draft.item['quantity'] as num?) ?? 0).toDouble(),
+      reservedQuantity:
+          ((draft.item['reservedQuantity'] as num?) ?? 0).toDouble(),
       unit: (draft.item['unit'] ?? 'kg').toString(),
       minStock: (draft.item['minStock'] as int?) ?? 0,
       supplier: draft.item['supplier']?.toString(),
       supplierId: draft.item['supplierId']?.toString(),
       unitPrice: (draft.item['unitPrice'] as num?)?.toDouble(),
       totalValue: (draft.item['totalValue'] as num?)?.toDouble(),
+      expiryDate: draft.item['expiryDate'] as DateTime?,
+      freshnessHours: (draft.item['freshnessHours'] as num?)?.toInt(),
       lastRestock: draft.item['lastRestock'] as DateTime?,
       isSynced: false,
     );

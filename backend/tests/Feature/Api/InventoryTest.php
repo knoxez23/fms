@@ -61,6 +61,31 @@ test('inventory total value is derived on create and ignores client override', f
     ]);
 });
 
+test('inventory accepts lot and freshness metadata', function () {
+    $response = $this->postJson('/api/v1/inventories', [
+        'item_name' => 'Milk',
+        'category' => 'Dairy',
+        'lot_code' => 'MILK-14MAR-AM',
+        'source_type' => 'Production',
+        'source_ref' => 'prod-44',
+        'source_label' => 'Morning milking',
+        'quantity' => 18,
+        'reserved_quantity' => 3,
+        'unit' => 'liters',
+        'freshness_hours' => 8,
+        'expiry_date' => now()->addHours(8)->toISOString(),
+    ], [
+        'Authorization' => "Bearer {$this->token}",
+    ]);
+
+    $response->assertStatus(201)
+        ->assertJsonPath('lot_code', 'MILK-14MAR-AM')
+        ->assertJsonPath('source_type', 'Production')
+        ->assertJsonPath('reserved_quantity', 3)
+        ->assertJsonPath('freshness_hours', 8)
+        ->assertJsonPath('available_quantity', 15);
+});
+
 test('inventory create is idempotent by client_uuid', function () {
     $payload = [
         'client_uuid' => '8b5a4e4f-6c74-4f5e-9c2e-01f69f73a9c2',

@@ -158,8 +158,8 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i719.FarmNavCubit>(() => _i719.FarmNavCubit());
     gh.factory<_i539.OnboardingCubit>(() => _i539.OnboardingCubit());
-    gh.lazySingleton<_i374.TokenManager>(() => _i374.TokenManager());
     gh.lazySingleton<_i921.ApiService>(() => _i921.ApiService());
+    gh.lazySingleton<_i374.TokenManager>(() => _i374.TokenManager());
     gh.lazySingleton<_i73.DomainEventBus>(
       () => _i73.DomainEventBus(),
       dispose: (i) => i.dispose(),
@@ -184,11 +184,6 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i91.FeedingRepositoryImpl(gh<_i1004.SyncData>()));
     gh.lazySingleton<_i329.GetOverview>(
         () => _i329.GetOverview(gh<_i873.FarmSummaryRepository>()));
-    gh.lazySingleton<_i415.SalesRepository>(
-        () => _i379.SalesRepositoryImpl(
-              gh<_i970.SaleService>(),
-              gh<_i422.InventoryRepository>(),
-            ));
     gh.lazySingleton<_i377.CropRepository>(
         () => _i240.CropRepositoryImpl(gh<_i1004.SyncData>()));
     gh.factory<_i16.OverviewBloc>(
@@ -313,14 +308,6 @@ extension GetItInjectableX on _i174.GetIt {
         ));
     gh.lazySingleton<_i956.WeatherRepository>(
         () => _i346.WeatherRepositoryImpl(gh<_i791.WeatherService>()));
-    gh.lazySingleton<_i149.GetSales>(
-        () => _i149.GetSales(gh<_i415.SalesRepository>()));
-    gh.lazySingleton<_i149.AddSale>(
-        () => _i149.AddSale(gh<_i415.SalesRepository>()));
-    gh.lazySingleton<_i149.UpdateSale>(
-        () => _i149.UpdateSale(gh<_i415.SalesRepository>()));
-    gh.lazySingleton<_i149.DeleteSale>(
-        () => _i149.DeleteSale(gh<_i415.SalesRepository>()));
     gh.lazySingleton<_i712.UpdateTask>(() => _i712.UpdateTask(
           gh<_i491.TaskRepository>(),
           gh<_i468.DomainEventBus>(),
@@ -351,12 +338,6 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i466.SignOut>(),
           gh<_i466.CheckAuthStatusUseCase>(),
           gh<_i466.GetCurrentUser>(),
-        ));
-    gh.factory<_i953.SalesBloc>(() => _i953.SalesBloc(
-          gh<_i149.GetSales>(),
-          gh<_i149.AddSale>(),
-          gh<_i149.UpdateSale>(),
-          gh<_i149.DeleteSale>(),
         ));
     gh.lazySingleton<_i1010.KnowledgeRepository>(
         () => _i490.KnowledgeRepositoryImpl(gh<_i97.KnowledgeService>()));
@@ -400,6 +381,10 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i90.AddProductionLog>(),
           gh<_i90.DeleteProductionLog>(),
         ));
+    gh.lazySingleton<_i415.SalesRepository>(() => _i379.SalesRepositoryImpl(
+          gh<_i970.SaleService>(),
+          gh<_i422.InventoryRepository>(),
+        ));
     gh.lazySingleton<_i8.GetInventory>(
         () => _i8.GetInventory(gh<_i507.InventoryRepository>()));
     gh.lazySingleton<_i8.DeleteInventoryItem>(
@@ -412,6 +397,14 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i873.FarmSummaryRepository>(),
           gh<_i739.GetWeather>(),
         ));
+    gh.lazySingleton<_i149.GetSales>(
+        () => _i149.GetSales(gh<_i415.SalesRepository>()));
+    gh.lazySingleton<_i149.AddSale>(
+        () => _i149.AddSale(gh<_i415.SalesRepository>()));
+    gh.lazySingleton<_i149.UpdateSale>(
+        () => _i149.UpdateSale(gh<_i415.SalesRepository>()));
+    gh.lazySingleton<_i149.DeleteSale>(
+        () => _i149.DeleteSale(gh<_i415.SalesRepository>()));
     gh.factory<_i495.HomeBloc>(
         () => _i495.HomeBloc(gh<_i156.GetDashboardData>()));
     gh.factory<_i224.AuditEventsCubit>(
@@ -426,6 +419,12 @@ extension GetItInjectableX on _i174.GetIt {
         ));
     gh.lazySingleton<_i734.GetKnowledgeTopics>(
         () => _i734.GetKnowledgeTopics(gh<_i1010.KnowledgeRepository>()));
+    gh.factory<_i953.SalesBloc>(() => _i953.SalesBloc(
+          gh<_i149.GetSales>(),
+          gh<_i149.AddSale>(),
+          gh<_i149.UpdateSale>(),
+          gh<_i149.DeleteSale>(),
+        ));
     gh.factory<_i400.WeatherCubit>(
         () => _i400.WeatherCubit(gh<_i739.GetWeather>()));
     gh.factory<_i717.ProfileBloc>(() => _i717.ProfileBloc(

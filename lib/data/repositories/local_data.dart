@@ -165,7 +165,7 @@ class LocalData {
           CASE
             WHEN LOWER(COALESCE(item_name, '')) = 'milk'
               OR (LOWER(COALESCE(category, '')) = 'dairy' AND LOWER(COALESCE(item_name, '')) LIKE '%milk%')
-            THEN COALESCE(quantity, 0)
+            THEN MAX(COALESCE(quantity, 0) - COALESCE(reserved_quantity, 0), 0)
             ELSE 0
           END
         ) AS milk_stock,
@@ -173,7 +173,7 @@ class LocalData {
           CASE
             WHEN LOWER(COALESCE(item_name, '')) = 'eggs'
               OR (LOWER(COALESCE(category, '')) = 'poultry' AND LOWER(COALESCE(item_name, '')) LIKE '%egg%')
-            THEN COALESCE(quantity, 0)
+            THEN MAX(COALESCE(quantity, 0) - COALESCE(reserved_quantity, 0), 0)
             ELSE 0
           END
         ) AS eggs_stock,
@@ -190,7 +190,7 @@ class LocalData {
           END
         ) AS output_stock_value
       FROM inventory
-      WHERE COALESCE(quantity, 0) > 0
+      WHERE MAX(COALESCE(quantity, 0) - COALESCE(reserved_quantity, 0), 0) > 0
       ${activeUserId == null ? '' : 'AND user_id = ?'}
       ''',
       activeUserId == null ? null : [activeUserId],
@@ -211,15 +211,19 @@ class LocalData {
       'inventory',
       columns: [
         'item_name',
+        'lot_code',
         'category',
         'quantity',
+        'reserved_quantity',
         'unit',
+        'expiry_date',
+        'freshness_hours',
         'last_restock',
         'last_updated',
       ],
       where: activeUserId == null
-          ? 'COALESCE(quantity, 0) > 0'
-          : 'COALESCE(quantity, 0) > 0 AND user_id = ?',
+          ? 'MAX(COALESCE(quantity, 0) - COALESCE(reserved_quantity, 0), 0) > 0'
+          : 'MAX(COALESCE(quantity, 0) - COALESCE(reserved_quantity, 0), 0) > 0 AND user_id = ?',
       whereArgs: activeUserId == null ? null : [activeUserId],
     );
     final freshnessNow = DateTime.now();
@@ -231,21 +235,27 @@ class LocalData {
       if (!_isMilkInventoryRow(normalized) && !_isEggInventoryRow(normalized)) {
         continue;
       }
-      final quantity = (normalized['quantity'] as num?)?.toDouble() ?? 0.0;
+      final quantity = ((normalized['quantity'] as num?)?.toDouble() ?? 0.0) -
+          ((normalized['reserved_quantity'] as num?)?.toDouble() ?? 0.0);
       if (quantity <= 0) continue;
       final timestampValue =
           (normalized['last_restock'] ?? normalized['last_updated'])?.toString();
       final timestamp = timestampValue == null
           ? null
           : DateTime.tryParse(timestampValue)?.toLocal();
+      final expiryValue = normalized['expiry_date']?.toString();
+      final expiry = expiryValue == null ? null : DateTime.tryParse(expiryValue)?.toLocal();
+      final freshnessHours = (normalized['freshness_hours'] as num?)?.toDouble();
       final ageHours = _ageInHours(timestamp, freshnessNow);
       if (ageHours > oldestFreshOutputAgeHours) {
         oldestFreshOutputAgeHours = ageHours;
         freshnessPriorityLabel =
-            'Sell ${_formatStockQuantity(quantity, (normalized['unit'] ?? 'units').toString())} ${(normalized['item_name'] ?? 'output').toString().toLowerCase()} first';
+            'Sell ${_formatStockQuantity(quantity, (normalized['unit'] ?? 'units').toString())} ${(normalized['item_name'] ?? 'output').toString().toLowerCase()}${(normalized['lot_code'] ?? '').toString().trim().isEmpty ? '' : ' from lot ${(normalized['lot_code'] ?? '').toString().trim()}'} first';
       }
-      final riskThresholdHours = _isMilkInventoryRow(normalized) ? 18.0 : 72.0;
-      if (ageHours >= riskThresholdHours) {
+      final riskThresholdHours =
+          freshnessHours ?? (_isMilkInventoryRow(normalized) ? 18.0 : 72.0);
+      final isExpired = expiry != null && !expiry.isAfter(freshnessNow);
+      if (isExpired || ageHours >= riskThresholdHours) {
         freshnessRiskCount++;
       }
     }

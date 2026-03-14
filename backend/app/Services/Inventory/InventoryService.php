@@ -4,12 +4,16 @@ namespace App\Services\Inventory;
 
 use App\Models\Inventory;
 use App\Models\Supplier;
+use App\Services\Farm\FarmContextService;
 use App\Services\Audit\AuditEventService;
 use Illuminate\Support\Collection;
 
 class InventoryService
 {
-    public function __construct(private readonly AuditEventService $auditService)
+    public function __construct(
+        private readonly AuditEventService $auditService,
+        private readonly FarmContextService $farmContextService,
+    )
     {
     }
 
@@ -28,6 +32,7 @@ class InventoryService
      */
     public function createOrUpsertByClientUuid(int $userId, array $validated): array
     {
+        $this->farmContextService->assertCanManageCommercialOps($userId);
         $validated = $this->attachOwnedSupplierName($userId, $validated);
         $clientUuid = $validated['client_uuid'] ?? null;
 
@@ -47,6 +52,8 @@ class InventoryService
                     metadata: [
                         'client_uuid' => $clientUuid,
                         'item_name' => $existing->item_name,
+                        'lot_code' => $existing->lot_code,
+                        'source_type' => $existing->source_type,
                     ]
                 );
 
@@ -69,7 +76,10 @@ class InventoryService
             metadata: [
                 'item_name' => $inventory->item_name,
                 'quantity' => $inventory->quantity,
+                'reserved_quantity' => $inventory->reserved_quantity,
                 'min_stock' => $inventory->min_stock,
+                'lot_code' => $inventory->lot_code,
+                'source_type' => $inventory->source_type,
             ]
         );
 
@@ -78,6 +88,7 @@ class InventoryService
 
     public function updateForUser(int $userId, string $inventoryId, array $validated): Inventory
     {
+        $this->farmContextService->assertCanManageCommercialOps($userId);
         $validated = $this->attachOwnedSupplierName($userId, $validated);
         $inventory = Inventory::where('id', $inventoryId)
             ->where('user_id', $userId)
@@ -94,7 +105,10 @@ class InventoryService
             metadata: [
                 'item_name' => $inventory->item_name,
                 'quantity' => $inventory->quantity,
+                'reserved_quantity' => $inventory->reserved_quantity,
                 'min_stock' => $inventory->min_stock,
+                'lot_code' => $inventory->lot_code,
+                'source_type' => $inventory->source_type,
             ]
         );
 
@@ -110,6 +124,7 @@ class InventoryService
 
     public function deleteForUser(int $userId, string $inventoryId): void
     {
+        $this->farmContextService->assertCanManageCommercialOps($userId);
         $inventory = Inventory::where('id', $inventoryId)
             ->where('user_id', $userId)
             ->firstOrFail();
@@ -129,6 +144,7 @@ class InventoryService
 
     public function deleteByClientUuid(int $userId, string $clientUuid): void
     {
+        $this->farmContextService->assertCanManageCommercialOps($userId);
         $inventory = Inventory::where('user_id', $userId)
             ->where('client_uuid', $clientUuid)
             ->first();

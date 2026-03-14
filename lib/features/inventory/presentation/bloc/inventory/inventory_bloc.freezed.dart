@@ -22,7 +22,12 @@ mixin _$InventoryEvent {
     required TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -30,13 +35,20 @@ mixin _$InventoryEvent {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         addItem,
     required TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -44,6 +56,8 @@ mixin _$InventoryEvent {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         updateItem,
     required TResult Function(int id) deleteItem,
@@ -59,7 +73,12 @@ mixin _$InventoryEvent {
     TResult? Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -67,13 +86,20 @@ mixin _$InventoryEvent {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult? Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -81,6 +107,8 @@ mixin _$InventoryEvent {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult? Function(int id)? deleteItem,
@@ -96,7 +124,12 @@ mixin _$InventoryEvent {
     TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -104,13 +137,20 @@ mixin _$InventoryEvent {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -118,6 +158,8 @@ mixin _$InventoryEvent {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult Function(int id)? deleteItem,
@@ -235,7 +277,12 @@ class _$LoadInventoryImpl implements LoadInventory {
     required TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -243,13 +290,20 @@ class _$LoadInventoryImpl implements LoadInventory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         addItem,
     required TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -257,6 +311,8 @@ class _$LoadInventoryImpl implements LoadInventory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         updateItem,
     required TResult Function(int id) deleteItem,
@@ -275,7 +331,12 @@ class _$LoadInventoryImpl implements LoadInventory {
     TResult? Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -283,13 +344,20 @@ class _$LoadInventoryImpl implements LoadInventory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult? Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -297,6 +365,8 @@ class _$LoadInventoryImpl implements LoadInventory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult? Function(int id)? deleteItem,
@@ -315,7 +385,12 @@ class _$LoadInventoryImpl implements LoadInventory {
     TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -323,13 +398,20 @@ class _$LoadInventoryImpl implements LoadInventory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -337,6 +419,8 @@ class _$LoadInventoryImpl implements LoadInventory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult Function(int id)? deleteItem,
@@ -417,7 +501,12 @@ abstract class _$$AddItemImplCopyWith<$Res> {
   $Res call(
       {String itemName,
       String category,
+      String? lotCode,
+      String? sourceType,
+      String? sourceRef,
+      String? sourceLabel,
       double quantity,
+      double? reservedQuantity,
       String unit,
       int? minStock,
       String? supplier,
@@ -425,6 +514,8 @@ abstract class _$$AddItemImplCopyWith<$Res> {
       double? unitPrice,
       double? totalValue,
       String? notes,
+      DateTime? expiryDate,
+      int? freshnessHours,
       DateTime? lastRestock});
 }
 
@@ -443,7 +534,12 @@ class __$$AddItemImplCopyWithImpl<$Res>
   $Res call({
     Object? itemName = null,
     Object? category = null,
+    Object? lotCode = freezed,
+    Object? sourceType = freezed,
+    Object? sourceRef = freezed,
+    Object? sourceLabel = freezed,
     Object? quantity = null,
+    Object? reservedQuantity = freezed,
     Object? unit = null,
     Object? minStock = freezed,
     Object? supplier = freezed,
@@ -451,6 +547,8 @@ class __$$AddItemImplCopyWithImpl<$Res>
     Object? unitPrice = freezed,
     Object? totalValue = freezed,
     Object? notes = freezed,
+    Object? expiryDate = freezed,
+    Object? freshnessHours = freezed,
     Object? lastRestock = freezed,
   }) {
     return _then(_$AddItemImpl(
@@ -462,10 +560,30 @@ class __$$AddItemImplCopyWithImpl<$Res>
           ? _value.category
           : category // ignore: cast_nullable_to_non_nullable
               as String,
+      lotCode: freezed == lotCode
+          ? _value.lotCode
+          : lotCode // ignore: cast_nullable_to_non_nullable
+              as String?,
+      sourceType: freezed == sourceType
+          ? _value.sourceType
+          : sourceType // ignore: cast_nullable_to_non_nullable
+              as String?,
+      sourceRef: freezed == sourceRef
+          ? _value.sourceRef
+          : sourceRef // ignore: cast_nullable_to_non_nullable
+              as String?,
+      sourceLabel: freezed == sourceLabel
+          ? _value.sourceLabel
+          : sourceLabel // ignore: cast_nullable_to_non_nullable
+              as String?,
       quantity: null == quantity
           ? _value.quantity
           : quantity // ignore: cast_nullable_to_non_nullable
               as double,
+      reservedQuantity: freezed == reservedQuantity
+          ? _value.reservedQuantity
+          : reservedQuantity // ignore: cast_nullable_to_non_nullable
+              as double?,
       unit: null == unit
           ? _value.unit
           : unit // ignore: cast_nullable_to_non_nullable
@@ -494,6 +612,14 @@ class __$$AddItemImplCopyWithImpl<$Res>
           ? _value.notes
           : notes // ignore: cast_nullable_to_non_nullable
               as String?,
+      expiryDate: freezed == expiryDate
+          ? _value.expiryDate
+          : expiryDate // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+      freshnessHours: freezed == freshnessHours
+          ? _value.freshnessHours
+          : freshnessHours // ignore: cast_nullable_to_non_nullable
+              as int?,
       lastRestock: freezed == lastRestock
           ? _value.lastRestock
           : lastRestock // ignore: cast_nullable_to_non_nullable
@@ -508,7 +634,12 @@ class _$AddItemImpl implements AddItem {
   const _$AddItemImpl(
       {required this.itemName,
       required this.category,
+      this.lotCode,
+      this.sourceType,
+      this.sourceRef,
+      this.sourceLabel,
       required this.quantity,
+      this.reservedQuantity,
       required this.unit,
       this.minStock,
       this.supplier,
@@ -516,6 +647,8 @@ class _$AddItemImpl implements AddItem {
       this.unitPrice,
       this.totalValue,
       this.notes,
+      this.expiryDate,
+      this.freshnessHours,
       this.lastRestock});
 
   @override
@@ -523,7 +656,17 @@ class _$AddItemImpl implements AddItem {
   @override
   final String category;
   @override
+  final String? lotCode;
+  @override
+  final String? sourceType;
+  @override
+  final String? sourceRef;
+  @override
+  final String? sourceLabel;
+  @override
   final double quantity;
+  @override
+  final double? reservedQuantity;
   @override
   final String unit;
   @override
@@ -539,11 +682,15 @@ class _$AddItemImpl implements AddItem {
   @override
   final String? notes;
   @override
+  final DateTime? expiryDate;
+  @override
+  final int? freshnessHours;
+  @override
   final DateTime? lastRestock;
 
   @override
   String toString() {
-    return 'InventoryEvent.addItem(itemName: $itemName, category: $category, quantity: $quantity, unit: $unit, minStock: $minStock, supplier: $supplier, supplierId: $supplierId, unitPrice: $unitPrice, totalValue: $totalValue, notes: $notes, lastRestock: $lastRestock)';
+    return 'InventoryEvent.addItem(itemName: $itemName, category: $category, lotCode: $lotCode, sourceType: $sourceType, sourceRef: $sourceRef, sourceLabel: $sourceLabel, quantity: $quantity, reservedQuantity: $reservedQuantity, unit: $unit, minStock: $minStock, supplier: $supplier, supplierId: $supplierId, unitPrice: $unitPrice, totalValue: $totalValue, notes: $notes, expiryDate: $expiryDate, freshnessHours: $freshnessHours, lastRestock: $lastRestock)';
   }
 
   @override
@@ -555,8 +702,17 @@ class _$AddItemImpl implements AddItem {
                 other.itemName == itemName) &&
             (identical(other.category, category) ||
                 other.category == category) &&
+            (identical(other.lotCode, lotCode) || other.lotCode == lotCode) &&
+            (identical(other.sourceType, sourceType) ||
+                other.sourceType == sourceType) &&
+            (identical(other.sourceRef, sourceRef) ||
+                other.sourceRef == sourceRef) &&
+            (identical(other.sourceLabel, sourceLabel) ||
+                other.sourceLabel == sourceLabel) &&
             (identical(other.quantity, quantity) ||
                 other.quantity == quantity) &&
+            (identical(other.reservedQuantity, reservedQuantity) ||
+                other.reservedQuantity == reservedQuantity) &&
             (identical(other.unit, unit) || other.unit == unit) &&
             (identical(other.minStock, minStock) ||
                 other.minStock == minStock) &&
@@ -569,6 +725,10 @@ class _$AddItemImpl implements AddItem {
             (identical(other.totalValue, totalValue) ||
                 other.totalValue == totalValue) &&
             (identical(other.notes, notes) || other.notes == notes) &&
+            (identical(other.expiryDate, expiryDate) ||
+                other.expiryDate == expiryDate) &&
+            (identical(other.freshnessHours, freshnessHours) ||
+                other.freshnessHours == freshnessHours) &&
             (identical(other.lastRestock, lastRestock) ||
                 other.lastRestock == lastRestock));
   }
@@ -578,7 +738,12 @@ class _$AddItemImpl implements AddItem {
       runtimeType,
       itemName,
       category,
+      lotCode,
+      sourceType,
+      sourceRef,
+      sourceLabel,
       quantity,
+      reservedQuantity,
       unit,
       minStock,
       supplier,
@@ -586,6 +751,8 @@ class _$AddItemImpl implements AddItem {
       unitPrice,
       totalValue,
       notes,
+      expiryDate,
+      freshnessHours,
       lastRestock);
 
   /// Create a copy of InventoryEvent
@@ -603,7 +770,12 @@ class _$AddItemImpl implements AddItem {
     required TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -611,13 +783,20 @@ class _$AddItemImpl implements AddItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         addItem,
     required TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -625,6 +804,8 @@ class _$AddItemImpl implements AddItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         updateItem,
     required TResult Function(int id) deleteItem,
@@ -633,8 +814,25 @@ class _$AddItemImpl implements AddItem {
     required TResult Function(int id) resolveConflictKeepLocal,
     required TResult Function(int id) resolveConflictUseServer,
   }) {
-    return addItem(itemName, category, quantity, unit, minStock, supplier,
-        supplierId, unitPrice, totalValue, notes, lastRestock);
+    return addItem(
+        itemName,
+        category,
+        lotCode,
+        sourceType,
+        sourceRef,
+        sourceLabel,
+        quantity,
+        reservedQuantity,
+        unit,
+        minStock,
+        supplier,
+        supplierId,
+        unitPrice,
+        totalValue,
+        notes,
+        expiryDate,
+        freshnessHours,
+        lastRestock);
   }
 
   @override
@@ -644,7 +842,12 @@ class _$AddItemImpl implements AddItem {
     TResult? Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -652,13 +855,20 @@ class _$AddItemImpl implements AddItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult? Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -666,6 +876,8 @@ class _$AddItemImpl implements AddItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult? Function(int id)? deleteItem,
@@ -674,8 +886,25 @@ class _$AddItemImpl implements AddItem {
     TResult? Function(int id)? resolveConflictKeepLocal,
     TResult? Function(int id)? resolveConflictUseServer,
   }) {
-    return addItem?.call(itemName, category, quantity, unit, minStock, supplier,
-        supplierId, unitPrice, totalValue, notes, lastRestock);
+    return addItem?.call(
+        itemName,
+        category,
+        lotCode,
+        sourceType,
+        sourceRef,
+        sourceLabel,
+        quantity,
+        reservedQuantity,
+        unit,
+        minStock,
+        supplier,
+        supplierId,
+        unitPrice,
+        totalValue,
+        notes,
+        expiryDate,
+        freshnessHours,
+        lastRestock);
   }
 
   @override
@@ -685,7 +914,12 @@ class _$AddItemImpl implements AddItem {
     TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -693,13 +927,20 @@ class _$AddItemImpl implements AddItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -707,6 +948,8 @@ class _$AddItemImpl implements AddItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult Function(int id)? deleteItem,
@@ -717,8 +960,25 @@ class _$AddItemImpl implements AddItem {
     required TResult orElse(),
   }) {
     if (addItem != null) {
-      return addItem(itemName, category, quantity, unit, minStock, supplier,
-          supplierId, unitPrice, totalValue, notes, lastRestock);
+      return addItem(
+          itemName,
+          category,
+          lotCode,
+          sourceType,
+          sourceRef,
+          sourceLabel,
+          quantity,
+          reservedQuantity,
+          unit,
+          minStock,
+          supplier,
+          supplierId,
+          unitPrice,
+          totalValue,
+          notes,
+          expiryDate,
+          freshnessHours,
+          lastRestock);
     }
     return orElse();
   }
@@ -779,7 +1039,12 @@ abstract class AddItem implements InventoryEvent {
   const factory AddItem(
       {required final String itemName,
       required final String category,
+      final String? lotCode,
+      final String? sourceType,
+      final String? sourceRef,
+      final String? sourceLabel,
       required final double quantity,
+      final double? reservedQuantity,
       required final String unit,
       final int? minStock,
       final String? supplier,
@@ -787,11 +1052,18 @@ abstract class AddItem implements InventoryEvent {
       final double? unitPrice,
       final double? totalValue,
       final String? notes,
+      final DateTime? expiryDate,
+      final int? freshnessHours,
       final DateTime? lastRestock}) = _$AddItemImpl;
 
   String get itemName;
   String get category;
+  String? get lotCode;
+  String? get sourceType;
+  String? get sourceRef;
+  String? get sourceLabel;
   double get quantity;
+  double? get reservedQuantity;
   String get unit;
   int? get minStock;
   String? get supplier;
@@ -799,6 +1071,8 @@ abstract class AddItem implements InventoryEvent {
   double? get unitPrice;
   double? get totalValue;
   String? get notes;
+  DateTime? get expiryDate;
+  int? get freshnessHours;
   DateTime? get lastRestock;
 
   /// Create a copy of InventoryEvent
@@ -818,7 +1092,12 @@ abstract class _$$UpdateItemImplCopyWith<$Res> {
       {int id,
       String? itemName,
       String? category,
+      String? lotCode,
+      String? sourceType,
+      String? sourceRef,
+      String? sourceLabel,
       double? quantity,
+      double? reservedQuantity,
       String? unit,
       int? minStock,
       String? supplier,
@@ -826,6 +1105,8 @@ abstract class _$$UpdateItemImplCopyWith<$Res> {
       double? unitPrice,
       double? totalValue,
       String? notes,
+      DateTime? expiryDate,
+      int? freshnessHours,
       DateTime? lastRestock});
 }
 
@@ -845,7 +1126,12 @@ class __$$UpdateItemImplCopyWithImpl<$Res>
     Object? id = null,
     Object? itemName = freezed,
     Object? category = freezed,
+    Object? lotCode = freezed,
+    Object? sourceType = freezed,
+    Object? sourceRef = freezed,
+    Object? sourceLabel = freezed,
     Object? quantity = freezed,
+    Object? reservedQuantity = freezed,
     Object? unit = freezed,
     Object? minStock = freezed,
     Object? supplier = freezed,
@@ -853,6 +1139,8 @@ class __$$UpdateItemImplCopyWithImpl<$Res>
     Object? unitPrice = freezed,
     Object? totalValue = freezed,
     Object? notes = freezed,
+    Object? expiryDate = freezed,
+    Object? freshnessHours = freezed,
     Object? lastRestock = freezed,
   }) {
     return _then(_$UpdateItemImpl(
@@ -868,9 +1156,29 @@ class __$$UpdateItemImplCopyWithImpl<$Res>
           ? _value.category
           : category // ignore: cast_nullable_to_non_nullable
               as String?,
+      lotCode: freezed == lotCode
+          ? _value.lotCode
+          : lotCode // ignore: cast_nullable_to_non_nullable
+              as String?,
+      sourceType: freezed == sourceType
+          ? _value.sourceType
+          : sourceType // ignore: cast_nullable_to_non_nullable
+              as String?,
+      sourceRef: freezed == sourceRef
+          ? _value.sourceRef
+          : sourceRef // ignore: cast_nullable_to_non_nullable
+              as String?,
+      sourceLabel: freezed == sourceLabel
+          ? _value.sourceLabel
+          : sourceLabel // ignore: cast_nullable_to_non_nullable
+              as String?,
       quantity: freezed == quantity
           ? _value.quantity
           : quantity // ignore: cast_nullable_to_non_nullable
+              as double?,
+      reservedQuantity: freezed == reservedQuantity
+          ? _value.reservedQuantity
+          : reservedQuantity // ignore: cast_nullable_to_non_nullable
               as double?,
       unit: freezed == unit
           ? _value.unit
@@ -900,6 +1208,14 @@ class __$$UpdateItemImplCopyWithImpl<$Res>
           ? _value.notes
           : notes // ignore: cast_nullable_to_non_nullable
               as String?,
+      expiryDate: freezed == expiryDate
+          ? _value.expiryDate
+          : expiryDate // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+      freshnessHours: freezed == freshnessHours
+          ? _value.freshnessHours
+          : freshnessHours // ignore: cast_nullable_to_non_nullable
+              as int?,
       lastRestock: freezed == lastRestock
           ? _value.lastRestock
           : lastRestock // ignore: cast_nullable_to_non_nullable
@@ -915,7 +1231,12 @@ class _$UpdateItemImpl implements UpdateItem {
       {required this.id,
       this.itemName,
       this.category,
+      this.lotCode,
+      this.sourceType,
+      this.sourceRef,
+      this.sourceLabel,
       this.quantity,
+      this.reservedQuantity,
       this.unit,
       this.minStock,
       this.supplier,
@@ -923,6 +1244,8 @@ class _$UpdateItemImpl implements UpdateItem {
       this.unitPrice,
       this.totalValue,
       this.notes,
+      this.expiryDate,
+      this.freshnessHours,
       this.lastRestock});
 
   @override
@@ -932,7 +1255,17 @@ class _$UpdateItemImpl implements UpdateItem {
   @override
   final String? category;
   @override
+  final String? lotCode;
+  @override
+  final String? sourceType;
+  @override
+  final String? sourceRef;
+  @override
+  final String? sourceLabel;
+  @override
   final double? quantity;
+  @override
+  final double? reservedQuantity;
   @override
   final String? unit;
   @override
@@ -948,11 +1281,15 @@ class _$UpdateItemImpl implements UpdateItem {
   @override
   final String? notes;
   @override
+  final DateTime? expiryDate;
+  @override
+  final int? freshnessHours;
+  @override
   final DateTime? lastRestock;
 
   @override
   String toString() {
-    return 'InventoryEvent.updateItem(id: $id, itemName: $itemName, category: $category, quantity: $quantity, unit: $unit, minStock: $minStock, supplier: $supplier, supplierId: $supplierId, unitPrice: $unitPrice, totalValue: $totalValue, notes: $notes, lastRestock: $lastRestock)';
+    return 'InventoryEvent.updateItem(id: $id, itemName: $itemName, category: $category, lotCode: $lotCode, sourceType: $sourceType, sourceRef: $sourceRef, sourceLabel: $sourceLabel, quantity: $quantity, reservedQuantity: $reservedQuantity, unit: $unit, minStock: $minStock, supplier: $supplier, supplierId: $supplierId, unitPrice: $unitPrice, totalValue: $totalValue, notes: $notes, expiryDate: $expiryDate, freshnessHours: $freshnessHours, lastRestock: $lastRestock)';
   }
 
   @override
@@ -965,8 +1302,17 @@ class _$UpdateItemImpl implements UpdateItem {
                 other.itemName == itemName) &&
             (identical(other.category, category) ||
                 other.category == category) &&
+            (identical(other.lotCode, lotCode) || other.lotCode == lotCode) &&
+            (identical(other.sourceType, sourceType) ||
+                other.sourceType == sourceType) &&
+            (identical(other.sourceRef, sourceRef) ||
+                other.sourceRef == sourceRef) &&
+            (identical(other.sourceLabel, sourceLabel) ||
+                other.sourceLabel == sourceLabel) &&
             (identical(other.quantity, quantity) ||
                 other.quantity == quantity) &&
+            (identical(other.reservedQuantity, reservedQuantity) ||
+                other.reservedQuantity == reservedQuantity) &&
             (identical(other.unit, unit) || other.unit == unit) &&
             (identical(other.minStock, minStock) ||
                 other.minStock == minStock) &&
@@ -979,25 +1325,37 @@ class _$UpdateItemImpl implements UpdateItem {
             (identical(other.totalValue, totalValue) ||
                 other.totalValue == totalValue) &&
             (identical(other.notes, notes) || other.notes == notes) &&
+            (identical(other.expiryDate, expiryDate) ||
+                other.expiryDate == expiryDate) &&
+            (identical(other.freshnessHours, freshnessHours) ||
+                other.freshnessHours == freshnessHours) &&
             (identical(other.lastRestock, lastRestock) ||
                 other.lastRestock == lastRestock));
   }
 
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      id,
-      itemName,
-      category,
-      quantity,
-      unit,
-      minStock,
-      supplier,
-      supplierId,
-      unitPrice,
-      totalValue,
-      notes,
-      lastRestock);
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        id,
+        itemName,
+        category,
+        lotCode,
+        sourceType,
+        sourceRef,
+        sourceLabel,
+        quantity,
+        reservedQuantity,
+        unit,
+        minStock,
+        supplier,
+        supplierId,
+        unitPrice,
+        totalValue,
+        notes,
+        expiryDate,
+        freshnessHours,
+        lastRestock
+      ]);
 
   /// Create a copy of InventoryEvent
   /// with the given fields replaced by the non-null parameter values.
@@ -1014,7 +1372,12 @@ class _$UpdateItemImpl implements UpdateItem {
     required TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -1022,13 +1385,20 @@ class _$UpdateItemImpl implements UpdateItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         addItem,
     required TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -1036,6 +1406,8 @@ class _$UpdateItemImpl implements UpdateItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         updateItem,
     required TResult Function(int id) deleteItem,
@@ -1044,8 +1416,26 @@ class _$UpdateItemImpl implements UpdateItem {
     required TResult Function(int id) resolveConflictKeepLocal,
     required TResult Function(int id) resolveConflictUseServer,
   }) {
-    return updateItem(id, itemName, category, quantity, unit, minStock,
-        supplier, supplierId, unitPrice, totalValue, notes, lastRestock);
+    return updateItem(
+        id,
+        itemName,
+        category,
+        lotCode,
+        sourceType,
+        sourceRef,
+        sourceLabel,
+        quantity,
+        reservedQuantity,
+        unit,
+        minStock,
+        supplier,
+        supplierId,
+        unitPrice,
+        totalValue,
+        notes,
+        expiryDate,
+        freshnessHours,
+        lastRestock);
   }
 
   @override
@@ -1055,7 +1445,12 @@ class _$UpdateItemImpl implements UpdateItem {
     TResult? Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -1063,13 +1458,20 @@ class _$UpdateItemImpl implements UpdateItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult? Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -1077,6 +1479,8 @@ class _$UpdateItemImpl implements UpdateItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult? Function(int id)? deleteItem,
@@ -1085,8 +1489,26 @@ class _$UpdateItemImpl implements UpdateItem {
     TResult? Function(int id)? resolveConflictKeepLocal,
     TResult? Function(int id)? resolveConflictUseServer,
   }) {
-    return updateItem?.call(id, itemName, category, quantity, unit, minStock,
-        supplier, supplierId, unitPrice, totalValue, notes, lastRestock);
+    return updateItem?.call(
+        id,
+        itemName,
+        category,
+        lotCode,
+        sourceType,
+        sourceRef,
+        sourceLabel,
+        quantity,
+        reservedQuantity,
+        unit,
+        minStock,
+        supplier,
+        supplierId,
+        unitPrice,
+        totalValue,
+        notes,
+        expiryDate,
+        freshnessHours,
+        lastRestock);
   }
 
   @override
@@ -1096,7 +1518,12 @@ class _$UpdateItemImpl implements UpdateItem {
     TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -1104,13 +1531,20 @@ class _$UpdateItemImpl implements UpdateItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -1118,6 +1552,8 @@ class _$UpdateItemImpl implements UpdateItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult Function(int id)? deleteItem,
@@ -1128,8 +1564,26 @@ class _$UpdateItemImpl implements UpdateItem {
     required TResult orElse(),
   }) {
     if (updateItem != null) {
-      return updateItem(id, itemName, category, quantity, unit, minStock,
-          supplier, supplierId, unitPrice, totalValue, notes, lastRestock);
+      return updateItem(
+          id,
+          itemName,
+          category,
+          lotCode,
+          sourceType,
+          sourceRef,
+          sourceLabel,
+          quantity,
+          reservedQuantity,
+          unit,
+          minStock,
+          supplier,
+          supplierId,
+          unitPrice,
+          totalValue,
+          notes,
+          expiryDate,
+          freshnessHours,
+          lastRestock);
     }
     return orElse();
   }
@@ -1191,7 +1645,12 @@ abstract class UpdateItem implements InventoryEvent {
       {required final int id,
       final String? itemName,
       final String? category,
+      final String? lotCode,
+      final String? sourceType,
+      final String? sourceRef,
+      final String? sourceLabel,
       final double? quantity,
+      final double? reservedQuantity,
       final String? unit,
       final int? minStock,
       final String? supplier,
@@ -1199,12 +1658,19 @@ abstract class UpdateItem implements InventoryEvent {
       final double? unitPrice,
       final double? totalValue,
       final String? notes,
+      final DateTime? expiryDate,
+      final int? freshnessHours,
       final DateTime? lastRestock}) = _$UpdateItemImpl;
 
   int get id;
   String? get itemName;
   String? get category;
+  String? get lotCode;
+  String? get sourceType;
+  String? get sourceRef;
+  String? get sourceLabel;
   double? get quantity;
+  double? get reservedQuantity;
   String? get unit;
   int? get minStock;
   String? get supplier;
@@ -1212,6 +1678,8 @@ abstract class UpdateItem implements InventoryEvent {
   double? get unitPrice;
   double? get totalValue;
   String? get notes;
+  DateTime? get expiryDate;
+  int? get freshnessHours;
   DateTime? get lastRestock;
 
   /// Create a copy of InventoryEvent
@@ -1293,7 +1761,12 @@ class _$DeleteItemImpl implements DeleteItem {
     required TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -1301,13 +1774,20 @@ class _$DeleteItemImpl implements DeleteItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         addItem,
     required TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -1315,6 +1795,8 @@ class _$DeleteItemImpl implements DeleteItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         updateItem,
     required TResult Function(int id) deleteItem,
@@ -1333,7 +1815,12 @@ class _$DeleteItemImpl implements DeleteItem {
     TResult? Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -1341,13 +1828,20 @@ class _$DeleteItemImpl implements DeleteItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult? Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -1355,6 +1849,8 @@ class _$DeleteItemImpl implements DeleteItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult? Function(int id)? deleteItem,
@@ -1373,7 +1869,12 @@ class _$DeleteItemImpl implements DeleteItem {
     TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -1381,13 +1882,20 @@ class _$DeleteItemImpl implements DeleteItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -1395,6 +1903,8 @@ class _$DeleteItemImpl implements DeleteItem {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult Function(int id)? deleteItem,
@@ -1547,7 +2057,12 @@ class _$SearchInventoryImpl implements SearchInventory {
     required TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -1555,13 +2070,20 @@ class _$SearchInventoryImpl implements SearchInventory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         addItem,
     required TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -1569,6 +2091,8 @@ class _$SearchInventoryImpl implements SearchInventory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         updateItem,
     required TResult Function(int id) deleteItem,
@@ -1587,7 +2111,12 @@ class _$SearchInventoryImpl implements SearchInventory {
     TResult? Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -1595,13 +2124,20 @@ class _$SearchInventoryImpl implements SearchInventory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult? Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -1609,6 +2145,8 @@ class _$SearchInventoryImpl implements SearchInventory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult? Function(int id)? deleteItem,
@@ -1627,7 +2165,12 @@ class _$SearchInventoryImpl implements SearchInventory {
     TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -1635,13 +2178,20 @@ class _$SearchInventoryImpl implements SearchInventory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -1649,6 +2199,8 @@ class _$SearchInventoryImpl implements SearchInventory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult Function(int id)? deleteItem,
@@ -1803,7 +2355,12 @@ class _$FilterByCategoryImpl implements FilterByCategory {
     required TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -1811,13 +2368,20 @@ class _$FilterByCategoryImpl implements FilterByCategory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         addItem,
     required TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -1825,6 +2389,8 @@ class _$FilterByCategoryImpl implements FilterByCategory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         updateItem,
     required TResult Function(int id) deleteItem,
@@ -1843,7 +2409,12 @@ class _$FilterByCategoryImpl implements FilterByCategory {
     TResult? Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -1851,13 +2422,20 @@ class _$FilterByCategoryImpl implements FilterByCategory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult? Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -1865,6 +2443,8 @@ class _$FilterByCategoryImpl implements FilterByCategory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult? Function(int id)? deleteItem,
@@ -1883,7 +2463,12 @@ class _$FilterByCategoryImpl implements FilterByCategory {
     TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -1891,13 +2476,20 @@ class _$FilterByCategoryImpl implements FilterByCategory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -1905,6 +2497,8 @@ class _$FilterByCategoryImpl implements FilterByCategory {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult Function(int id)? deleteItem,
@@ -2060,7 +2654,12 @@ class _$ResolveConflictKeepLocalImpl implements ResolveConflictKeepLocal {
     required TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -2068,13 +2667,20 @@ class _$ResolveConflictKeepLocalImpl implements ResolveConflictKeepLocal {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         addItem,
     required TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -2082,6 +2688,8 @@ class _$ResolveConflictKeepLocalImpl implements ResolveConflictKeepLocal {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         updateItem,
     required TResult Function(int id) deleteItem,
@@ -2100,7 +2708,12 @@ class _$ResolveConflictKeepLocalImpl implements ResolveConflictKeepLocal {
     TResult? Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -2108,13 +2721,20 @@ class _$ResolveConflictKeepLocalImpl implements ResolveConflictKeepLocal {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult? Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -2122,6 +2742,8 @@ class _$ResolveConflictKeepLocalImpl implements ResolveConflictKeepLocal {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult? Function(int id)? deleteItem,
@@ -2140,7 +2762,12 @@ class _$ResolveConflictKeepLocalImpl implements ResolveConflictKeepLocal {
     TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -2148,13 +2775,20 @@ class _$ResolveConflictKeepLocalImpl implements ResolveConflictKeepLocal {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -2162,6 +2796,8 @@ class _$ResolveConflictKeepLocalImpl implements ResolveConflictKeepLocal {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult Function(int id)? deleteItem,
@@ -2317,7 +2953,12 @@ class _$ResolveConflictUseServerImpl implements ResolveConflictUseServer {
     required TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -2325,13 +2966,20 @@ class _$ResolveConflictUseServerImpl implements ResolveConflictUseServer {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         addItem,
     required TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -2339,6 +2987,8 @@ class _$ResolveConflictUseServerImpl implements ResolveConflictUseServer {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)
         updateItem,
     required TResult Function(int id) deleteItem,
@@ -2357,7 +3007,12 @@ class _$ResolveConflictUseServerImpl implements ResolveConflictUseServer {
     TResult? Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -2365,13 +3020,20 @@ class _$ResolveConflictUseServerImpl implements ResolveConflictUseServer {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult? Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -2379,6 +3041,8 @@ class _$ResolveConflictUseServerImpl implements ResolveConflictUseServer {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult? Function(int id)? deleteItem,
@@ -2397,7 +3061,12 @@ class _$ResolveConflictUseServerImpl implements ResolveConflictUseServer {
     TResult Function(
             String itemName,
             String category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double quantity,
+            double? reservedQuantity,
             String unit,
             int? minStock,
             String? supplier,
@@ -2405,13 +3074,20 @@ class _$ResolveConflictUseServerImpl implements ResolveConflictUseServer {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         addItem,
     TResult Function(
             int id,
             String? itemName,
             String? category,
+            String? lotCode,
+            String? sourceType,
+            String? sourceRef,
+            String? sourceLabel,
             double? quantity,
+            double? reservedQuantity,
             String? unit,
             int? minStock,
             String? supplier,
@@ -2419,6 +3095,8 @@ class _$ResolveConflictUseServerImpl implements ResolveConflictUseServer {
             double? unitPrice,
             double? totalValue,
             String? notes,
+            DateTime? expiryDate,
+            int? freshnessHours,
             DateTime? lastRestock)?
         updateItem,
     TResult Function(int id)? deleteItem,

@@ -169,6 +169,21 @@ test('worker membership cannot create sales records', function () {
     ])->assertStatus(403);
 });
 
+test('worker membership cannot create inventory records', function () {
+    $service = app(FarmContextService::class);
+    $membership = $service->createDefaultFarmForUser($this->user);
+    $membership->update(['role' => 'worker']);
+
+    $this->postJson('/api/v1/inventories', [
+        'item_name' => 'Feed lot',
+        'category' => 'Animal Feed',
+        'quantity' => 5,
+        'unit' => 'bags',
+    ], [
+        'Authorization' => "Bearer {$this->token}",
+    ])->assertStatus(403);
+});
+
 test('tasks rejects staff_member_id that belongs to another user', function () {
     $otherStaff = StaffMember::create([
         'user_id' => $this->otherUser->id,

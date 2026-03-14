@@ -123,8 +123,8 @@ class _InventoryViewState extends State<InventoryView>
   }
 
   String _statusFor(InventoryItem item) {
-    if (item.quantity <= 0) return 'Critical';
-    if (item.quantity <= item.minStock) return 'Low Stock';
+    if (item.availableQuantity <= 0) return 'Critical';
+    if (item.availableQuantity <= item.minStock) return 'Low Stock';
     return 'Adequate';
   }
 
@@ -474,14 +474,26 @@ class _InventoryViewState extends State<InventoryView>
                                     iconColor: InventoryUtils.getCategoryColor(
                                         item.category),
                                     title: item.itemName,
-                                    subtitle:
-                                        '${item.category} • ${item.supplier ?? '-'}',
+                                    subtitle: [
+                                      item.category,
+                                      if ((item.lotCode ?? '').trim().isNotEmpty)
+                                        'Lot ${item.lotCode}',
+                                      if ((item.sourceLabel ?? '').trim().isNotEmpty)
+                                        item.sourceLabel!.trim(),
+                                      item.supplier ?? '-',
+                                    ].join(' • '),
                                     badges: [
                                       StatusBadge(
-                                        label: '${item.quantity} ${item.unit}',
+                                        label: '${item.availableQuantity} / ${item.quantity} ${item.unit}',
                                         color: Colors.blue,
                                         icon: Icons.inventory_2,
                                       ),
+                                      if (item.reservedQuantity > 0)
+                                        StatusBadge(
+                                          label:
+                                              'Reserved ${item.reservedQuantity} ${item.unit}',
+                                          color: Colors.deepPurple,
+                                        ),
                                       StatusBadge(
                                         label: status,
                                         color: InventoryUtils.getStatusColor(
@@ -600,7 +612,12 @@ class _InventoryViewState extends State<InventoryView>
       itemName: itemName,
       supplierId: map['supplierId']?.toString(),
       category: category,
+      lotCode: map['lotCode']?.toString(),
+      sourceType: map['sourceType']?.toString(),
+      sourceRef: map['sourceRef']?.toString(),
+      sourceLabel: map['sourceLabel']?.toString(),
       quantity: quantity,
+      reservedQuantity: (map['reservedQuantity'] as num?)?.toDouble() ?? 0,
       unit: unit,
       minStock: map['minStock'] ?? 0,
       supplier: supplier,
@@ -610,6 +627,12 @@ class _InventoryViewState extends State<InventoryView>
       totalValue: map['totalValue'] != null
           ? (map['totalValue'] as num).toDouble()
           : null,
+      expiryDate: map['expiryDate'] is DateTime
+          ? map['expiryDate'] as DateTime
+          : map['expiryDate'] is String
+              ? DateTime.tryParse(map['expiryDate'] as String)
+              : null,
+      freshnessHours: (map['freshnessHours'] as num?)?.toInt(),
       lastRestock: lastRestock,
       isSynced: false,
     );
@@ -629,13 +652,21 @@ class _InventoryViewState extends State<InventoryView>
               InventoryEvent.addItem(
                 itemName: entity.itemName,
                 category: entity.category,
+                lotCode: entity.lotCode,
+                sourceType: entity.sourceType,
+                sourceRef: entity.sourceRef,
+                sourceLabel: entity.sourceLabel,
                 quantity: entity.quantity,
+                reservedQuantity: entity.reservedQuantity,
                 unit: entity.unit,
                 minStock: entity.minStock,
                 supplier: entity.supplier,
                 supplierId: entity.supplierId,
                 unitPrice: entity.unitPrice,
                 totalValue: entity.totalValue,
+                notes: itemData['notes']?.toString(),
+                expiryDate: entity.expiryDate,
+                freshnessHours: entity.freshnessHours,
                 lastRestock: entity.lastRestock,
               ),
             );

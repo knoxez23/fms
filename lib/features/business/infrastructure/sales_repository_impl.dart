@@ -129,6 +129,7 @@ class SalesRepositoryImpl implements SalesRepository {
         'inventory_server_id':
             item.id == null ? null : int.tryParse(item.id!),
         'client_uuid': item.clientUuid,
+        'lot_code': item.lotCode,
         'quantity': deducted,
         'item_name': item.itemName,
         'unit': item.unit,
@@ -196,6 +197,7 @@ class SalesRepositoryImpl implements SalesRepository {
     final localId = step['inventory_local_id']?.toString();
     final serverId = step['inventory_server_id']?.toString();
     final clientUuid = (step['client_uuid'] ?? '').toString();
+    final lotCode = (step['lot_code'] ?? '').toString();
 
     for (final item in items) {
       if (localId != null && localId.isNotEmpty && item.id == localId) {
@@ -205,6 +207,9 @@ class SalesRepositoryImpl implements SalesRepository {
         return item;
       }
       if (clientUuid.isNotEmpty && item.clientUuid == clientUuid) {
+        return item;
+      }
+      if (lotCode.isNotEmpty && item.lotCode == lotCode) {
         return item;
       }
     }
@@ -312,13 +317,19 @@ class SalesRepositoryImpl implements SalesRepository {
       supplierId: item.supplierId,
       itemName: item.itemName,
       category: item.category,
+      lotCode: item.lotCode,
+      sourceType: item.sourceType,
+      sourceRef: item.sourceRef,
+      sourceLabel: item.sourceLabel,
       quantity: quantity,
+      reservedQuantity: item.reservedQuantity,
       unit: item.unit,
       minStock: item.minStock,
       unitPrice: item.unitPrice,
       totalValue: item.unitPrice != null ? quantity * item.unitPrice! : item.totalValue,
       supplier: item.supplier,
       expiryDate: item.expiryDate,
+      freshnessHours: item.freshnessHours,
       lastRestock: item.lastRestock,
       isSynced: false,
       hasConflict: item.hasConflict,

@@ -1362,12 +1362,21 @@ class _AnimalFeedingCalendarScreenState
       supplierId: row['supplier_id']?.toString(),
       itemName: (row['item_name'] ?? feedType).toString(),
       category: (row['category'] ?? 'Animal Feed').toString(),
+      lotCode: row['lot_code']?.toString(),
+      sourceType: row['source_type']?.toString(),
+      sourceRef: row['source_ref']?.toString(),
+      sourceLabel: row['source_label']?.toString(),
       quantity: nextQuantity,
+      reservedQuantity: (row['reserved_quantity'] as num?)?.toDouble() ?? 0,
       unit: inventoryUnit,
       minStock: (row['min_stock'] as num?)?.toInt() ?? 0,
       unitPrice: unitPrice,
       totalValue: unitPrice == null ? null : unitPrice * nextQuantity,
       supplier: row['supplier']?.toString(),
+      expiryDate: row['expiry_date'] == null
+          ? null
+          : DateTime.tryParse(row['expiry_date'].toString()),
+      freshnessHours: (row['freshness_hours'] as num?)?.toInt(),
       lastRestock: row['last_restock'] == null
           ? null
           : DateTime.tryParse(row['last_restock'].toString()),

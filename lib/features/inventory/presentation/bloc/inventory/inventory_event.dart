@@ -7,7 +7,12 @@ class InventoryEvent with _$InventoryEvent {
   const factory InventoryEvent.addItem({
     required String itemName,
     required String category,
+    String? lotCode,
+    String? sourceType,
+    String? sourceRef,
+    String? sourceLabel,
     required double quantity,
+    double? reservedQuantity,
     required String unit,
     int? minStock,
     String? supplier,
@@ -15,6 +20,8 @@ class InventoryEvent with _$InventoryEvent {
     double? unitPrice,
     double? totalValue,
     String? notes,
+    DateTime? expiryDate,
+    int? freshnessHours,
     DateTime? lastRestock,
   }) = AddItem;
 
@@ -22,7 +29,12 @@ class InventoryEvent with _$InventoryEvent {
     required int id,
     String? itemName,
     String? category,
+    String? lotCode,
+    String? sourceType,
+    String? sourceRef,
+    String? sourceLabel,
     double? quantity,
+    double? reservedQuantity,
     String? unit,
     int? minStock,
     String? supplier,
@@ -30,6 +42,8 @@ class InventoryEvent with _$InventoryEvent {
     double? unitPrice,
     double? totalValue,
     String? notes,
+    DateTime? expiryDate,
+    int? freshnessHours,
     DateTime? lastRestock,
   }) = UpdateItem;
 

@@ -24,6 +24,11 @@ class AddInventoryScreen extends StatefulWidget {
   final String? initialSupplier;
   final String? initialCost;
   final String? initialNotes;
+  final String? initialLotCode;
+  final String? initialSourceType;
+  final String? initialSourceRef;
+  final String? initialSourceLabel;
+  final String? initialFreshnessHours;
   final String? automationMessage;
   final List<TaskResolutionRule> resolutionRules;
 
@@ -37,6 +42,11 @@ class AddInventoryScreen extends StatefulWidget {
     this.initialSupplier,
     this.initialCost,
     this.initialNotes,
+    this.initialLotCode,
+    this.initialSourceType,
+    this.initialSourceRef,
+    this.initialSourceLabel,
+    this.initialFreshnessHours,
     this.automationMessage,
     this.resolutionRules = const [],
   });
@@ -53,9 +63,14 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
   final TextEditingController _supplierController = TextEditingController();
   final TextEditingController _costController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
+  final TextEditingController _lotCodeController = TextEditingController();
+  final TextEditingController _sourceLabelController = TextEditingController();
+  final TextEditingController _freshnessHoursController =
+      TextEditingController();
 
   String _selectedCategory = 'Fertilizers';
   String _selectedUnit = 'kg';
+  String _selectedSourceType = 'Manual';
   List<String> _supplierNames = const [];
   Map<String, String> _supplierIdByName = const {};
 
@@ -131,6 +146,10 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
     _supplierController.text = widget.initialSupplier ?? '';
     _costController.text = widget.initialCost ?? '';
     _notesController.text = widget.initialNotes ?? '';
+    _lotCodeController.text = widget.initialLotCode ?? _buildSuggestedLotCode();
+    _selectedSourceType = widget.initialSourceType ?? _selectedSourceType;
+    _sourceLabelController.text = widget.initialSourceLabel ?? '';
+    _freshnessHoursController.text = widget.initialFreshnessHours ?? '';
     _loadSuppliers();
   }
 
@@ -365,6 +384,64 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
                           return null;
                         },
                       ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _lotCodeController,
+                        decoration: const InputDecoration(
+                          labelText: 'Lot / Batch Code',
+                          hintText: 'e.g., MILK-14MAR-AM',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        initialValue: _selectedSourceType,
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'Manual',
+                            child: Text('Manual entry'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Production',
+                            child: Text('Animal production'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Harvest',
+                            child: Text('Crop harvest'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Purchase',
+                            child: Text('Supplier purchase'),
+                          ),
+                        ],
+                        decoration: const InputDecoration(
+                          labelText: 'Stock Source',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() => _selectedSourceType = value);
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _sourceLabelController,
+                        decoration: const InputDecoration(
+                          labelText: 'Source Label',
+                          hintText: 'e.g., Morning milking, Plot B harvest',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _freshnessHoursController,
+                        decoration: const InputDecoration(
+                          labelText: 'Freshness Window (hours)',
+                          hintText: 'e.g., 8 for milk, 72 for eggs',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
                     ],
                   ),
                 ),
@@ -558,12 +635,24 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
       final unitPrice = _costController.text.isNotEmpty
           ? double.parse(_costController.text)
           : null;
+      final freshnessHours = _freshnessHoursController.text.trim().isNotEmpty
+          ? int.tryParse(_freshnessHoursController.text.trim())
+          : null;
       final totalValue = (unitPrice != null) ? (unitPrice * quantity) : null;
+      final lastRestock = DateTime.now();
+      final expiryDate = freshnessHours == null
+          ? null
+          : lastRestock.add(Duration(hours: freshnessHours));
 
       final newItem = {
         'itemName': _nameController.text,
         'category': _selectedCategory,
+        'lotCode': _lotCodeController.text.trim(),
+        'sourceType': _selectedSourceType,
+        'sourceRef': widget.initialSourceRef,
+        'sourceLabel': _sourceLabelController.text.trim(),
         'quantity': quantity,
+        'reservedQuantity': 0.0,
         'unit': _selectedUnit,
         'minStock': minStock,
         'supplier': _supplierController.text,
@@ -571,7 +660,9 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
         'unitPrice': unitPrice,
         'totalValue': totalValue,
         'notes': _notesController.text,
-        'lastRestock': DateTime.now(),
+        'freshnessHours': freshnessHours,
+        'expiryDate': expiryDate,
+        'lastRestock': lastRestock,
 
         // Also include API-compatible field names for when this gets sent to the backend
         // 'item_name': _nameController.text,
@@ -599,7 +690,30 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
     _supplierController.dispose();
     _costController.dispose();
     _notesController.dispose();
+    _lotCodeController.dispose();
+    _sourceLabelController.dispose();
+    _freshnessHoursController.dispose();
     super.dispose();
+  }
+
+  String _buildSuggestedLotCode() {
+    final now = DateTime.now();
+    final day = now.day.toString().padLeft(2, '0');
+    const months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
+    ];
+    return 'LOT-$day${months[now.month - 1]}';
   }
 }
 

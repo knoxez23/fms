@@ -5,7 +5,12 @@ class InventoryDto {
   final String? clientUuid;
   final String itemName;
   final String category;
+  final String? lotCode;
+  final String? sourceType;
+  final String? sourceRef;
+  final String? sourceLabel;
   final double quantity;
+  final double reservedQuantity;
   final String unit;
   final int minStock;
   final double? unitPrice;
@@ -13,6 +18,8 @@ class InventoryDto {
   final String? supplier;
   final int? supplierId;
   final String? notes;
+  final int? freshnessHours;
+  final DateTime? expiryDate;
   final DateTime lastRestock;
 
   InventoryDto({
@@ -20,7 +27,12 @@ class InventoryDto {
     this.clientUuid,
     required this.itemName,
     required this.category,
+    this.lotCode,
+    this.sourceType,
+    this.sourceRef,
+    this.sourceLabel,
     required this.quantity,
+    this.reservedQuantity = 0,
     required this.unit,
     required this.minStock,
     this.unitPrice,
@@ -28,6 +40,8 @@ class InventoryDto {
     this.supplier,
     this.supplierId,
     this.notes,
+    this.freshnessHours,
+    this.expiryDate,
     required this.lastRestock,
   });
 
@@ -38,7 +52,12 @@ class InventoryDto {
       clientUuid: item.clientUuid,
       itemName: item.itemName,
       category: item.category,
+      lotCode: item.lotCode,
+      sourceType: item.sourceType,
+      sourceRef: item.sourceRef,
+      sourceLabel: item.sourceLabel,
       quantity: item.quantity,
+      reservedQuantity: item.reservedQuantity,
       unit: item.unit,
       minStock: item.minStock,
       unitPrice: item.unitPrice,
@@ -46,6 +65,8 @@ class InventoryDto {
       supplier: item.supplier,
       supplierId: item.supplierId != null ? int.tryParse(item.supplierId!) : null,
       notes: null,
+      freshnessHours: item.freshnessHours,
+      expiryDate: item.expiryDate,
       lastRestock: item.lastRestock ?? DateTime.now(),
     );
   }
@@ -63,7 +84,12 @@ class InventoryDto {
       'client_uuid': clientUuid,
       'item_name': itemName,
       'category': category,
+      'lot_code': lotCode,
+      'source_type': sourceType,
+      'source_ref': sourceRef,
+      'source_label': sourceLabel,
       'quantity': quantity,
+      'reserved_quantity': reservedQuantity,
       'unit': unit,
       'min_stock': minStock,
       'supplier': supplier ?? '', // Provide empty string instead of null
@@ -71,6 +97,8 @@ class InventoryDto {
       'unit_price': unitPrice,
       'total_value': totalValue,
       'notes': notes,
+      'freshness_hours': freshnessHours,
+      'expiry_date': expiryDate?.toIso8601String(),
       'last_restock': formattedDate, // Use formatted date
     };
   }
@@ -81,13 +109,20 @@ class InventoryDto {
       'client_uuid': clientUuid,
       'item_name': itemName,
       'category': category,
+      'lot_code': lotCode,
+      'source_type': sourceType,
+      'source_ref': sourceRef,
+      'source_label': sourceLabel,
       'quantity': quantity,
+      'reserved_quantity': reservedQuantity,
       'unit': unit,
       'min_stock': minStock,
       'unit_price': unitPrice,
       'total_value': totalValue,
       'supplier': supplier,
       'supplier_id': supplierId,
+      'freshness_hours': freshnessHours,
+      'expiry_date': expiryDate?.toIso8601String(),
       'last_restock': lastRestock.toIso8601String(),
       'is_synced': 0,
     };

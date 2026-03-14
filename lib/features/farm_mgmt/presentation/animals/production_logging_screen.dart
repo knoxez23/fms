@@ -806,6 +806,13 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
           initialCost: _suggestedUnitPrice(entity.productType) > 0
               ? _suggestedUnitPrice(entity.productType).toStringAsFixed(0)
               : null,
+          initialLotCode:
+              '${entity.productType.toUpperCase()}-${entity.recordedAt.day.toString().padLeft(2, '0')}${entity.recordedAt.month.toString().padLeft(2, '0')}',
+          initialSourceType: 'Production',
+          initialSourceRef: entity.animalId,
+          initialSourceLabel: '$animalName production',
+          initialFreshnessHours:
+              entity.productType.toLowerCase() == 'milk' ? '8' : '72',
           initialNotes:
               'Stock draft created from ${entity.productType.toLowerCase()} production log for $animalName on ${_formatDate(entity.recordedAt)}.',
           automationMessage:
@@ -837,14 +844,22 @@ class _ProductionLoggingScreenState extends State<ProductionLoggingScreen> {
       category: (draft.item['category'] ??
               _inventoryCategoryForProduct(entity.productType))
           .toString(),
+      lotCode: draft.item['lotCode']?.toString(),
+      sourceType: draft.item['sourceType']?.toString(),
+      sourceRef: draft.item['sourceRef']?.toString(),
+      sourceLabel: draft.item['sourceLabel']?.toString(),
       quantity: ((draft.item['quantity'] as num?) ?? entity.quantity.value)
           .toDouble(),
+      reservedQuantity:
+          ((draft.item['reservedQuantity'] as num?) ?? 0).toDouble(),
       unit: (draft.item['unit'] ?? entity.unit.value).toString(),
       minStock: (draft.item['minStock'] as int?) ?? 0,
       supplier: draft.item['supplier']?.toString(),
       supplierId: draft.item['supplierId']?.toString(),
       unitPrice: (draft.item['unitPrice'] as num?)?.toDouble(),
       totalValue: (draft.item['totalValue'] as num?)?.toDouble(),
+      expiryDate: draft.item['expiryDate'] as DateTime?,
+      freshnessHours: (draft.item['freshnessHours'] as num?)?.toInt(),
       lastRestock: draft.item['lastRestock'] as DateTime? ?? entity.recordedAt,
       isSynced: false,
     );
