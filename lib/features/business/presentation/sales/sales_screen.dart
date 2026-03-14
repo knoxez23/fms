@@ -271,6 +271,7 @@ class _SalesViewState extends State<SalesView> {
                       return _BusinessFinancePanel(
                         theme: theme,
                         finance: finance,
+                        onCreateOutputDraft: _openOutputSaleDraft,
                       );
                     },
                   ),
@@ -407,6 +408,39 @@ class _SalesViewState extends State<SalesView> {
     );
   }
 
+  Future<void> _openOutputSaleDraft(_OutputSaleDraft draft) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddSaleScreen(
+          initialType: draft.type,
+          initialProductName: draft.productName,
+          initialQuantity: draft.quantity,
+          initialUnit: draft.unit,
+          initialNotes:
+              'Draft created from ready output currently sitting in stock.',
+          automationMessage: draft.message,
+        ),
+      ),
+    );
+
+    if (result == null || !mounted) return;
+    final sale = switch (result) {
+      SaleDraftResult draftResult => draftResult.sale,
+      SaleEntity saleEntity => saleEntity,
+      _ => null,
+    };
+    if (sale == null) return;
+
+    context.read<SalesBloc>().add(SalesEvent.addSale(sale: sale));
+    setState(() => _financeRefreshTick++);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${draft.productName} sale draft saved successfully.'),
+      ),
+    );
+  }
+
   bool _isInSelectedPeriod(DateTime? date, String period) {
     if (period == 'All Time') return true;
     if (date == null) return false;
@@ -455,10 +489,12 @@ class _BusinessFinanceData {
 class _BusinessFinancePanel extends StatelessWidget {
   final ThemeData theme;
   final _BusinessFinanceData finance;
+  final Future<void> Function(_OutputSaleDraft draft)? onCreateOutputDraft;
 
   const _BusinessFinancePanel({
     required this.theme,
     required this.finance,
+    this.onCreateOutputDraft,
   });
 
   @override
@@ -560,6 +596,7 @@ class _BusinessFinancePanel extends StatelessWidget {
             milkStockOnHand: milkStockOnHand,
             eggsStockOnHand: eggsStockOnHand,
             outputStockValue: outputStockValue,
+            onCreateDraft: onCreateOutputDraft,
           ),
           const SizedBox(height: 14),
           Text(
@@ -680,6 +717,7 @@ class _OutputPipelineCard extends StatelessWidget {
   final double milkStockOnHand;
   final double eggsStockOnHand;
   final double outputStockValue;
+  final Future<void> Function(_OutputSaleDraft draft)? onCreateDraft;
 
   const _OutputPipelineCard({
     required this.theme,
@@ -690,6 +728,7 @@ class _OutputPipelineCard extends StatelessWidget {
     required this.milkStockOnHand,
     required this.eggsStockOnHand,
     required this.outputStockValue,
+    this.onCreateDraft,
   });
 
   @override
@@ -749,11 +788,77 @@ class _OutputPipelineCard extends StatelessWidget {
                 ),
               ),
             ],
+            if (onCreateDraft != null &&
+                (milkStockOnHand > 0 || eggsStockOnHand > 0)) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  if (milkStockOnHand > 0)
+                    FilledButton.tonalIcon(
+                      onPressed: () => onCreateDraft!(
+                        _OutputSaleDraft(
+                          productName: 'Milk',
+                          type: 'Dairy',
+                          quantity: milkStockOnHand,
+                          unit: 'liters',
+                          message:
+                              'Prefilled from milk currently sitting in stock. Confirm customer and pricing, then save the sale draft.',
+                        ),
+                      ),
+                      icon: const Icon(Icons.local_drink_outlined),
+                      label: Text(
+                        'Sell ${_formatQty(milkStockOnHand)} liters milk',
+                      ),
+                    ),
+                  if (eggsStockOnHand > 0)
+                    FilledButton.tonalIcon(
+                      onPressed: () => onCreateDraft!(
+                        _OutputSaleDraft(
+                          productName: 'Eggs',
+                          type: 'Poultry',
+                          quantity: eggsStockOnHand,
+                          unit: 'pieces',
+                          message:
+                              'Prefilled from eggs currently sitting in stock. Confirm customer and pricing, then save the sale draft.',
+                        ),
+                      ),
+                      icon: const Icon(Icons.egg_alt_outlined),
+                      label: Text(
+                        'Sell ${_formatQty(eggsStockOnHand)} eggs',
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ],
         ],
       ),
     );
   }
+
+  String _formatQty(double value) {
+    return value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value.toStringAsFixed(1);
+  }
+}
+
+class _OutputSaleDraft {
+  final String productName;
+  final String type;
+  final double quantity;
+  final String unit;
+  final String message;
+
+  const _OutputSaleDraft({
+    required this.productName,
+    required this.type,
+    required this.quantity,
+    required this.unit,
+    required this.message,
+  });
 }
 
 class _OutputPipelineRow extends StatelessWidget {
