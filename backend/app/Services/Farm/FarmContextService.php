@@ -6,12 +6,22 @@ use App\Models\Farm;
 use App\Models\FarmMembership;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Collection;
 
 class FarmContextService
 {
+    public function schemaReady(): bool
+    {
+        return Schema::hasTable('farms') && Schema::hasTable('farm_memberships');
+    }
+
     public function getDefaultMembership(int $userId): ?FarmMembership
     {
+        if (! $this->schemaReady()) {
+            return null;
+        }
+
         return FarmMembership::query()
             ->with('farm')
             ->where('user_id', $userId)
@@ -23,6 +33,10 @@ class FarmContextService
 
     public function requireDefaultMembership(int $userId): FarmMembership
     {
+        if (! $this->schemaReady()) {
+            throw (new ModelNotFoundException())->setModel(FarmMembership::class);
+        }
+
         $membership = $this->getDefaultMembership($userId);
         if ($membership === null) {
             $user = User::query()->findOrFail($userId);
@@ -43,6 +57,32 @@ class FarmContextService
 
     public function currentContext(int $userId): array
     {
+        if (! $this->schemaReady()) {
+            $user = User::query()->findOrFail($userId);
+
+            return [
+                'farm' => [
+                    'id' => null,
+                    'name' => filled($user->farm_name) ? $user->farm_name : trim($user->name . "'s Farm"),
+                    'location' => $user->location,
+                    'primary_enterprise' => null,
+                    'feed_measurement_style' => null,
+                ],
+                'membership' => [
+                    'id' => null,
+                    'role' => 'owner',
+                    'status' => 'legacy',
+                    'is_default' => true,
+                    'joined_at' => null,
+                ],
+                'team_summary' => [
+                    'staff_count' => 0,
+                    'active_staff_count' => 0,
+                    'roles' => [],
+                ],
+            ];
+        }
+
         $membership = $this->requireDefaultMembership($userId);
         $farm = $membership->farm()->firstOrFail();
         $staff = $farm->staffMembers()->orderBy('name')->get();
@@ -76,6 +116,10 @@ class FarmContextService
 
     public function createDefaultFarmForUser(User $user): FarmMembership
     {
+        if (! $this->schemaReady()) {
+            throw (new ModelNotFoundException())->setModel(FarmMembership::class);
+        }
+
         $existing = $this->getDefaultMembership((int) $user->id);
         if ($existing !== null) {
             return $existing;

@@ -77,7 +77,10 @@ class AuthController extends Controller
             ]);
         }
 
-        $membership = $this->farmContextService->createDefaultFarmForUser($user);
+        if ($this->farmContextService->schemaReady()) {
+            $this->farmContextService->createDefaultFarmForUser($user);
+        }
+        $context = $this->farmContextService->currentContext((int) $user->id);
 
         $tokenService = new TokenService();
         $tokens = $tokenService->createTokenPair($user);
@@ -87,16 +90,8 @@ class AuthController extends Controller
         return response()->json([
             'user' => [
                 ...$user->toArray(),
-                'current_farm' => [
-                    'id' => $membership->farm_id,
-                    'name' => $membership->farm->name,
-                    'location' => $membership->farm->location,
-                ],
-                'current_membership' => [
-                    'id' => $membership->id,
-                    'role' => $membership->role,
-                    'status' => $membership->status,
-                ],
+                'current_farm' => $context['farm'],
+                'current_membership' => $context['membership'],
             ],
             ...$tokens,
         ], 201);
@@ -124,11 +119,13 @@ class AuthController extends Controller
 
         Log::info('User logged in', ['user_id' => $user->id, 'email' => $user->email]);
 
+        $context = $this->farmContextService->currentContext((int) $user->id);
+
         return response()->json([
             'user' => [
                 ...$user->toArray(),
-                'current_farm' => $this->farmContextService->currentContext((int) $user->id)['farm'],
-                'current_membership' => $this->farmContextService->currentContext((int) $user->id)['membership'],
+                'current_farm' => $context['farm'],
+                'current_membership' => $context['membership'],
             ],
             ...$tokens,
         ]);
