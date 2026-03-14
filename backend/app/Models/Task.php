@@ -21,11 +21,17 @@ class Task extends Model
         'staff_member_id',
         'source_event_type',
         'source_event_id',
+        'approval_required',
+        'approval_status',
+        'approved_by',
+        'approved_at',
         'user_id',
     ];
 
     protected $casts = [
         'due_date' => 'date',
+        'approval_required' => 'boolean',
+        'approved_at' => 'datetime',
     ];
 
     public function user()

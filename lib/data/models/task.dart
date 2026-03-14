@@ -13,6 +13,10 @@ class Task {
   final int? userId;
   final String? sourceEventType;
   final String? sourceEventId;
+  final bool? approvalRequired;
+  final String? approvalStatus;
+  final String? approvedBy;
+  final String? approvedAt;
   final bool? isSynced;
 
   Task({
@@ -30,6 +34,10 @@ class Task {
     this.userId,
     this.sourceEventType,
     this.sourceEventId,
+    this.approvalRequired,
+    this.approvalStatus,
+    this.approvedBy,
+    this.approvedAt,
     this.isSynced,
   });
 
@@ -49,6 +57,11 @@ class Task {
       'user_id': userId,
       'source_event_type': sourceEventType,
       'source_event_id': sourceEventId,
+      'approval_required':
+          approvalRequired == null ? null : (approvalRequired! ? 1 : 0),
+      'approval_status': approvalStatus,
+      'approved_by': approvedBy,
+      'approved_at': approvedAt,
       'is_synced': isSynced == null ? null : (isSynced! ? 1 : 0),
     };
     map.removeWhere((key, value) => value == null);
@@ -73,6 +86,14 @@ class Task {
       userId: map['user_id'],
       sourceEventType: map['source_event_type'],
       sourceEventId: map['source_event_id'],
+      approvalRequired: map['approval_required'] == null
+          ? null
+          : (map['approval_required'] == 1 ||
+              map['approval_required'] == true ||
+              '${map['approval_required']}'.toLowerCase() == 'true'),
+      approvalStatus: map['approval_status']?.toString(),
+      approvedBy: map['approved_by']?.toString(),
+      approvedAt: map['approved_at']?.toString(),
       isSynced: map['is_synced'] == null ? null : (map['is_synced'] == 1),
     );
   }
@@ -92,6 +113,10 @@ class Task {
     int? userId,
     String? sourceEventType,
     String? sourceEventId,
+    bool? approvalRequired,
+    String? approvalStatus,
+    String? approvedBy,
+    String? approvedAt,
     bool? isSynced,
   }) {
     return Task(
@@ -109,6 +134,10 @@ class Task {
       userId: userId ?? this.userId,
       sourceEventType: sourceEventType ?? this.sourceEventType,
       sourceEventId: sourceEventId ?? this.sourceEventId,
+      approvalRequired: approvalRequired ?? this.approvalRequired,
+      approvalStatus: approvalStatus ?? this.approvalStatus,
+      approvedBy: approvedBy ?? this.approvedBy,
+      approvedAt: approvedAt ?? this.approvedAt,
       isSynced: isSynced ?? this.isSynced,
     );
   }

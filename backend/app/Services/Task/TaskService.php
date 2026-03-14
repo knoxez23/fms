@@ -6,6 +6,7 @@ use App\Models\StaffMember;
 use App\Models\Task;
 use App\Services\Audit\AuditEventService;
 use App\Services\Farm\FarmContextService;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Collection;
 
 class TaskService
@@ -28,6 +29,7 @@ class TaskService
     public function createForUser(int $userId, array $validated): Task
     {
         $validated = $this->attachOwnedStaffName($userId, $validated);
+        $validated = $this->normalizeApprovalFields($userId, $validated);
         $clientUuid = $validated['client_uuid'] ?? null;
 
         if (is_string($clientUuid) && $clientUuid !== '') {
@@ -49,6 +51,7 @@ class TaskService
                         'source_event_type' => $existing->source_event_type,
                         'source_event_id' => $existing->source_event_id,
                         'changed_fields' => array_keys($validated),
+                        'approval_status' => $existing->approval_status,
                         'summary' => "Upserted task {$existing->title}.",
                     ]
                 );
@@ -68,6 +71,11 @@ class TaskService
                 'title' => $task->title,
                 'source_event_type' => $task->source_event_type,
                 'source_event_id' => $task->source_event_id,
+                'approval_required' => (bool) $task->approval_required,
+                'approval_status' => $task->approval_status,
+                'summary' => $task->approval_required
+                    ? "Created approval task {$task->title}."
+                    : "Created task {$task->title}.",
             ]
         );
 
@@ -76,8 +84,9 @@ class TaskService
 
     public function updateForUser(int $userId, string $taskId, array $validated): Task
     {
-        $validated = $this->attachOwnedStaffName($userId, $validated);
         $task = Task::where('id', $taskId)->where('user_id', $userId)->firstOrFail();
+        $validated = $this->attachOwnedStaffName($userId, $validated);
+        $validated = $this->normalizeApprovalFields($userId, $validated, $task);
         $task->update($validated);
 
         $this->auditService->record(
@@ -89,6 +98,13 @@ class TaskService
                 'status' => $task->status,
                 'source_event_type' => $task->source_event_type,
                 'source_event_id' => $task->source_event_id,
+                'approval_status' => $task->approval_status,
+                'summary' => match ($task->approval_status) {
+                    'approved' => "Approved task {$task->title}.",
+                    'rejected' => "Sent task {$task->title} back for changes.",
+                    'pending' => "Task {$task->title} is waiting for approval.",
+                    default => "Updated task {$task->title}.",
+                },
             ]
         );
 
@@ -138,5 +154,59 @@ class TaskService
         }
 
         return $validated;
+    }
+
+    private function normalizeApprovalFields(int $userId, array $validated, ?Task $existingTask = null): array
+    {
+        $approvalRequired = array_key_exists('approval_required', $validated)
+            ? (bool) $validated['approval_required']
+            : ($existingTask?->approval_required ?? false);
+
+        if (! $approvalRequired) {
+            $validated['approval_required'] = false;
+            $validated['approval_status'] = 'not_required';
+            $validated['approved_by'] = null;
+            $validated['approved_at'] = null;
+
+            return $validated;
+        }
+
+        $validated['approval_required'] = true;
+
+        $currentStatus = $existingTask?->approval_status ?? 'not_required';
+        $nextStatus = $validated['approval_status'] ?? null;
+        if (! is_string($nextStatus) || trim($nextStatus) === '') {
+            $nextStatus = $currentStatus === 'not_required' ? 'pending' : $currentStatus;
+        }
+
+        $isApprovalDecision = in_array($nextStatus, ['approved', 'rejected'], true)
+            && $nextStatus !== $currentStatus;
+
+        if ($isApprovalDecision && ! $this->canApproveTasks($userId)) {
+            throw new AuthorizationException('Only owners, managers, or accountants can approve sensitive tasks.');
+        }
+
+        $validated['approval_status'] = $nextStatus;
+
+        if ($nextStatus === 'approved') {
+            $validated['approved_by'] = (string) $userId;
+            $validated['approved_at'] = now();
+        } elseif ($nextStatus === 'rejected') {
+            $validated['approved_by'] = null;
+            $validated['approved_at'] = null;
+        } elseif (! array_key_exists('approved_by', $validated)) {
+            $validated['approved_by'] = $existingTask?->approved_by;
+            $validated['approved_at'] = $existingTask?->approved_at;
+        }
+
+        return $validated;
+    }
+
+    private function canApproveTasks(int $userId): bool
+    {
+        $membership = $this->farmContextService->getDefaultMembership($userId);
+        $role = strtolower((string) ($membership?->role ?? 'owner'));
+
+        return in_array($role, ['owner', 'manager', 'accountant'], true);
     }
 }

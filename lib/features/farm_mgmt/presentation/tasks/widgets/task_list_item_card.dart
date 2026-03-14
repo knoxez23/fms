@@ -78,6 +78,13 @@ class TaskListItemCard extends StatelessWidget {
                   label: _statusText(context, task),
                   color: _statusColor(task),
                 ),
+                if (task.approvalRequired) ...[
+                  const SizedBox(width: 8),
+                  _Badge(
+                    label: _approvalText(task),
+                    color: _approvalColor(task),
+                  ),
+                ],
                 if (showOriginBadge && origin != null && !compact) ...[
                   const SizedBox(width: 8),
                   _Badge(
@@ -113,6 +120,18 @@ class TaskListItemCard extends StatelessWidget {
     if (task.isCompleted) return Colors.green;
     if (task.isOverdue) return Colors.red;
     return Colors.orange;
+  }
+
+  String _approvalText(TaskEntity task) {
+    if (task.isApproved) return 'Approved';
+    if (task.isRejected) return 'Needs changes';
+    return 'Approval';
+  }
+
+  Color _approvalColor(TaskEntity task) {
+    if (task.isApproved) return Colors.green;
+    if (task.isRejected) return Colors.red;
+    return Colors.deepPurple;
   }
 
   String? _originLabel(BuildContext context, String? sourceEventType) {

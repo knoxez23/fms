@@ -47,6 +47,7 @@ class _TasksScreenState extends State<TasksScreen> {
   final List<String> _statusOptions = [
     'All',
     'Pending',
+    'Waiting approval',
     'Overdue',
     'Completed'
   ];
@@ -157,6 +158,8 @@ class _TasksScreenState extends State<TasksScreen> {
               tasks.where((task) => _statusKey(task) == 'overdue').length;
           final completedCount =
               tasks.where((task) => _statusKey(task) == 'completed').length;
+          final waitingApprovalCount =
+              tasks.where((task) => task.isAwaitingApproval).length;
           final assignedCount = tasks
               .where((task) => (task.assignedTo?.trim().isNotEmpty ?? false))
               .length;
@@ -175,7 +178,9 @@ class _TasksScreenState extends State<TasksScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Row(
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
                       children: [
                         _TaskStat(
                           count: pendingCount,
@@ -197,6 +202,13 @@ class _TasksScreenState extends State<TasksScreen> {
                           color: Colors.green,
                           theme: theme,
                         ),
+                        const SizedBox(width: 12),
+                        _TaskStat(
+                          count: waitingApprovalCount,
+                          label: 'Approval',
+                          color: Colors.deepPurple,
+                          theme: theme,
+                        ),
                       ],
                     ),
                   ),
@@ -209,6 +221,7 @@ class _TasksScreenState extends State<TasksScreen> {
                       farmContext: _farmContext,
                       assignedCount: assignedCount,
                       unassignedCount: unassignedCount,
+                      waitingApprovalCount: waitingApprovalCount,
                       roleSummary: roleSummary,
                     ),
                   ),
@@ -311,6 +324,7 @@ class _TasksScreenState extends State<TasksScreen> {
                                     value: context.read<TasksBloc>(),
                                     child: TaskDetailScreen.fromEntity(
                                       entity: task,
+                                      currentRole: currentRole,
                                     ),
                                   ),
                                 ),
@@ -327,6 +341,10 @@ class _TasksScreenState extends State<TasksScreen> {
                                 staffMemberId: task.staffMemberId,
                                 sourceEventType: task.sourceEventType,
                                 sourceEventId: task.sourceEventId,
+                                approvalRequired: task.approvalRequired,
+                                approvalStatus: task.approvalStatus,
+                                approvedBy: task.approvedBy,
+                                approvedAt: task.approvedAt,
                               );
                               context
                                   .read<TasksBloc>()
@@ -393,6 +411,7 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   String _statusKey(TaskEntity task) {
+    if (task.isAwaitingApproval) return 'waiting_approval';
     if (task.isCompleted) return 'completed';
     if (task.isOverdue) return 'overdue';
     return 'pending';
@@ -402,6 +421,8 @@ class _TasksScreenState extends State<TasksScreen> {
     switch (_statusKey(task)) {
       case 'pending':
         return 'Pending';
+      case 'waiting_approval':
+        return 'Waiting approval';
       case 'overdue':
         return 'Overdue';
       case 'completed':
@@ -461,6 +482,7 @@ class _TaskOperationsCard extends StatelessWidget {
     required this.farmContext,
     required this.assignedCount,
     required this.unassignedCount,
+    required this.waitingApprovalCount,
     required this.roleSummary,
   });
 
@@ -468,6 +490,7 @@ class _TaskOperationsCard extends StatelessWidget {
   final Map<String, dynamic>? farmContext;
   final int assignedCount;
   final int unassignedCount;
+  final int waitingApprovalCount;
   final Map<String, dynamic> roleSummary;
 
   @override
@@ -515,6 +538,11 @@ class _TaskOperationsCard extends StatelessWidget {
                 label: '$unassignedCount unassigned tasks',
                 color: Colors.orange,
               ),
+              if (waitingApprovalCount > 0)
+                _TaskMetaChip(
+                  label: '$waitingApprovalCount waiting approval',
+                  color: Colors.deepPurple,
+                ),
               ...roleSummary.entries.take(3).map(
                 (entry) => _TaskMetaChip(
                   label: '${entry.key}: ${entry.value}',

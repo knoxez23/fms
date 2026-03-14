@@ -10,22 +10,25 @@ import 'package:pamoja_twalima/features/farm_mgmt/presentation/bloc/tasks/tasks_
 
 class TaskDetailScreen extends StatelessWidget {
   final TaskEntity entity;
+  final String currentRole;
 
   const TaskDetailScreen({
     super.key,
     required this.entity,
+    this.currentRole = 'owner',
   });
 
   const TaskDetailScreen.fromEntity({
     Key? key,
     required TaskEntity entity,
-  }) : this(key: key, entity: entity);
+    String currentRole = 'owner',
+  }) : this(key: key, entity: entity, currentRole: currentRole);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final item = entity;
-    final isCompleted = item.isCompleted;
+    final canApprove = _canApprove(currentRole);
 
     return AppScaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -47,18 +50,27 @@ class TaskDetailScreen extends StatelessWidget {
           children: [
             _TaskCard(
               theme: theme,
-              title: item.title.value,
-              description: item.description ?? '',
-              dueDate: item.dueDate,
-              isCompleted: item.isCompleted,
-              isOverdue: item.isOverdue,
-              assignedTo: item.assignedTo,
+              task: item,
               originLabel: _originLabel(item.sourceEventType),
             ),
             const SizedBox(height: 16),
+            if (item.approvalRequired) ...[
+              _ApprovalCard(
+                theme: theme,
+                task: item,
+                canApprove: canApprove,
+                onApprove: item.isAwaitingApproval
+                    ? () => _setApprovalStatus(context, item, 'approved')
+                    : null,
+                onReject: item.isAwaitingApproval
+                    ? () => _setApprovalStatus(context, item, 'rejected')
+                    : null,
+              ),
+              const SizedBox(height: 16),
+            ],
             _ActionRow(
               theme: theme,
-              isCompleted: isCompleted,
+              isCompleted: item.isCompleted,
               onToggleStatus: () => _toggleStatus(context, item),
               onDelete: () => _deleteTask(context, item),
             ),
@@ -79,6 +91,34 @@ class TaskDetailScreen extends StatelessWidget {
       staffMemberId: task.staffMemberId,
       sourceEventType: task.sourceEventType,
       sourceEventId: task.sourceEventId,
+      approvalRequired: task.approvalRequired,
+      approvalStatus: task.approvalStatus,
+      approvedBy: task.approvedBy,
+      approvedAt: task.approvedAt,
+    );
+    context.read<TasksBloc>().add(TasksEvent.update(task: updated));
+    Navigator.pop(context);
+  }
+
+  void _setApprovalStatus(
+    BuildContext context,
+    TaskEntity task,
+    String status,
+  ) {
+    final updated = TaskEntity(
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      dueDate: task.dueDate,
+      isCompleted: task.isCompleted,
+      assignedTo: task.assignedTo,
+      staffMemberId: task.staffMemberId,
+      sourceEventType: task.sourceEventType,
+      sourceEventId: task.sourceEventId,
+      approvalRequired: task.approvalRequired,
+      approvalStatus: status,
+      approvedBy: status == 'approved' ? currentRole : null,
+      approvedAt: status == 'approved' ? DateTime.now() : null,
     );
     context.read<TasksBloc>().add(TasksEvent.update(task: updated));
     Navigator.pop(context);
@@ -154,6 +194,10 @@ class TaskDetailScreen extends StatelessWidget {
       staffMemberId: staffIdByName[selected],
       sourceEventType: task.sourceEventType,
       sourceEventId: task.sourceEventId,
+      approvalRequired: task.approvalRequired,
+      approvalStatus: task.approvalStatus,
+      approvedBy: task.approvedBy,
+      approvedAt: task.approvedAt,
     );
     if (!context.mounted) return;
     context.read<TasksBloc>().add(TasksEvent.update(task: updated));
@@ -174,26 +218,21 @@ class TaskDetailScreen extends StatelessWidget {
         return null;
     }
   }
+
+  bool _canApprove(String role) {
+    return const {'owner', 'manager', 'accountant'}
+        .contains(role.trim().toLowerCase());
+  }
 }
 
 class _TaskCard extends StatelessWidget {
   final ThemeData theme;
-  final String title;
-  final String description;
-  final DateTime? dueDate;
-  final bool isCompleted;
-  final bool isOverdue;
-  final String? assignedTo;
+  final TaskEntity task;
   final String? originLabel;
 
   const _TaskCard({
     required this.theme,
-    required this.title,
-    required this.description,
-    required this.dueDate,
-    required this.isCompleted,
-    required this.isOverdue,
-    required this.assignedTo,
+    required this.task,
     required this.originLabel,
   });
 
@@ -210,15 +249,17 @@ class _TaskCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
+            task.title.value,
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
-              decoration: isCompleted ? TextDecoration.lineThrough : null,
+              decoration: task.isCompleted ? TextDecoration.lineThrough : null,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            description.isEmpty ? 'No description provided.' : description,
+            (task.description ?? '').isEmpty
+                ? 'No description provided.'
+                : task.description!,
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 12),
@@ -238,39 +279,64 @@ class _TaskCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              _badge(theme, isCompleted ? 'Completed' : 'Pending',
-                  isCompleted ? Colors.green : Colors.orange),
-              const SizedBox(width: 8),
-              if (isOverdue) _badge(theme, 'Overdue', Colors.red),
+              _badge(
+                theme,
+                task.isCompleted ? 'Completed' : 'Pending',
+                task.isCompleted ? Colors.green : Colors.orange,
+              ),
+              if (task.isOverdue) _badge(theme, 'Overdue', Colors.red),
+              if (task.approvalRequired)
+                _badge(theme, _approvalLabel(task), _approvalColor(task)),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(Icons.calendar_today,
-                  size: 16, color: theme.colorScheme.primary),
+              Icon(
+                Icons.calendar_today,
+                size: 16,
+                color: theme.colorScheme.primary,
+              ),
               const SizedBox(width: 8),
               Text(
-                dueDate == null
+                task.dueDate == null
                     ? 'No due date'
-                    : '${dueDate!.year}-${dueDate!.month.toString().padLeft(2, '0')}-${dueDate!.day.toString().padLeft(2, '0')}',
+                    : '${task.dueDate!.year}-${task.dueDate!.month.toString().padLeft(2, '0')}-${task.dueDate!.day.toString().padLeft(2, '0')}',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: isOverdue ? Colors.red : null,
+                  color: task.isOverdue ? Colors.red : null,
                 ),
               ),
             ],
           ),
-          if (assignedTo != null && assignedTo!.trim().isNotEmpty) ...[
+          if (task.approvedAt != null && task.isApproved) ...[
             const SizedBox(height: 10),
             Row(
               children: [
-                Icon(Icons.person_outline,
-                    size: 16, color: theme.colorScheme.primary),
+                Icon(Icons.verified, size: 16, color: Colors.green.shade700),
                 const SizedBox(width: 8),
                 Text(
-                  'Assigned to: $assignedTo',
+                  'Approved on ${task.approvedAt!.year}-${task.approvedAt!.month.toString().padLeft(2, '0')}-${task.approvedAt!.day.toString().padLeft(2, '0')}',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ],
+          if (task.assignedTo != null && task.assignedTo!.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(
+                  Icons.person_outline,
+                  size: 16,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Assigned to: ${task.assignedTo}',
                   style: theme.textTheme.bodyMedium,
                 ),
               ],
@@ -279,6 +345,28 @@ class _TaskCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _approvalLabel(TaskEntity task) {
+    switch (task.approvalStatus.toLowerCase()) {
+      case 'approved':
+        return 'Approved';
+      case 'rejected':
+        return 'Needs changes';
+      default:
+        return 'Waiting approval';
+    }
+  }
+
+  Color _approvalColor(TaskEntity task) {
+    switch (task.approvalStatus.toLowerCase()) {
+      case 'approved':
+        return Colors.green;
+      case 'rejected':
+        return Colors.red;
+      default:
+        return Colors.deepPurple;
+    }
   }
 
   Widget _badge(ThemeData theme, String label, Color color) {
@@ -294,6 +382,84 @@ class _TaskCard extends StatelessWidget {
           color: color,
           fontWeight: FontWeight.w600,
         ),
+      ),
+    );
+  }
+}
+
+class _ApprovalCard extends StatelessWidget {
+  const _ApprovalCard({
+    required this.theme,
+    required this.task,
+    required this.canApprove,
+    this.onApprove,
+    this.onReject,
+  });
+
+  final ThemeData theme;
+  final TaskEntity task;
+  final bool canApprove;
+  final VoidCallback? onApprove;
+  final VoidCallback? onReject;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = task.approvalStatus.toLowerCase();
+    final headline = switch (status) {
+      'approved' => 'This task has already been approved.',
+      'rejected' => 'This task was sent back for changes before it can close.',
+      _ => 'This task needs manager sign-off before it is fully cleared.',
+    };
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Approval',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            headline,
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          if (!canApprove)
+            Text(
+              'A manager, owner, or accountant can review this from their queue.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+          if (canApprove && task.isAwaitingApproval)
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onReject,
+                    icon: const Icon(Icons.reply_outlined),
+                    label: const Text('Send Back'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: onApprove,
+                    icon: const Icon(Icons.verified_outlined),
+                    label: const Text('Approve'),
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }

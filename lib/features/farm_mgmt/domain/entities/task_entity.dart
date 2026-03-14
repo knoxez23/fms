@@ -10,6 +10,10 @@ class TaskEntity {
   final String? staffMemberId;
   final String? sourceEventType;
   final String? sourceEventId;
+  final bool approvalRequired;
+  final String approvalStatus;
+  final String? approvedBy;
+  final DateTime? approvedAt;
 
   TaskEntity({
     this.id,
@@ -21,10 +25,23 @@ class TaskEntity {
     this.staffMemberId,
     this.sourceEventType,
     this.sourceEventId,
+    this.approvalRequired = false,
+    this.approvalStatus = 'not_required',
+    this.approvedBy,
+    this.approvedAt,
   });
 
   bool get isOverdue {
     if (dueDate == null) return false;
     return !isCompleted && DateTime.now().isAfter(dueDate!);
   }
+
+  bool get isAwaitingApproval =>
+      approvalRequired && approvalStatus.toLowerCase() == 'pending';
+
+  bool get isApproved =>
+      approvalRequired && approvalStatus.toLowerCase() == 'approved';
+
+  bool get isRejected =>
+      approvalRequired && approvalStatus.toLowerCase() == 'rejected';
 }

@@ -125,6 +125,36 @@ test('task update keeps source metadata and updates status for sync reconciliati
     ]);
 });
 
+test('task approval fields persist and can be approved by owner role', function () {
+    $response = $this->postJson('/api/v1/tasks', [
+        'client_uuid' => 'f50d041d-a8c1-4c2d-a77f-fbc8e5e99361',
+        'title' => 'Approve pump repair payment',
+        'status' => 'pending',
+        'priority' => 'high',
+        'approval_required' => true,
+    ], $this->headers);
+
+    $response->assertStatus(201)
+        ->assertJsonPath('approval_required', true)
+        ->assertJsonPath('approval_status', 'pending');
+
+    $taskId = $response->json('id');
+
+    $this->putJson("/api/v1/tasks/{$taskId}", [
+        'approval_required' => true,
+        'approval_status' => 'approved',
+    ], $this->headers)
+        ->assertStatus(200)
+        ->assertJsonPath('approval_status', 'approved');
+
+    $this->assertDatabaseHas('tasks', [
+        'id' => $taskId,
+        'approval_required' => true,
+        'approval_status' => 'approved',
+        'approved_by' => (string) $this->user->id,
+    ]);
+});
+
 test('task delete returns 404 for missing id allowing client idempotent handling', function () {
     $task = Task::create([
         'title' => 'Clean shed',

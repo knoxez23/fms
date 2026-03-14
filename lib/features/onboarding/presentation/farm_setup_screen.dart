@@ -315,7 +315,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
             _SectionCard(
               title: 'How This Setup Works',
               subtitle:
-                  'Pick from common presets, then edit the details to match the real farm instead of forcing the farmer into fixed templates.',
+                  'Set up the farm the way you actually run it. Start with common options if they help, then change the details, add your own inputs, and capture what matters on your farm.',
               child: Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -323,22 +323,22 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
                   _StepPill(
                     icon: Icons.pets,
                     title: 'Livestock',
-                    subtitle: 'counts, tracking mode, names, photos',
+                    subtitle: 'add counts, names, photos, or track by group',
                   ),
                   _StepPill(
                     icon: Icons.grass,
                     title: 'Crops',
-                    subtitle: 'area, status, harvest timelines',
+                    subtitle: 'enter what is planted, planned, and how much land',
                   ),
                   _StepPill(
                     icon: Icons.inventory_2,
                     title: 'Inputs',
-                    subtitle: 'available now vs need soon',
+                    subtitle: 'mark what you already have and what you still need',
                   ),
                   _StepPill(
                     icon: Icons.auto_graph,
                     title: 'Automation',
-                    subtitle: 'tasks, stock, feeding, sales signals',
+                    subtitle: 'get schedules, reminders, stock, and sales prompts',
                   ),
                 ],
               ),
@@ -548,7 +548,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
             _SectionCard(
               title: 'What This Setup Will Create',
               subtitle:
-                  'The app uses this profile to seed a usable farm workspace, not a blank database.',
+                  'When you finish, Farmly will prepare a working dashboard with starter records, tasks, stock, and follow-ups so you can begin from real farm activity, not an empty app.',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

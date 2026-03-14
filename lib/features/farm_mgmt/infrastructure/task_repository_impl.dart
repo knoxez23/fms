@@ -49,6 +49,11 @@ class TaskRepositoryImpl implements TaskRepository {
       staffMemberId: model.staffMemberId?.toString(),
       sourceEventType: model.sourceEventType,
       sourceEventId: model.sourceEventId,
+      approvalRequired: model.approvalRequired ?? false,
+      approvalStatus: model.approvalStatus ?? 'not_required',
+      approvedBy: model.approvedBy,
+      approvedAt:
+          model.approvedAt != null ? DateTime.tryParse(model.approvedAt!) : null,
     );
   }
 
@@ -64,6 +69,10 @@ class TaskRepositoryImpl implements TaskRepository {
           entity.staffMemberId != null ? int.tryParse(entity.staffMemberId!) : null,
       sourceEventType: entity.sourceEventType,
       sourceEventId: entity.sourceEventId,
+      approvalRequired: entity.approvalRequired,
+      approvalStatus: entity.approvalStatus,
+      approvedBy: entity.approvedBy,
+      approvedAt: entity.approvedAt?.toIso8601String(),
     );
   }
 
@@ -78,6 +87,10 @@ class TaskRepositoryImpl implements TaskRepository {
       staffMemberId: entity.staffMemberId,
       sourceEventType: entity.sourceEventType,
       sourceEventId: entity.sourceEventId,
+      approvalRequired: entity.approvalRequired,
+      approvalStatus: entity.approvalStatus,
+      approvedBy: entity.approvedBy,
+      approvedAt: entity.approvedAt,
     );
   }
 }

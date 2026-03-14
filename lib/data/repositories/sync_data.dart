@@ -266,8 +266,11 @@ class SyncData {
   Future<int> updateTask(Task task) async {
     if (await _isOnline()) {
       try {
-        await _apiService.put('/tasks/${task.id}', data: _taskPayload(task));
-        return await LocalData.updateTask(task.copyWith(isSynced: true));
+        final response =
+            await _apiService.put('/tasks/${task.id}', data: _taskPayload(task));
+        final updatedTask =
+            Task.fromMap(response.data).copyWith(isSynced: true);
+        return await LocalData.updateTask(updatedTask);
       } catch (e, st) {
         developer.log('updateTask API failed, updating local only: $e',
             error: e, stackTrace: st);
@@ -379,6 +382,10 @@ class SyncData {
       'staff_member_id': task.staffMemberId,
       'source_event_type': task.sourceEventType,
       'source_event_id': task.sourceEventId,
+      'approval_required': task.approvalRequired,
+      'approval_status': task.approvalStatus,
+      'approved_by': task.approvedBy,
+      'approved_at': task.approvedAt,
     }..removeWhere((key, value) => value == null);
   }
 

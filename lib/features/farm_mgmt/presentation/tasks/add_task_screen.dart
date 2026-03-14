@@ -40,6 +40,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   String _selectedCategory = 'Crops';
   String _selectedPriority = 'Medium';
   String _selectedAssignee = 'Self';
+  bool _approvalRequired = false;
+  bool _approvalTouched = false;
   DateTime? _dueDate;
 
   final List<String> _categories = [
@@ -213,6 +215,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                         onChanged: (value) {
                           setState(() {
                             _selectedCategory = value!;
+                            _syncApprovalSuggestion();
                           });
                         },
                       ),
@@ -232,6 +235,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                         onChanged: (value) {
                           setState(() {
                             _selectedPriority = value!;
+                            _syncApprovalSuggestion();
                           });
                         },
                       ),
@@ -259,6 +263,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                               onChanged: (value) {
                                 setState(() {
                                   _selectedAssignee = value!;
+                                  _syncApprovalSuggestion();
                                 });
                               },
                             ),
@@ -367,6 +372,61 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(
+                        'Approvals',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SwitchListTile.adaptive(
+                        contentPadding: EdgeInsets.zero,
+                        value: _approvalRequired,
+                        onChanged: (value) {
+                          setState(() {
+                            _approvalTouched = true;
+                            _approvalRequired = value;
+                          });
+                        },
+                        title: const Text('Manager approval needed'),
+                        subtitle: Text(
+                          _approvalRequired
+                              ? 'Use this for sensitive work like spending, repairs, stock movement, or tasks that should be checked before closing.'
+                              : 'Leave this off for ordinary daily work that can be completed without sign-off.',
+                        ),
+                      ),
+                      if (_approvalRequired)
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary
+                                .withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.verified_outlined,
+                                size: 18,
+                                color: theme.colorScheme.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'This task will go into a waiting-for-approval state until an owner, manager, or accountant signs it off.',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.72),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 16),
                       Text(
                         'Additional Information',
                         style: theme.textTheme.titleMedium?.copyWith(
@@ -484,11 +544,36 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         staffMemberId: _staffIdByName[_selectedAssignee],
         sourceEventType: widget.sourceEventType,
         sourceEventId: widget.sourceEventId,
+        approvalRequired: _approvalRequired,
+        approvalStatus: _approvalRequired ? 'pending' : 'not_required',
       );
 
       // Navigate back with result or save to database
       Navigator.pop(context, task);
     }
+  }
+
+  void _syncApprovalSuggestion() {
+    if (_approvalTouched) return;
+    _approvalRequired = _shouldSuggestApproval(
+      category: _selectedCategory,
+      priority: _selectedPriority,
+      assignee: _selectedAssignee,
+    );
+  }
+
+  bool _shouldSuggestApproval({
+    required String category,
+    required String priority,
+    required String assignee,
+  }) {
+    final normalizedCategory = category.toLowerCase();
+    final normalizedPriority = priority.toLowerCase();
+    return normalizedPriority == 'high' ||
+        assignee == 'Team' ||
+        normalizedCategory == 'inventory' ||
+        normalizedCategory == 'maintenance' ||
+        normalizedCategory == 'administrative';
   }
 
   @override

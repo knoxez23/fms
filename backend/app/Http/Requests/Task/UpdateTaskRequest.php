@@ -25,6 +25,10 @@ class UpdateTaskRequest extends FormRequest
             'staff_member_id' => 'nullable|integer|exists:staff_members,id',
             'source_event_type' => 'nullable|string|max:100',
             'source_event_id' => 'nullable|string|max:255',
+            'approval_required' => 'nullable|boolean',
+            'approval_status' => 'nullable|in:not_required,pending,approved,rejected',
+            'approved_by' => 'nullable|string|max:255',
+            'approved_at' => 'nullable|date',
         ];
     }
 }
