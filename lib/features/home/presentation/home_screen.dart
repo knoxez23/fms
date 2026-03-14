@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
+import 'package:pamoja_twalima/core/services/local_notification_service.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
@@ -69,6 +70,7 @@ class _HomeViewState extends State<HomeView>
             });
           },
           loaded: (data) {
+            _syncOperationalNudges(data.summary);
             if (!mounted) return;
             setState(() {
               _cachedSummary = data.summary;
@@ -671,6 +673,33 @@ class _HomeViewState extends State<HomeView>
         widget.onNavigateTab?.call(3);
         break;
     }
+  }
+
+  Future<void> _syncOperationalNudges(Map<String, dynamic> summary) async {
+    final morningBody = (summary['todayAgendaPrimary'] ?? '').toString().trim();
+    final advicePrimary = (summary['advicePrimary'] ?? '').toString().trim();
+    final freshnessRisk = (summary['freshnessRiskCount'] as num?)?.toInt() ?? 0;
+    final pendingCollections =
+        (summary['pendingCollectionsCount'] as num?)?.toInt() ?? 0;
+
+    final eveningFocus = <String>[
+      if (freshnessRisk > 0)
+        '$freshnessRisk fresh output lot${freshnessRisk == 1 ? '' : 's'} still need moving',
+      if (pendingCollections > 0)
+        '$pendingCollections unpaid sale${pendingCollections == 1 ? '' : 's'} still need follow-up',
+      if (advicePrimary.isNotEmpty) advicePrimary,
+    ].join(' • ');
+
+    try {
+      await LocalNotificationService.instance.scheduleOperationalNudges(
+        morningBody: morningBody.isEmpty
+            ? 'Open Farmly and review today\'s operating plan before work starts.'
+            : morningBody,
+        eveningBody: eveningFocus.isEmpty
+            ? 'Check today\'s blockers, collections, and fresh output before the day ends.'
+            : eveningFocus,
+      );
+    } catch (_) {}
   }
 }
 

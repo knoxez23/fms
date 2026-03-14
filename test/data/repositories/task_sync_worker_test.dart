@@ -84,6 +84,11 @@ void main() {
       'area': 1.5,
       'status': 'Growing',
     });
+    await db.insert('animals', {
+      'name': 'Bella',
+      'type': 'Cow',
+      'health_status': 'Good',
+    });
 
     await SyncData().ensureRecurringOperationalTasks();
 
@@ -100,6 +105,18 @@ void main() {
           task.title == 'Review harvest-ready crops'),
       isTrue,
     );
+    expect(
+      tasks.any((task) =>
+          task.sourceEventType == 'crop' &&
+          task.title == 'Walk active crop fields'),
+      isTrue,
+    );
+    expect(
+      tasks.any((task) =>
+          task.sourceEventType == 'animal' &&
+          task.title == 'Review animal health checks'),
+      isTrue,
+    );
 
     await db.insert('feeding_logs', {
       'animal_id': 1,
@@ -109,6 +126,12 @@ void main() {
       'fed_at': now.toIso8601String(),
     });
     await db.delete('crops');
+    await db.insert('animal_health_records', {
+      'animal_id': 1,
+      'type': 'Checkup',
+      'name': 'Routine check',
+      'treated_at': now.toIso8601String(),
+    });
 
     await SyncData().ensureRecurringOperationalTasks();
     tasks = await LocalData.getTasks();
@@ -119,8 +142,16 @@ void main() {
     final harvestTask = tasks.firstWhere(
       (task) => task.sourceEventId?.startsWith('daily-harvest-') ?? false,
     );
+    final cropCareTask = tasks.firstWhere(
+      (task) => task.sourceEventId?.startsWith('daily-crop-care-') ?? false,
+    );
+    final healthTask = tasks.firstWhere(
+      (task) => task.sourceEventId?.startsWith('daily-health-review-') ?? false,
+    );
     expect(feedingTask.status, 'completed');
     expect(harvestTask.status, 'completed');
+    expect(cropCareTask.status, 'completed');
+    expect(healthTask.status, 'completed');
   });
 
   test('sync worker drains queued task create and marks task synced', () async {

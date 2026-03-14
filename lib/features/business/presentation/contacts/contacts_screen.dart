@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
+import 'package:pamoja_twalima/data/repositories/local_data.dart';
 import 'package:pamoja_twalima/data/network/api_service.dart';
 import 'package:pamoja_twalima/data/services/contact_directory_service.dart';
 
@@ -93,6 +94,7 @@ class _ContactTabState extends State<_ContactTab> {
   bool _loading = true;
   List<Map<String, dynamic>> _rows = const [];
   Map<String, dynamic>? _farmContext;
+  Map<String, dynamic>? _workloadSummary;
 
   @override
   void initState() {
@@ -107,10 +109,14 @@ class _ContactTabState extends State<_ContactTab> {
       final farmContext = widget.type == ContactType.staffMember
           ? await widget.service.farmContext()
           : null;
+      final workloadSummary = widget.type == ContactType.staffMember
+          ? await _buildWorkloadSummary()
+          : null;
       if (!mounted) return;
       setState(() {
         _rows = rows;
         _farmContext = farmContext;
+        _workloadSummary = workloadSummary;
         _loading = false;
       });
     } catch (e) {
@@ -170,7 +176,10 @@ class _ContactTabState extends State<_ContactTab> {
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
                 itemBuilder: (_, index) {
                   if (widget.type == ContactType.staffMember && index == 0) {
-                    return _StaffOverviewCard(contextData: _farmContext);
+                    return _StaffOverviewCard(
+                      contextData: _farmContext,
+                      workloadSummary: _workloadSummary,
+                    );
                   }
 
                   final row = _rows[widget.type == ContactType.staffMember
@@ -293,7 +302,10 @@ class _ContactTabState extends State<_ContactTab> {
       return ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
         children: [
-          _StaffOverviewCard(contextData: _farmContext),
+          _StaffOverviewCard(
+            contextData: _farmContext,
+            workloadSummary: _workloadSummary,
+          ),
           const SizedBox(height: 16),
           const Text(
             'No team members yet. Add workers, managers, or accountants so task assignment and accountability stay clear.',
@@ -308,6 +320,46 @@ class _ContactTabState extends State<_ContactTab> {
         '${context.tr('no_items_yet')}: ${context.tr(widget.titleKey).toLowerCase()}',
       ),
     );
+  }
+
+  Future<Map<String, dynamic>> _buildWorkloadSummary() async {
+    final tasks = await LocalData.getTasks();
+    final byAssignee = <String, int>{};
+    var pending = 0;
+    var overdue = 0;
+    var waitingApproval = 0;
+
+    for (final task in tasks) {
+      final assignee = (task.assignedTo ?? 'Unassigned').trim().isEmpty
+          ? 'Unassigned'
+          : task.assignedTo!.trim();
+      byAssignee.update(assignee, (value) => value + 1, ifAbsent: () => 1);
+
+      final status = (task.status ?? 'pending').toLowerCase();
+      if (status != 'completed') pending++;
+      final dueDate = DateTime.tryParse(task.dueDate ?? '');
+      final today = DateTime.now();
+      if (status != 'completed' &&
+          dueDate != null &&
+          DateTime(dueDate.year, dueDate.month, dueDate.day)
+              .isBefore(DateTime(today.year, today.month, today.day))) {
+        overdue++;
+      }
+      if ((task.approvalRequired ?? false) &&
+          (task.approvalStatus ?? '').toLowerCase() == 'pending') {
+        waitingApproval++;
+      }
+    }
+
+    final topAssignees = byAssignee.entries.toList()
+      ..sort((left, right) => right.value.compareTo(left.value));
+
+    return {
+      'pending': pending,
+      'overdue': overdue,
+      'waiting_approval': waitingApproval,
+      'top_assignees': topAssignees.take(3).toList(),
+    };
   }
 }
 
@@ -504,9 +556,13 @@ class _ContactEditorDialogState extends State<_ContactEditorDialog> {
 }
 
 class _StaffOverviewCard extends StatelessWidget {
-  const _StaffOverviewCard({required this.contextData});
+  const _StaffOverviewCard({
+    required this.contextData,
+    this.workloadSummary,
+  });
 
   final Map<String, dynamic>? contextData;
+  final Map<String, dynamic>? workloadSummary;
 
   @override
   Widget build(BuildContext context) {
@@ -514,6 +570,11 @@ class _StaffOverviewCard extends StatelessWidget {
     final membership = _coerceMap(contextData?['membership']);
     final teamSummary = _coerceMap(contextData?['team_summary']);
     final roles = _coerceRoleMap(teamSummary['roles']);
+    final workload = _coerceMap(workloadSummary);
+    final topAssignees = (workloadSummary?['top_assignees'] as List?)
+            ?.whereType<MapEntry>()
+            .toList() ??
+        const <MapEntry>[];
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -552,10 +613,41 @@ class _StaffOverviewCard extends StatelessWidget {
               _MetaChip(
                 label: '${teamSummary['active_staff_count'] ?? 0} active',
               ),
+              if (workload.isNotEmpty)
+                _MetaChip(label: '${workload['pending'] ?? 0} tasks open'),
+              if (workload.isNotEmpty)
+                _MetaChip(
+                  label: '${workload['waiting_approval'] ?? 0} approvals',
+                ),
               ...roles.entries.take(3).map(
                   (entry) => _MetaChip(label: '${entry.key}: ${entry.value}')),
             ],
           ),
+          if (workload.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Current workload',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${workload['pending'] ?? 0} open tasks, ${workload['overdue'] ?? 0} overdue, and ${workload['waiting_approval'] ?? 0} waiting approval across the current queue.',
+            ),
+            if (topAssignees.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: topAssignees
+                    .map((entry) => _MetaChip(
+                          label: '${entry.key}: ${entry.value}',
+                        ))
+                    .toList(),
+              ),
+            ],
+          ],
         ],
       ),
     );

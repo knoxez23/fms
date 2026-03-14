@@ -269,6 +269,8 @@ class SyncData {
     final existingTasks = await LocalData.getTasks();
     await _ensureDailyFeedingFollowUp(existingTasks);
     await _ensureDailyHarvestFollowUp(existingTasks);
+    await _ensureDailyCropCareFollowUp(existingTasks);
+    await _ensureDailyHealthReviewFollowUp(existingTasks);
   }
 
   Future<int> updateTask(Task task) async {
@@ -768,6 +770,79 @@ class SyncData {
       category: 'Crops',
       assignedTo: 'Self',
       sourceEventType: 'harvest',
+      sourceEventId: sourceId,
+      approvalRequired: false,
+      approvalStatus: 'not_required',
+      isSynced: false,
+    );
+    await _insertQueuedLocalTask(task);
+  }
+
+  Future<void> _ensureDailyCropCareFollowUp(List<Task> existingTasks) async {
+    final now = DateTime.now();
+    final sourceId = 'daily-crop-care-${_dateKey(now)}';
+    final existing = _findTaskBySource(existingTasks, 'crop', sourceId);
+    final crops = await LocalData.getCrops();
+    final activeFieldCrops = crops.where((crop) {
+      final status = crop.status.trim().toLowerCase();
+      return status == 'growing' || status == 'planted';
+    }).toList();
+
+    if (activeFieldCrops.isEmpty) {
+      await _completeRecurringTaskIfNeeded(existing);
+      return;
+    }
+
+    if (existing != null) return;
+
+    final task = Task(
+      clientUuid: _uuid.v4(),
+      title: 'Walk active crop fields',
+      description:
+          '${activeFieldCrops.length} field crop${activeFieldCrops.length == 1 ? '' : 's'} are active. Check moisture, pests, weeds, and next field operation before the day closes.',
+      dueDate: _dueTodayAt(hour: 15).toIso8601String(),
+      status: 'pending',
+      category: 'Crops',
+      assignedTo: 'Self',
+      sourceEventType: 'crop',
+      sourceEventId: sourceId,
+      approvalRequired: false,
+      approvalStatus: 'not_required',
+      isSynced: false,
+    );
+    await _insertQueuedLocalTask(task);
+  }
+
+  Future<void> _ensureDailyHealthReviewFollowUp(
+      List<Task> existingTasks) async {
+    final now = DateTime.now();
+    final sourceId = 'daily-health-review-${_dateKey(now)}';
+    final existing = _findTaskBySource(existingTasks, 'animal', sourceId);
+    final animals = await LocalData.getAnimals();
+    final healthRecords = await LocalData.getAnimalHealthRecords();
+    final recentHealthRecords = healthRecords.where((record) {
+      final treatedAt = DateTime.tryParse(record.treatedAt ?? '');
+      if (treatedAt == null) return false;
+      return now.difference(treatedAt).inDays <= 7;
+    }).length;
+
+    if (animals.isEmpty || recentHealthRecords > 0) {
+      await _completeRecurringTaskIfNeeded(existing);
+      return;
+    }
+
+    if (existing != null) return;
+
+    final task = Task(
+      clientUuid: _uuid.v4(),
+      title: 'Review animal health checks',
+      description:
+          'No health records were logged in the last 7 days for ${animals.length} animal${animals.length == 1 ? '' : 's'}. Walk the herd or flock and record any treatment, vaccine, or health note.',
+      dueDate: _dueTodayAt(hour: 14).toIso8601String(),
+      status: 'pending',
+      category: 'Animals',
+      assignedTo: 'Self',
+      sourceEventType: 'animal',
       sourceEventId: sourceId,
       approvalRequired: false,
       approvalStatus: 'not_required',

@@ -16,6 +16,8 @@ class LocalNotificationService {
     'Afternoon': 2002,
     'Evening': 2003,
   };
+  static const int _morningOpsReminderId = 3101;
+  static const int _eveningOpsReminderId = 3102;
 
   static const Map<String, ({int hour, int minute})> _times = {
     'Morning': (hour: 6, minute: 0),
@@ -97,6 +99,64 @@ class LocalNotificationService {
   Future<void> cancelAll() async {
     await init();
     await _plugin.cancelAll();
+  }
+
+  Future<void> scheduleOperationalNudges({
+    required String morningBody,
+    required String eveningBody,
+  }) async {
+    await init();
+    await _plugin.cancel(_morningOpsReminderId);
+    await _plugin.cancel(_eveningOpsReminderId);
+
+    if (morningBody.trim().isNotEmpty) {
+      await _scheduleDailyReminder(
+        id: _morningOpsReminderId,
+        title: 'Farmly Morning Plan',
+        body: morningBody.trim(),
+        hour: 6,
+        minute: 15,
+      );
+    }
+
+    if (eveningBody.trim().isNotEmpty) {
+      await _scheduleDailyReminder(
+        id: _eveningOpsReminderId,
+        title: 'Farmly Evening Check',
+        body: eveningBody.trim(),
+        hour: 17,
+        minute: 30,
+      );
+    }
+  }
+
+  Future<void> _scheduleDailyReminder({
+    required int id,
+    required String title,
+    required String body,
+    required int hour,
+    required int minute,
+  }) async {
+    await _plugin.zonedSchedule(
+      id,
+      title,
+      body,
+      _nextInstance(hour, minute),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'farmly_operations',
+          'Farmly Operations',
+          channelDescription: 'Daily farm management reminders and nudges',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
   }
 
   tz.TZDateTime _nextInstance(int hour, int minute) {
