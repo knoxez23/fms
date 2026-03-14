@@ -1,11 +1,11 @@
 {
-    "name": "pamoja_twalima",
-    "short_name": "pamoja_twalima",
+    "name": "Farmly",
+    "short_name": "Farmly",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#EEF5E6",
+    "theme_color": "#9FBC7E",
+    "description": "Farmly farm management and operations platform.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

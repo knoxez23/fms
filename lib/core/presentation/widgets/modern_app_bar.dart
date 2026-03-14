@@ -487,7 +487,7 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   const HomeAppBar({
     super.key,
-    this.title = 'Pamoja Twalima',
+    this.title = 'Farmly',
     this.notificationCount = 0,
     this.onNotificationTap,
     this.actions,

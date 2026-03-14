@@ -15,7 +15,7 @@ class AppLocalizations {
 
   static const Map<String, Map<String, String>> _localizedValues = {
     'en': {
-      'app_name': 'Pamoja Twalima',
+      'app_name': 'Farmly',
       'drawer_profile': 'Profile',
       'drawer_settings': 'Settings',
       'drawer_help': 'Help & Support',
@@ -36,7 +36,7 @@ class AppLocalizations {
       'manage_offline': 'Manage Offline Content',
       'audit_trail': 'Audit Trail',
       'privacy_terms': 'Privacy & Terms',
-      'about_app': 'About Pamoja Twalima',
+      'about_app': 'About Farmly',
       'home_today': 'Today',
       'home_farm_snapshot': 'Farm Snapshot',
       'home_financial': 'Financial Overview',
@@ -162,7 +162,7 @@ class AppLocalizations {
       'please_enter_valid_email': 'Please enter a valid email',
       'please_enter_password': 'Please enter your password',
       'register_create_account': 'Create Account',
-      'register_join_subtitle': 'Join Pamoja Twalima to grow smarter',
+      'register_join_subtitle': 'Join Farmly to grow smarter',
       'full_name_label': 'Full Name',
       'please_enter_name': 'Please enter your name',
       'password_requirements_hint':
@@ -184,7 +184,7 @@ class AppLocalizations {
       'onboarding_skip': 'Skip',
       'onboarding_next': 'Next',
       'onboarding_get_started': 'Get Started',
-      'onboarding_welcome_title': 'Welcome to Pamoja Twalima',
+      'onboarding_welcome_title': 'Welcome to Farmly',
       'onboarding_welcome_desc':
           'Empowering Kenyan farmers to grow smarter, trade better, and thrive together.',
       'onboarding_manage_title': 'Manage Your Farm',
@@ -246,7 +246,7 @@ class AppLocalizations {
       'error_marketplace_delete': 'Failed to delete product',
     },
     'sw': {
-      'app_name': 'Pamoja Twalima',
+      'app_name': 'Farmly',
       'drawer_profile': 'Wasifu',
       'drawer_settings': 'Mipangilio',
       'drawer_help': 'Msaada',
@@ -267,7 +267,7 @@ class AppLocalizations {
       'manage_offline': 'Dhibiti Data Nje ya Mtandao',
       'audit_trail': 'Historia ya Mabadiliko',
       'privacy_terms': 'Faragha na Masharti',
-      'about_app': 'Kuhusu Pamoja Twalima',
+      'about_app': 'Kuhusu Farmly',
       'home_today': 'Leo',
       'home_farm_snapshot': 'Muhtasari wa Shamba',
       'home_financial': 'Muhtasari wa Fedha',
@@ -394,7 +394,7 @@ class AppLocalizations {
       'please_enter_valid_email': 'Tafadhali ingiza barua pepe sahihi',
       'please_enter_password': 'Tafadhali ingiza nenosiri lako',
       'register_create_account': 'Fungua Akaunti',
-      'register_join_subtitle': 'Jiunge na Pamoja Twalima ukue kwa ufanisi',
+      'register_join_subtitle': 'Jiunge na Farmly ukue kwa ufanisi',
       'full_name_label': 'Jina Kamili',
       'please_enter_name': 'Tafadhali ingiza jina lako',
       'password_requirements_hint':
@@ -416,7 +416,7 @@ class AppLocalizations {
       'onboarding_skip': 'Ruka',
       'onboarding_next': 'Ifuatayo',
       'onboarding_get_started': 'Anza Sasa',
-      'onboarding_welcome_title': 'Karibu Pamoja Twalima',
+      'onboarding_welcome_title': 'Karibu Farmly',
       'onboarding_welcome_desc':
           'Kuwawezesha wakulima wa Kenya kulima kwa ufanisi na kufanya biashara bora.',
       'onboarding_manage_title': 'Simamia Shamba Lako',

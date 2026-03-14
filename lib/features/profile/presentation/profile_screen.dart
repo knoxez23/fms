@@ -290,7 +290,7 @@ class ProfileScreen extends StatelessWidget {
                           onTap: () {
                             showAboutDialog(
                               context: context,
-                              applicationName: 'Pamoja Twalima',
+                              applicationName: 'Farmly',
                               applicationVersion: '1.0.0',
                               children: [
                                 Text(context.tr('about_app_desc')),

@@ -71,7 +71,7 @@ class PamojaApp extends StatelessWidget {
       child: AnimatedBuilder(
         animation: appSettings,
         builder: (context, _) => MaterialApp(
-          title: 'Pamoja Twalima',
+          title: 'Farmly',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
@@ -171,18 +171,16 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.agriculture,
-              size: 80,
-              color: theme.colorScheme.primary,
+            Image.asset(
+              'assets/branding/farmly_app_icon.png',
+              width: 80,
+              height: 80,
             ),
             const SizedBox(height: 16),
-            Text(
-              'Pamoja Twalima',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
-              ),
+            Image.asset(
+              'assets/branding/farmly_wordmark.png',
+              width: 260,
+              height: 90,
             ),
             const SizedBox(height: 24),
             SizedBox(
