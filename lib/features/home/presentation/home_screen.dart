@@ -445,14 +445,24 @@ class _HomeViewState extends State<HomeView>
   int _notificationCount(Map<String, dynamic> summary) {
     final lowStock = (summary['lowStockItems'] as num?)?.toInt() ?? 0;
     final pendingTasks = (summary['pendingTasks'] as num?)?.toInt() ?? 0;
+    final smartReminders = (summary['smartReminderCount'] as num?)?.toInt() ?? 0;
+    final freshnessRisk = (summary['freshnessRiskCount'] as num?)?.toInt() ?? 0;
     return (lowStock > 0 ? 1 : 0) +
         (pendingTasks > 0 ? 1 : 0) +
+        (smartReminders > 0 ? 1 : 0) +
+        (freshnessRisk > 0 ? 1 : 0) +
         (_weatherSnapshot?.current == null ? 1 : 0);
   }
 
   void _openNotifications(Map<String, dynamic> summary) {
     final lowStock = (summary['lowStockItems'] as num?)?.toInt() ?? 0;
     final pendingTasks = (summary['pendingTasks'] as num?)?.toInt() ?? 0;
+    final smartReminders = (summary['smartReminderCount'] as num?)?.toInt() ?? 0;
+    final smartReminderPreview =
+        (summary['smartReminderPreview'] ?? '').toString().trim();
+    final freshnessRisk = (summary['freshnessRiskCount'] as num?)?.toInt() ?? 0;
+    final pendingCollections =
+        (summary['pendingCollectionsCount'] as num?)?.toInt() ?? 0;
     final weatherMissing = _weatherSnapshot?.current == null;
     final hasError = summary['error'] == true;
     final items = <({IconData icon, String title, String subtitle})>[
@@ -473,6 +483,28 @@ class _HomeViewState extends State<HomeView>
           icon: Icons.schedule_outlined,
           title: context.tr('pending_tasks_alert'),
           subtitle: '$pendingTasks task(s) are still pending completion.',
+        ),
+      if (smartReminders > 0)
+        (
+          icon: Icons.notifications_active_outlined,
+          title: 'Operational reminders',
+          subtitle: smartReminderPreview.isEmpty
+              ? '$smartReminders farm reminders need attention.'
+              : smartReminderPreview,
+        ),
+      if (freshnessRisk > 0)
+        (
+          icon: Icons.timelapse_outlined,
+          title: 'Fresh output should move now',
+          subtitle:
+              '$freshnessRisk milk/egg stock lot(s) are aging in inventory.',
+        ),
+      if (pendingCollections > 0)
+        (
+          icon: Icons.payments_outlined,
+          title: 'Collections follow-up',
+          subtitle:
+              '$pendingCollections sale${pendingCollections == 1 ? '' : 's'} still await payment confirmation.',
         ),
       if (weatherMissing)
         (
@@ -706,8 +738,25 @@ class _TodayBlockersSection extends StatelessWidget {
         (summary['eggsStockOnHand'] as num?)?.toDouble() ?? 0.0;
     final readyOutputUnits =
         unsoldMilkToday + unsoldEggsToday + milkStockOnHand + eggsStockOnHand;
+    final freshnessRiskCount =
+        (summary['freshnessRiskCount'] as num?)?.toInt() ?? 0;
+    final freshnessPriorityLabel =
+        (summary['freshnessPriorityLabel'] ?? '').toString().trim();
+    final pendingCollectionsCount =
+        (summary['pendingCollectionsCount'] as num?)?.toInt() ?? 0;
 
     final blockers = <_TodayBlockerItem>[
+      if (freshnessRiskCount > 0)
+        _TodayBlockerItem(
+          label:
+              '$freshnessRiskCount fresh-output lot${freshnessRiskCount == 1 ? '' : 's'} aging',
+          detail: freshnessPriorityLabel.isEmpty
+              ? 'Move the oldest milk or eggs into a sale first.'
+              : freshnessPriorityLabel,
+          color: Colors.deepOrange,
+          icon: Icons.timelapse_outlined,
+          onTap: onOpenBusiness,
+        ),
       if (readyOutputUnits > 0)
         _TodayBlockerItem(
           label: readyOutputUnits == readyOutputUnits.roundToDouble()
@@ -766,6 +815,15 @@ class _TodayBlockersSection extends StatelessWidget {
           color: Colors.redAccent,
           icon: Icons.inventory_2_outlined,
           onTap: onOpenInventory,
+        ),
+      if (pendingCollectionsCount > 0)
+        _TodayBlockerItem(
+          label:
+              '$pendingCollectionsCount collection${pendingCollectionsCount == 1 ? '' : 's'} to follow up',
+          detail: 'Close unpaid sales so cashflow stays reliable.',
+          color: Colors.indigo,
+          icon: Icons.payments_outlined,
+          onTap: onOpenBusiness,
         ),
     ];
 

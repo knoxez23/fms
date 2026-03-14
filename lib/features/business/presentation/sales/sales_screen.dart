@@ -516,6 +516,30 @@ class _BusinessFinancePanel extends StatelessWidget {
         ((summary['eggsStockOnHand'] as num?) ?? 0).toDouble();
     final outputStockValue =
         ((summary['outputStockValue'] as num?) ?? 0).toDouble();
+    final pendingCollectionsValue =
+        ((summary['pendingCollectionsValue'] as num?) ?? 0).toDouble();
+    final restockCostEstimate =
+        ((summary['restockCostEstimate'] as num?) ?? 0).toDouble();
+    final projectedCashBuffer =
+        ((summary['projectedCashBuffer'] as num?) ?? 0).toDouble();
+    final freshnessRiskCount =
+        ((summary['freshnessRiskCount'] as num?) ?? 0).toInt();
+    final freshnessPriorityLabel =
+        (summary['freshnessPriorityLabel'] ?? '').toString().trim();
+    final oldestFreshOutputAgeHours =
+        ((summary['oldestFreshOutputAgeHours'] as num?) ?? 0).toDouble();
+    final verificationScore =
+        ((summary['verificationScore'] as num?) ?? 0).toInt();
+    final verificationBand =
+        (summary['verificationBand'] ?? 'Needs work').toString();
+    final marketplaceTrustScore =
+        ((summary['marketplaceTrustScore'] as num?) ?? 0).toInt();
+    final marketplaceTrustBand =
+        (summary['marketplaceTrustBand'] ?? 'Needs work').toString();
+    final lendingReadinessScore =
+        ((summary['lendingReadinessScore'] as num?) ?? 0).toInt();
+    final lendingReadinessBand =
+        (summary['lendingReadinessBand'] ?? 'Needs work').toString();
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -585,6 +609,22 @@ class _BusinessFinancePanel extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 14),
+          _FinanceOutlookCard(
+            theme: theme,
+            pendingCollectionsValue: pendingCollectionsValue,
+            restockCostEstimate: restockCostEstimate,
+            projectedCashBuffer: projectedCashBuffer,
+            freshnessRiskCount: freshnessRiskCount,
+            freshnessPriorityLabel: freshnessPriorityLabel,
+            oldestFreshOutputAgeHours: oldestFreshOutputAgeHours,
+            verificationScore: verificationScore,
+            verificationBand: verificationBand,
+            marketplaceTrustScore: marketplaceTrustScore,
+            marketplaceTrustBand: marketplaceTrustBand,
+            lendingReadinessScore: lendingReadinessScore,
+            lendingReadinessBand: lendingReadinessBand,
           ),
           const SizedBox(height: 14),
           _OutputPipelineCard(
@@ -705,6 +745,222 @@ class _BusinessFinancePanel extends StatelessWidget {
     final date = value == null ? null : DateTime.tryParse(value);
     if (date == null) return 'No date';
     return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+class _FinanceOutlookCard extends StatelessWidget {
+  final ThemeData theme;
+  final double pendingCollectionsValue;
+  final double restockCostEstimate;
+  final double projectedCashBuffer;
+  final int freshnessRiskCount;
+  final String freshnessPriorityLabel;
+  final double oldestFreshOutputAgeHours;
+  final int verificationScore;
+  final String verificationBand;
+  final int marketplaceTrustScore;
+  final String marketplaceTrustBand;
+  final int lendingReadinessScore;
+  final String lendingReadinessBand;
+
+  const _FinanceOutlookCard({
+    required this.theme,
+    required this.pendingCollectionsValue,
+    required this.restockCostEstimate,
+    required this.projectedCashBuffer,
+    required this.freshnessRiskCount,
+    required this.freshnessPriorityLabel,
+    required this.oldestFreshOutputAgeHours,
+    required this.verificationScore,
+    required this.verificationBand,
+    required this.marketplaceTrustScore,
+    required this.marketplaceTrustBand,
+    required this.lendingReadinessScore,
+    required this.lendingReadinessBand,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Outlook',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _FinanceMetricTile(
+                  theme: theme,
+                  label: 'To collect',
+                  value: 'KSh ${pendingCollectionsValue.toStringAsFixed(0)}',
+                  color: Colors.indigo,
+                  icon: Icons.payments_outlined,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _FinanceMetricTile(
+                  theme: theme,
+                  label: 'Restock pressure',
+                  value: 'KSh ${restockCostEstimate.toStringAsFixed(0)}',
+                  color: Colors.deepOrange,
+                  icon: Icons.shopping_bag_outlined,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: projectedCashBuffer >= 0
+                  ? Colors.teal.withValues(alpha: 0.1)
+                  : Colors.redAccent.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  projectedCashBuffer >= 0
+                      ? Icons.account_balance_wallet_outlined
+                      : Icons.warning_amber_rounded,
+                  color: projectedCashBuffer >= 0
+                      ? Colors.teal
+                      : Colors.redAccent,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    projectedCashBuffer >= 0
+                        ? 'Projected operating buffer stays positive after collections and likely restocking.'
+                        : 'Collections or margins need attention. Current restocking pressure would push cash negative.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'KSh ${projectedCashBuffer.toStringAsFixed(0)}',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: projectedCashBuffer >= 0
+                        ? Colors.teal
+                        : Colors.redAccent,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (freshnessRiskCount > 0 || freshnessPriorityLabel.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.timelapse_outlined, color: Colors.amber.shade900),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      freshnessPriorityLabel.isEmpty
+                          ? '$freshnessRiskCount fresh-output lot(s) need faster selling.'
+                          : '$freshnessPriorityLabel. Oldest stock is about ${oldestFreshOutputAgeHours.toStringAsFixed(0)}h old.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.amber.shade900,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _ScoreChip(
+                theme: theme,
+                label: 'Verification $verificationScore',
+                detail: verificationBand,
+                color: Colors.blueGrey,
+              ),
+              _ScoreChip(
+                theme: theme,
+                label: 'Market trust $marketplaceTrustScore',
+                detail: marketplaceTrustBand,
+                color: Colors.green,
+              ),
+              _ScoreChip(
+                theme: theme,
+                label: 'Lending readiness $lendingReadinessScore',
+                detail: lendingReadinessBand,
+                color: Colors.purple,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScoreChip extends StatelessWidget {
+  final ThemeData theme;
+  final String label;
+  final String detail;
+  final Color color;
+
+  const _ScoreChip({
+    required this.theme,
+    required this.label,
+    required this.detail,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: RichText(
+        text: TextSpan(
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w700,
+          ),
+          children: [
+            TextSpan(text: label),
+            TextSpan(
+              text: ' • $detail',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: color.withValues(alpha: 0.85),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

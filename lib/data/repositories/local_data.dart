@@ -107,6 +107,24 @@ class LocalData {
     );
     final lowStockItems = Sqflite.firstIntValue(lowStockResult) ?? 0;
 
+    final restockCostResult = await db.rawQuery(
+      '''
+      SELECT SUM(
+        CASE
+          WHEN COALESCE(min_stock, 0) > COALESCE(quantity, 0)
+            AND unit_price IS NOT NULL
+          THEN (COALESCE(min_stock, 0) - COALESCE(quantity, 0)) * unit_price
+          ELSE 0
+        END
+      ) AS total
+      FROM inventory
+      ${activeUserId == null ? '' : 'WHERE user_id = ?'}
+      ''',
+      activeUserId == null ? null : [activeUserId],
+    );
+    final restockCostEstimate =
+        (restockCostResult.first['total'] as num?)?.toDouble() ?? 0.0;
+
     final productionTodayRows = await db.rawQuery(
       '''
       SELECT
@@ -188,6 +206,65 @@ class LocalData {
         (milkToday - milkSoldToday) > 0 ? (milkToday - milkSoldToday) : 0.0;
     final unsoldEggsToday =
         (eggsToday - eggsSoldToday) > 0 ? (eggsToday - eggsSoldToday) : 0.0;
+
+    final outputStockItems = await db.query(
+      'inventory',
+      columns: [
+        'item_name',
+        'category',
+        'quantity',
+        'unit',
+        'last_restock',
+        'last_updated',
+      ],
+      where: activeUserId == null
+          ? 'COALESCE(quantity, 0) > 0'
+          : 'COALESCE(quantity, 0) > 0 AND user_id = ?',
+      whereArgs: activeUserId == null ? null : [activeUserId],
+    );
+    final freshnessNow = DateTime.now();
+    double oldestFreshOutputAgeHours = 0;
+    var freshnessRiskCount = 0;
+    String freshnessPriorityLabel = '';
+    for (final row in outputStockItems) {
+      final normalized = Map<String, Object?>.from(row);
+      if (!_isMilkInventoryRow(normalized) && !_isEggInventoryRow(normalized)) {
+        continue;
+      }
+      final quantity = (normalized['quantity'] as num?)?.toDouble() ?? 0.0;
+      if (quantity <= 0) continue;
+      final timestampValue =
+          (normalized['last_restock'] ?? normalized['last_updated'])?.toString();
+      final timestamp = timestampValue == null
+          ? null
+          : DateTime.tryParse(timestampValue)?.toLocal();
+      final ageHours = _ageInHours(timestamp, freshnessNow);
+      if (ageHours > oldestFreshOutputAgeHours) {
+        oldestFreshOutputAgeHours = ageHours;
+        freshnessPriorityLabel =
+            'Sell ${_formatStockQuantity(quantity, (normalized['unit'] ?? 'units').toString())} ${(normalized['item_name'] ?? 'output').toString().toLowerCase()} first';
+      }
+      final riskThresholdHours = _isMilkInventoryRow(normalized) ? 18.0 : 72.0;
+      if (ageHours >= riskThresholdHours) {
+        freshnessRiskCount++;
+      }
+    }
+
+    final pendingCollectionsResult = await db.rawQuery(
+      '''
+      SELECT
+        COUNT(*) as sale_count,
+        SUM(COALESCE(total_amount, 0)) as total
+      FROM sales
+      WHERE LOWER(COALESCE(payment_status, 'pending')) != 'paid'
+      ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null ? null : [activeUserId],
+    );
+    final pendingCollectionsCount =
+        (pendingCollectionsResult.first['sale_count'] as num?)?.toInt() ?? 0;
+    final pendingCollectionsValue =
+        (pendingCollectionsResult.first['total'] as num?)?.toDouble() ?? 0.0;
 
     final todaysFeedingResult = await db.rawQuery(
       '''
@@ -347,6 +424,51 @@ class LocalData {
     );
     final cropInputGaps = Sqflite.firstIntValue(cropInputGapResult) ?? 0;
 
+    final reminderSignals = <String>[
+      if (feedReadinessGaps > 0)
+        '$feedReadinessGaps feed gap${feedReadinessGaps == 1 ? '' : 's'}',
+      if (cropInputGaps > 0)
+        '$cropInputGaps crop input gap${cropInputGaps == 1 ? '' : 's'}',
+      if (productionReviewsNext7Days > 0)
+        '$productionReviewsNext7Days production review${productionReviewsNext7Days == 1 ? '' : 's'}',
+      if (harvestReadyCrops > 0)
+        '$harvestReadyCrops harvest-ready crop${harvestReadyCrops == 1 ? '' : 's'}',
+      if (pendingCollectionsCount > 0)
+        '$pendingCollectionsCount unpaid sale${pendingCollectionsCount == 1 ? '' : 's'}',
+      if (freshnessRiskCount > 0)
+        '$freshnessRiskCount fresh output lot${freshnessRiskCount == 1 ? '' : 's'} to move now',
+    ];
+    final smartReminderPreview = reminderSignals.take(3).join(' • ');
+    final monthlyNetCashFlow = monthlySales - monthlyExpenses;
+    final projectedCashBuffer =
+        monthlyNetCashFlow + pendingCollectionsValue - restockCostEstimate;
+    final verificationScore = _computeVerificationScore(
+      cropCount: cropCount,
+      animalCount: animalCount,
+      inventoryCount: inventoryCount,
+      pendingTasksCount: pendingTasksCount,
+      todaysFeedings: todaysFeedings,
+      lowStockItems: lowStockItems,
+      monthlySales: monthlySales,
+      monthlyExpenses: monthlyExpenses,
+      pendingCollectionsValue: pendingCollectionsValue,
+      productionValueToday: productionValueToday,
+    );
+    final marketplaceTrustScore = _computeMarketplaceTrustScore(
+      verificationScore: verificationScore,
+      pendingCollectionsValue: pendingCollectionsValue,
+      monthlySales: monthlySales,
+      lowStockItems: lowStockItems,
+      oldestFreshOutputAgeHours: oldestFreshOutputAgeHours,
+    );
+    final lendingReadinessScore = _computeLendingReadinessScore(
+      verificationScore: verificationScore,
+      marketplaceTrustScore: marketplaceTrustScore,
+      projectedCashBuffer: projectedCashBuffer,
+      monthlyNetCashFlow: monthlyNetCashFlow,
+      pendingCollectionsValue: pendingCollectionsValue,
+    );
+
     return {
       "crops": cropCount,
       "livestock": animalCount,
@@ -357,7 +479,7 @@ class LocalData {
       "expensesToday": expensesToday,
       "monthlyExpenses": monthlyExpenses,
       "netCashFlowToday": salesToday - expensesToday,
-      "monthlyNetCashFlow": monthlySales - monthlyExpenses,
+      "monthlyNetCashFlow": monthlyNetCashFlow,
       "lowStockItems": lowStockItems,
       "milkToday": milkToday,
       "eggsToday": eggsToday,
@@ -368,6 +490,9 @@ class LocalData {
       "unsoldMilkToday": unsoldMilkToday,
       "unsoldEggsToday": unsoldEggsToday,
       "outputStockValue": outputStockValue,
+      "oldestFreshOutputAgeHours": oldestFreshOutputAgeHours,
+      "freshnessRiskCount": freshnessRiskCount,
+      "freshnessPriorityLabel": freshnessPriorityLabel,
       "productionValueToday": productionValueToday,
       "todaysFeedings": todaysFeedings,
       "todaysFeedingPreview": todaysFeedingPreview,
@@ -378,6 +503,18 @@ class LocalData {
       "harvestReadyCrops": harvestReadyCrops,
       "feedReadinessGaps": feedReadinessGaps,
       "cropInputGaps": cropInputGaps,
+      "pendingCollectionsCount": pendingCollectionsCount,
+      "pendingCollectionsValue": pendingCollectionsValue,
+      "restockCostEstimate": restockCostEstimate,
+      "projectedCashBuffer": projectedCashBuffer,
+      "smartReminderCount": reminderSignals.length,
+      "smartReminderPreview": smartReminderPreview,
+      "verificationScore": verificationScore,
+      "verificationBand": _scoreBand(verificationScore),
+      "marketplaceTrustScore": marketplaceTrustScore,
+      "marketplaceTrustBand": _scoreBand(marketplaceTrustScore),
+      "lendingReadinessScore": lendingReadinessScore,
+      "lendingReadinessBand": _scoreBand(lendingReadinessScore),
     };
   }
 
@@ -398,6 +535,109 @@ class LocalData {
       }
     }
     return '';
+  }
+
+  static bool _isMilkInventoryRow(Map<String, Object?> row) {
+    final itemName = (row['item_name'] ?? '').toString().trim().toLowerCase();
+    final category = (row['category'] ?? '').toString().trim().toLowerCase();
+    return itemName == 'milk' ||
+        (category == 'dairy' && itemName.contains('milk'));
+  }
+
+  static bool _isEggInventoryRow(Map<String, Object?> row) {
+    final itemName = (row['item_name'] ?? '').toString().trim().toLowerCase();
+    final category = (row['category'] ?? '').toString().trim().toLowerCase();
+    return itemName == 'egg' ||
+        itemName == 'eggs' ||
+        (category == 'poultry' && itemName.contains('egg'));
+  }
+
+  static double _ageInHours(DateTime? from, DateTime to) {
+    if (from == null) return 0;
+    return to.difference(from).inMinutes / 60.0;
+  }
+
+  static String _formatStockQuantity(double quantity, String unit) {
+    final quantityText = quantity == quantity.roundToDouble()
+        ? quantity.toInt().toString()
+        : quantity.toStringAsFixed(1);
+    return '$quantityText $unit';
+  }
+
+  static int _computeVerificationScore({
+    required int cropCount,
+    required int animalCount,
+    required int inventoryCount,
+    required int pendingTasksCount,
+    required int todaysFeedings,
+    required int lowStockItems,
+    required double monthlySales,
+    required double monthlyExpenses,
+    required double pendingCollectionsValue,
+    required double productionValueToday,
+  }) {
+    var score = 20;
+    if (cropCount > 0 || animalCount > 0) score += 18;
+    if (inventoryCount > 0) score += 12;
+    if (monthlySales > 0) score += 15;
+    if (monthlyExpenses > 0) score += 10;
+    if (productionValueToday > 0) score += 10;
+    if (todaysFeedings > 0) score += 8;
+    if (pendingTasksCount <= 3) {
+      score += 7;
+    } else if (pendingTasksCount <= 7) {
+      score += 3;
+    }
+    if (lowStockItems == 0) score += 8;
+    if (pendingCollectionsValue <= monthlySales * 0.35) {
+      score += 12;
+    } else if (pendingCollectionsValue <= monthlySales * 0.65) {
+      score += 6;
+    }
+    return score.clamp(0, 100);
+  }
+
+  static int _computeMarketplaceTrustScore({
+    required int verificationScore,
+    required double pendingCollectionsValue,
+    required double monthlySales,
+    required int lowStockItems,
+    required double oldestFreshOutputAgeHours,
+  }) {
+    var score = (verificationScore * 0.55).round();
+    if (monthlySales > 0 && pendingCollectionsValue <= monthlySales * 0.25) {
+      score += 20;
+    } else if (monthlySales > 0 &&
+        pendingCollectionsValue <= monthlySales * 0.5) {
+      score += 10;
+    }
+    if (lowStockItems <= 2) score += 10;
+    if (oldestFreshOutputAgeHours <= 24) score += 15;
+    return score.clamp(0, 100);
+  }
+
+  static int _computeLendingReadinessScore({
+    required int verificationScore,
+    required int marketplaceTrustScore,
+    required double projectedCashBuffer,
+    required double monthlyNetCashFlow,
+    required double pendingCollectionsValue,
+  }) {
+    var score =
+        ((verificationScore * 0.45) + (marketplaceTrustScore * 0.25)).round();
+    if (monthlyNetCashFlow >= 0) score += 15;
+    if (projectedCashBuffer >= 0) score += 10;
+    if (pendingCollectionsValue <= (monthlyNetCashFlow.abs() + 1) * 1.5) {
+      score += 5;
+    }
+    return score.clamp(0, 100);
+  }
+
+  static String _scoreBand(int score) {
+    if (score >= 80) return 'Strong';
+    if (score >= 60) return 'Building';
+    if (score >= 40) return 'Emerging';
+    return 'Needs work';
   }
 
   static Future<List<OperationalInsight>> getOperationalInsights({
@@ -514,7 +754,45 @@ class LocalData {
     final readyOutputQuantity =
         (outputReadyRows.first['ready_quantity'] as num?)?.toDouble() ?? 0.0;
 
+    final agingOutputRows = await db.rawQuery(
+      '''
+      SELECT item_name, category, quantity, unit, last_restock, last_updated
+      FROM inventory
+      WHERE COALESCE(quantity, 0) > 0
+      ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null ? null : [activeUserId],
+    );
+    var freshnessRiskCount = 0;
+    for (final row in agingOutputRows) {
+      final normalized = Map<String, Object?>.from(row);
+      if (!_isMilkInventoryRow(normalized) && !_isEggInventoryRow(normalized)) {
+        continue;
+      }
+      final timestampValue =
+          (normalized['last_restock'] ?? normalized['last_updated'])?.toString();
+      final timestamp = timestampValue == null
+          ? null
+          : DateTime.tryParse(timestampValue)?.toLocal();
+      final ageHours = _ageInHours(timestamp, now);
+      if ((_isMilkInventoryRow(normalized) && ageHours >= 18) ||
+          (_isEggInventoryRow(normalized) && ageHours >= 72)) {
+        freshnessRiskCount++;
+      }
+    }
+
     final insights = <OperationalInsight>[
+      if (freshnessRiskCount > 0)
+        OperationalInsight(
+          id: 'freshness_risk',
+          title:
+              '$freshnessRiskCount fresh-output lot${freshnessRiskCount == 1 ? '' : 's'} need selling now',
+          description:
+              'Milk and eggs already in stock are aging. Move the oldest output first so trust, quality, and pricing stay strong.',
+          severity: OperationalInsightSeverity.critical,
+          action: OperationalInsightAction.business,
+          actionLabel: 'Move output',
+        ),
       if (overdueTasks > 0)
         OperationalInsight(
           id: 'overdue_tasks',

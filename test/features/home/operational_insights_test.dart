@@ -198,4 +198,55 @@ void main() {
     expect(summary['outputStockValue'], 800.0);
     expect(insights.map((item) => item.id), contains('output_ready'));
   });
+
+  test('summarizes finance outlook, reminders, and freshness pressure',
+      () async {
+    final db = await DatabaseHelper().database;
+    final now = DateTime.now();
+
+    await db.insert('inventory', {
+      'item_name': 'Milk',
+      'category': 'Dairy',
+      'quantity': 12,
+      'unit': 'liters',
+      'min_stock': 0,
+      'unit_price': 55,
+      'total_value': 660,
+      'last_restock': now.subtract(const Duration(hours: 20)).toIso8601String(),
+    });
+    await db.insert('inventory', {
+      'item_name': 'Layer Mash',
+      'category': 'Animal Feed',
+      'quantity': 1,
+      'min_stock': 4,
+      'unit': 'bags',
+      'unit_price': 1800,
+    });
+    await db.insert('sales', {
+      'product_name': 'Eggs',
+      'quantity': 10,
+      'total_amount': 150,
+      'sale_date': now.toIso8601String(),
+      'payment_status': 'pending',
+    });
+    await db.insert('expenses', {
+      'category': 'Feed',
+      'item_name': 'Hay',
+      'amount': 300,
+      'expense_date': now.toIso8601String(),
+    });
+
+    final summary = await LocalData.getFarmSummary();
+    final insights = await LocalData.getOperationalInsights(limit: 10);
+
+    expect(summary['freshnessRiskCount'], 1);
+    expect(summary['pendingCollectionsCount'], 1);
+    expect(summary['pendingCollectionsValue'], 150.0);
+    expect(summary['restockCostEstimate'], 5400.0);
+    expect(summary['smartReminderCount'], greaterThanOrEqualTo(2));
+    expect(summary['verificationScore'], greaterThan(0));
+    expect(summary['marketplaceTrustScore'], greaterThan(0));
+    expect(summary['lendingReadinessScore'], greaterThan(0));
+    expect(insights.map((item) => item.id), contains('freshness_risk'));
+  });
 }
