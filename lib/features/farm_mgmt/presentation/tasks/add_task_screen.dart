@@ -57,13 +57,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   final List<String> _defaultAssignees = [
     'Self',
-    'John M.',
-    'Peter K.',
-    'Mary W.',
     'Team'
   ];
   List<String> _assignees = [];
   Map<String, String> _staffIdByName = const {};
+  Map<String, Map<String, dynamic>> _staffByName = const {};
 
   @override
   void initState() {
@@ -83,14 +81,23 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       final rows = await _contactService.list(ContactType.staffMember);
       if (!mounted) return;
       final entries = rows
-          .map((e) => (
-                name: (e['name'] ?? '').toString(),
-                id: (e['id'] ?? '').toString(),
-              ))
-          .where((entry) => entry.name.isNotEmpty && entry.id.isNotEmpty)
+          .map((e) => Map<String, dynamic>.from(e))
+          .where(
+            (entry) =>
+                (entry['name'] ?? '').toString().trim().isNotEmpty &&
+                (entry['id'] ?? '').toString().trim().isNotEmpty,
+          )
           .toList();
       setState(() {
-        _staffIdByName = {for (final entry in entries) entry.name: entry.id};
+        _staffIdByName = {
+          for (final entry in entries)
+            (entry['name'] ?? '').toString().trim():
+                (entry['id'] ?? '').toString().trim(),
+        };
+        _staffByName = {
+          for (final entry in entries)
+            (entry['name'] ?? '').toString().trim(): entry,
+        };
         final set = {..._defaultAssignees, ..._staffIdByName.keys};
         _assignees = set.toList()..sort();
         if (!_assignees.contains(_selectedAssignee)) {
@@ -233,9 +240,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              initialValue: _assignees.contains(_selectedAssignee)
-                                  ? _selectedAssignee
-                                  : (_assignees.isNotEmpty ? _assignees.first : null),
+                              initialValue:
+                                  _assignees.contains(_selectedAssignee)
+                                      ? _selectedAssignee
+                                      : (_assignees.isNotEmpty
+                                          ? _assignees.first
+                                          : null),
                               items: _assignees.map((assignee) {
                                 return DropdownMenuItem(
                                   value: assignee,
@@ -269,6 +279,33 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                           ),
                         ],
                       ),
+                      if (_selectedAssignee != 'Self' &&
+                          _selectedAssignee != 'Team' &&
+                          _staffByName.containsKey(_selectedAssignee)) ...[
+                        const SizedBox(height: 12),
+                        _StaffAssignmentHint(
+                          staff: _staffByName[_selectedAssignee]!,
+                          theme: theme,
+                        ),
+                      ] else if (_selectedAssignee == 'Team') ...[
+                        const SizedBox(height: 12),
+                        _AssignmentHintCard(
+                          theme: theme,
+                          icon: Icons.groups_2_outlined,
+                          title: 'Assigned to shared team queue',
+                          subtitle:
+                              'Use this when any available worker can pick it up. Managers can later reassign if needed.',
+                        ),
+                      ] else if (_selectedAssignee == 'Self') ...[
+                        const SizedBox(height: 12),
+                        _AssignmentHintCard(
+                          theme: theme,
+                          icon: Icons.person_outline,
+                          title: 'Assigned to you',
+                          subtitle:
+                              'Use Self for work you plan to do directly so the team queue stays clean.',
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -462,6 +499,87 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     _estimatedTimeController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+}
+
+class _StaffAssignmentHint extends StatelessWidget {
+  const _StaffAssignmentHint({
+    required this.staff,
+    required this.theme,
+  });
+
+  final Map<String, dynamic> staff;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final role = (staff['role'] ?? 'Worker').toString();
+    final status = (staff['employment_status'] ?? 'active').toString();
+    final area = (staff['assignment_area'] ?? '').toString().trim();
+    final canLogin = staff['can_login'] == true;
+
+    return _AssignmentHintCard(
+      theme: theme,
+      icon: Icons.badge_outlined,
+      title: '${staff['name'] ?? 'Team member'} • $role',
+      subtitle: [
+        if (area.isNotEmpty) area,
+        status,
+        if (canLogin) 'App access enabled',
+      ].join(' • '),
+    );
+  }
+}
+
+class _AssignmentHintCard extends StatelessWidget {
+  const _AssignmentHintCard({
+    required this.theme,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final ThemeData theme;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: theme.colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
