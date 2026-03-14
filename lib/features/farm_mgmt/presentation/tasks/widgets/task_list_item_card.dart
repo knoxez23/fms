@@ -6,6 +6,8 @@ class TaskListItemCard extends StatelessWidget {
   final TaskEntity task;
   final VoidCallback? onTap;
   final VoidCallback? onToggleComplete;
+  final VoidCallback? onQuickAction;
+  final String? quickActionLabel;
   final bool compact;
   final bool showOriginBadge;
 
@@ -14,6 +16,8 @@ class TaskListItemCard extends StatelessWidget {
     required this.task,
     this.onTap,
     this.onToggleComplete,
+    this.onQuickAction,
+    this.quickActionLabel,
     this.compact = false,
     this.showOriginBadge = true,
   });
@@ -94,6 +98,21 @@ class TaskListItemCard extends StatelessWidget {
                 ],
               ],
             ),
+            if (!compact &&
+                onQuickAction != null &&
+                (quickActionLabel ?? '').trim().isNotEmpty) ...[
+              const SizedBox(height: 6),
+              TextButton.icon(
+                onPressed: onQuickAction,
+                style: TextButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                  minimumSize: const Size(0, 32),
+                ),
+                icon: const Icon(Icons.play_circle_outline, size: 18),
+                label: Text(quickActionLabel!),
+              ),
+            ],
           ],
         ),
         trailing: Text(

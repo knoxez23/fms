@@ -5,8 +5,12 @@ import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
 import 'package:pamoja_twalima/data/network/api_service.dart';
 import 'package:pamoja_twalima/data/services/contact_directory_service.dart';
+import 'package:pamoja_twalima/features/business/presentation/sales/sales_screen.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/presentation/animals/animal_feeding_calendar_screen.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/presentation/animals/production_logging_screen.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/domain/entities/task_entity.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/bloc/tasks/tasks_bloc.dart';
+import 'package:pamoja_twalima/features/inventory/presentation/inventory_screen.dart';
 
 class TaskDetailScreen extends StatelessWidget {
   final TaskEntity entity;
@@ -79,6 +83,15 @@ class TaskDetailScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
             ],
+            if (_workflowLabel(item) != null) ...[
+              _WorkflowActionCard(
+                theme: theme,
+                label: _workflowLabel(item)!,
+                message: _workflowMessage(item),
+                onOpen: () => _openWorkflow(context, item),
+              ),
+              const SizedBox(height: 16),
+            ],
             _ActionRow(
               theme: theme,
               task: item,
@@ -129,9 +142,8 @@ class TaskDetailScreen extends StatelessWidget {
     final comment = await _promptForNote(
       context,
       title: status == 'approved' ? 'Approve Task' : 'Send Back for Changes',
-      label: status == 'approved'
-          ? 'Manager note'
-          : 'What needs to be changed?',
+      label:
+          status == 'approved' ? 'Manager note' : 'What needs to be changed?',
       hint: status == 'approved'
           ? 'Optional sign-off note for the worker'
           : 'Tell the worker what still needs attention',
@@ -271,7 +283,98 @@ class TaskDetailScreen extends StatelessWidget {
     if (_canManageTask(currentRole)) return true;
     if (task.assignedTo == null || task.assignedTo!.trim().isEmpty) return true;
     final assignee = task.assignedTo!.trim().toLowerCase();
-    return assignee == 'self' || assignee == currentUserName.trim().toLowerCase();
+    return assignee == 'self' ||
+        assignee == currentUserName.trim().toLowerCase();
+  }
+
+  String? _workflowLabel(TaskEntity task) {
+    switch (_workflowType(task)) {
+      case _TaskWorkflowType.feeding:
+        return 'Open feeding workspace';
+      case _TaskWorkflowType.production:
+        return 'Open production logging';
+      case _TaskWorkflowType.inventory:
+        return 'Open inventory workspace';
+      case _TaskWorkflowType.sales:
+        return 'Open business sales';
+      case _TaskWorkflowType.none:
+        return null;
+    }
+  }
+
+  String _workflowMessage(TaskEntity task) {
+    switch (_workflowType(task)) {
+      case _TaskWorkflowType.feeding:
+        return 'Log ration work directly from the feeding calendar so stock and care records stay linked.';
+      case _TaskWorkflowType.production:
+        return 'Go straight into production logging and turn output into stock or sales faster.';
+      case _TaskWorkflowType.inventory:
+        return 'Check stock levels or restock from the inventory workspace tied to this task.';
+      case _TaskWorkflowType.sales:
+        return 'Open the business workspace to follow up buyers, collections, or output sales.';
+      case _TaskWorkflowType.none:
+        return '';
+    }
+  }
+
+  Future<void> _openWorkflow(BuildContext context, TaskEntity task) async {
+    Widget? screen;
+    switch (_workflowType(task)) {
+      case _TaskWorkflowType.feeding:
+        screen = const AnimalFeedingCalendarScreen();
+        break;
+      case _TaskWorkflowType.production:
+        screen = const ProductionLoggingScreen();
+        break;
+      case _TaskWorkflowType.inventory:
+        screen = const InventoryScreen();
+        break;
+      case _TaskWorkflowType.sales:
+        screen = const SalesScreen();
+        break;
+      case _TaskWorkflowType.none:
+        return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => screen!),
+    );
+    if (!context.mounted) return;
+    context.read<TasksBloc>().add(const TasksEvent.load());
+  }
+
+  _TaskWorkflowType _workflowType(TaskEntity task) {
+    final source = (task.sourceEventType ?? '').trim().toLowerCase();
+    final text =
+        '${task.title.value} ${task.description ?? ''}'.trim().toLowerCase();
+    if (source == 'feeding' ||
+        text.contains('feeding') ||
+        text.contains('ration') ||
+        text.contains('feed plan')) {
+      return _TaskWorkflowType.feeding;
+    }
+    if (source == 'production' ||
+        text.contains('production') ||
+        text.contains('milk') ||
+        text.contains('eggs')) {
+      return _TaskWorkflowType.production;
+    }
+    if (source == 'inventory' ||
+        text.contains('inventory') ||
+        text.contains('stock') ||
+        text.contains('restock')) {
+      return _TaskWorkflowType.inventory;
+    }
+    if (source == 'sale' ||
+        source == 'marketplace' ||
+        text.contains('sale') ||
+        text.contains('buyer') ||
+        text.contains('collection') ||
+        text.contains('payment')) {
+      return _TaskWorkflowType.sales;
+    }
+    return _TaskWorkflowType.none;
   }
 
   Future<void> _captureCompletion(BuildContext context, TaskEntity task) async {
@@ -307,8 +410,10 @@ class TaskDetailScreen extends StatelessWidget {
       approvalStatus: task.approvalRequired
           ? (isCompleting ? 'pending' : task.approvalStatus)
           : task.approvalStatus,
-      approvedBy: isCompleting && task.approvalRequired ? null : task.approvedBy,
-      approvedAt: isCompleting && task.approvalRequired ? null : task.approvedAt,
+      approvedBy:
+          isCompleting && task.approvalRequired ? null : task.approvedBy,
+      approvedAt:
+          isCompleting && task.approvalRequired ? null : task.approvedAt,
       approvalComment:
           isCompleting && task.approvalRequired ? null : task.approvalComment,
     );
@@ -372,6 +477,8 @@ class TaskDetailScreen extends StatelessWidget {
     }
   }
 }
+
+enum _TaskWorkflowType { none, feeding, production, inventory, sales }
 
 class _TaskCard extends StatelessWidget {
   final ThemeData theme;
@@ -485,12 +592,12 @@ class _TaskCard extends StatelessWidget {
             const SizedBox(height: 10),
             _InfoPanel(
               icon: Icons.feedback_outlined,
-              title:
-                  task.isRejected ? 'Manager feedback' : 'Approval note',
+              title: task.isRejected ? 'Manager feedback' : 'Approval note',
               body: task.approvalComment!.trim(),
             ),
           ],
-          if (task.assignedTo != null && task.assignedTo!.trim().isNotEmpty) ...[
+          if (task.assignedTo != null &&
+              task.assignedTo!.trim().isNotEmpty) ...[
             const SizedBox(height: 10),
             Row(
               children: [
@@ -630,6 +737,51 @@ class _ApprovalCard extends StatelessWidget {
   }
 }
 
+class _WorkflowActionCard extends StatelessWidget {
+  const _WorkflowActionCard({
+    required this.theme,
+    required this.label,
+    required this.message,
+    required this.onOpen,
+  });
+
+  final ThemeData theme;
+  final String label;
+  final String message;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.teal.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.teal.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Best next step',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(message, style: theme.textTheme.bodyMedium),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: onOpen,
+            icon: const Icon(Icons.open_in_new),
+            label: Text(label),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InfoPanel extends StatelessWidget {
   const _InfoPanel({
     required this.icon,
@@ -648,7 +800,8 @@ class _InfoPanel extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        color:
+            theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -712,7 +865,8 @@ class _ActionRow extends StatelessWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: onToggleStatus,
-                  icon: Icon(task.isCompleted ? Icons.refresh : Icons.check_circle),
+                  icon: Icon(
+                      task.isCompleted ? Icons.refresh : Icons.check_circle),
                   label: Text(completeLabel),
                 ),
               ),
@@ -740,9 +894,9 @@ class _ActionRow extends StatelessWidget {
                 (task.completionNotes ?? '').trim().isEmpty
                     ? 'Add worker note'
                     : 'Update worker note',
-                ),
               ),
             ),
+          ),
         ],
       ],
     );

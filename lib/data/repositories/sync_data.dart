@@ -176,6 +176,7 @@ class SyncData {
 
   // Task operations
   Future<List<Task>> getTasks() async {
+    await ensureRecurringOperationalTasks();
     if (await _isOnline()) {
       try {
         final response = await _apiService.get('/tasks');
@@ -264,21 +265,26 @@ class SyncData {
     }
   }
 
+  Future<void> ensureRecurringOperationalTasks() async {
+    final existingTasks = await LocalData.getTasks();
+    await _ensureDailyFeedingFollowUp(existingTasks);
+    await _ensureDailyHarvestFollowUp(existingTasks);
+  }
+
   Future<int> updateTask(Task task) async {
     final normalizedTask = _applyTaskApprovalDefaults(task);
     if (await _isOnline()) {
       try {
-        final response =
-            await _apiService.put('/tasks/${normalizedTask.id}',
-                data: _taskPayload(normalizedTask));
+        final response = await _apiService.put('/tasks/${normalizedTask.id}',
+            data: _taskPayload(normalizedTask));
         final updatedTask =
             Task.fromMap(response.data).copyWith(isSynced: true);
         return await LocalData.updateTask(updatedTask);
       } catch (e, st) {
         developer.log('updateTask API failed, updating local only: $e',
             error: e, stackTrace: st);
-        final updated =
-            await LocalData.updateTask(normalizedTask.copyWith(isSynced: false));
+        final updated = await LocalData.updateTask(
+            normalizedTask.copyWith(isSynced: false));
         final localId = normalizedTask.id;
         if (localId != null) {
           await LocalData.queueTaskAction(
@@ -687,6 +693,160 @@ class SyncData {
   // Market prices (still mock)
   Future<List<Map<String, String>>> getMarketPrices() async {
     return await LocalData.getMarketPrices();
+  }
+
+  Future<void> _ensureDailyFeedingFollowUp(List<Task> existingTasks) async {
+    final now = DateTime.now();
+    final todayKey = _dateKey(now);
+    final sourceId = 'daily-feeding-$todayKey';
+    final existing = _findTaskBySource(existingTasks, 'feeding', sourceId);
+    final schedules = await LocalData.getFeedingSchedules();
+    final activeSchedules = schedules.where((schedule) {
+      if (schedule.completed) return false;
+      final start = _parseDateOnly(schedule.startDate);
+      final end = _parseDateOnly(schedule.endDate);
+      return (start == null || !start.isAfter(_dayOnly(now))) &&
+          (end == null || !end.isBefore(_dayOnly(now)));
+    }).toList();
+    final logsToday = (await LocalData.getFeedingLogs())
+        .where((log) => _isSameDay(DateTime.tryParse(log.fedAt), now))
+        .length;
+    final remaining = activeSchedules.length - logsToday;
+
+    if (activeSchedules.isEmpty || remaining <= 0) {
+      await _completeRecurringTaskIfNeeded(existing);
+      return;
+    }
+
+    if (existing != null) return;
+
+    final task = Task(
+      clientUuid: _uuid.v4(),
+      title: 'Complete today\'s feeding plan',
+      description:
+          '$remaining feeding session${remaining == 1 ? '' : 's'} still need logging from ${activeSchedules.length} active schedule${activeSchedules.length == 1 ? '' : 's'}.',
+      dueDate: _dueTodayAt(hour: 18).toIso8601String(),
+      status: 'pending',
+      category: 'Animals',
+      assignedTo: 'Self',
+      sourceEventType: 'feeding',
+      sourceEventId: sourceId,
+      approvalRequired: false,
+      approvalStatus: 'not_required',
+      isSynced: false,
+    );
+    await _insertQueuedLocalTask(task);
+  }
+
+  Future<void> _ensureDailyHarvestFollowUp(List<Task> existingTasks) async {
+    final now = DateTime.now();
+    final sourceId = 'daily-harvest-${_dateKey(now)}';
+    final existing = _findTaskBySource(existingTasks, 'harvest', sourceId);
+    final crops = await LocalData.getCrops();
+    final harvestReadyCrops = crops.where((crop) {
+      final status = crop.status.trim().toLowerCase();
+      if (status == 'harvested') return false;
+      final harvestDate = DateTime.tryParse(crop.expectedHarvestDate ?? '');
+      if (harvestDate == null) return false;
+      return !harvestDate.isAfter(_dayOnly(now).add(const Duration(days: 7)));
+    }).toList();
+
+    if (harvestReadyCrops.isEmpty) {
+      await _completeRecurringTaskIfNeeded(existing);
+      return;
+    }
+
+    if (existing != null) return;
+
+    final task = Task(
+      clientUuid: _uuid.v4(),
+      title: 'Review harvest-ready crops',
+      description:
+          '${harvestReadyCrops.length} crop${harvestReadyCrops.length == 1 ? '' : 's'} are within the harvest window. Confirm labor, stock draft, and sale readiness.',
+      dueDate: _dueTodayAt(hour: 16).toIso8601String(),
+      status: 'pending',
+      category: 'Crops',
+      assignedTo: 'Self',
+      sourceEventType: 'harvest',
+      sourceEventId: sourceId,
+      approvalRequired: false,
+      approvalStatus: 'not_required',
+      isSynced: false,
+    );
+    await _insertQueuedLocalTask(task);
+  }
+
+  Future<void> _insertQueuedLocalTask(Task task) async {
+    final localId = await LocalData.insertTask(task.copyWith(id: null));
+    await LocalData.queueTaskAction(
+      localId: localId,
+      action: 'create',
+      payload: _taskPayload(task),
+    );
+  }
+
+  Future<void> _completeRecurringTaskIfNeeded(Task? task) async {
+    if (task == null) return;
+    final status = (task.status ?? 'pending').toLowerCase();
+    if (status == 'completed') return;
+
+    final updated = task.copyWith(
+      status: 'completed',
+      completionNotes: task.completionNotes ??
+          'Closed automatically because today\'s operational condition is already covered.',
+      isSynced: false,
+    );
+    await LocalData.updateTask(updated);
+    final localId = updated.id;
+    if (localId != null) {
+      await LocalData.queueTaskAction(
+        localId: localId,
+        action: 'update',
+        payload: _taskPayload(updated),
+      );
+    }
+  }
+
+  Task? _findTaskBySource(
+    List<Task> tasks,
+    String sourceType,
+    String sourceId,
+  ) {
+    for (final task in tasks) {
+      if ((task.sourceEventType ?? '').toLowerCase() == sourceType &&
+          (task.sourceEventId ?? '') == sourceId) {
+        return task;
+      }
+    }
+    return null;
+  }
+
+  DateTime _dayOnly(DateTime dateTime) {
+    return DateTime(dateTime.year, dateTime.month, dateTime.day);
+  }
+
+  DateTime? _parseDateOnly(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null) return null;
+    return _dayOnly(parsed);
+  }
+
+  bool _isSameDay(DateTime? left, DateTime right) {
+    if (left == null) return false;
+    return left.year == right.year &&
+        left.month == right.month &&
+        left.day == right.day;
+  }
+
+  String _dateKey(DateTime dateTime) {
+    final day = _dayOnly(dateTime);
+    return '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+  }
+
+  DateTime _dueTodayAt({required int hour}) {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day, hour);
   }
 }
 

@@ -11,6 +11,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:pamoja_twalima/data/database/database_helper.dart';
 import 'package:pamoja_twalima/data/network/api_service.dart';
 import 'package:pamoja_twalima/data/repositories/local_data.dart';
+import 'package:pamoja_twalima/data/repositories/sync_data.dart';
 import 'package:pamoja_twalima/data/repositories/sync_worker.dart';
 
 class _FakeAdapter implements HttpClientAdapter {
@@ -54,9 +55,72 @@ void main() {
     await db.delete('inventory');
     await db.delete('inventory_sync_queue');
     await db.delete('pending_sales');
+    await db.delete('feeding_schedules');
+    await db.delete('feeding_logs');
+    await db.delete('crops');
 
     final dio = ApiService().dio;
     dio.interceptors.clear();
+  });
+
+  test('sync data seeds and closes recurring operational tasks', () async {
+    final db = await DatabaseHelper().database;
+    final now = DateTime.now();
+
+    await db.insert('feeding_schedules', {
+      'animal_id': 1,
+      'feed_type': 'Dairy Meal',
+      'quantity': 1,
+      'unit': 'bucket',
+      'time_of_day': 'Morning',
+      'start_date': now.subtract(const Duration(days: 1)).toIso8601String(),
+      'completed': 0,
+    });
+    await db.insert('crops', {
+      'name': 'Tomatoes',
+      'planted_date': now.subtract(const Duration(days: 70)).toIso8601String(),
+      'expected_harvest_date':
+          now.add(const Duration(days: 3)).toIso8601String(),
+      'area': 1.5,
+      'status': 'Growing',
+    });
+
+    await SyncData().ensureRecurringOperationalTasks();
+
+    var tasks = await LocalData.getTasks();
+    expect(
+      tasks.any((task) =>
+          task.sourceEventType == 'feeding' &&
+          task.title == 'Complete today\'s feeding plan'),
+      isTrue,
+    );
+    expect(
+      tasks.any((task) =>
+          task.sourceEventType == 'harvest' &&
+          task.title == 'Review harvest-ready crops'),
+      isTrue,
+    );
+
+    await db.insert('feeding_logs', {
+      'animal_id': 1,
+      'feed_type': 'Dairy Meal',
+      'quantity': 1,
+      'unit': 'bucket',
+      'fed_at': now.toIso8601String(),
+    });
+    await db.delete('crops');
+
+    await SyncData().ensureRecurringOperationalTasks();
+    tasks = await LocalData.getTasks();
+
+    final feedingTask = tasks.firstWhere(
+      (task) => task.sourceEventId?.startsWith('daily-feeding-') ?? false,
+    );
+    final harvestTask = tasks.firstWhere(
+      (task) => task.sourceEventId?.startsWith('daily-harvest-') ?? false,
+    );
+    expect(feedingTask.status, 'completed');
+    expect(harvestTask.status, 'completed');
   });
 
   test('sync worker drains queued task create and marks task synced', () async {

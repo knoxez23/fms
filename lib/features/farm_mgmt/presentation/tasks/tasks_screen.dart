@@ -7,7 +7,11 @@ import 'package:pamoja_twalima/core/presentation/animations/animated_card.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
 import 'package:pamoja_twalima/data/network/api_service.dart';
 import 'package:pamoja_twalima/data/services/contact_directory_service.dart';
+import 'package:pamoja_twalima/features/business/presentation/sales/sales_screen.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/presentation/animals/animal_feeding_calendar_screen.dart';
+import 'package:pamoja_twalima/features/farm_mgmt/presentation/animals/production_logging_screen.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/tasks/widgets/task_list_item_card.dart';
+import 'package:pamoja_twalima/features/inventory/presentation/inventory_screen.dart';
 import 'add_task_screen.dart';
 import 'task_detail_screen.dart';
 import 'task_calendar_screen.dart';
@@ -154,19 +158,16 @@ class _TasksScreenState extends State<TasksScreen> {
               _ => assignee == _selectedAssignee,
             };
             final queueMatch = switch (_queueMode) {
-              'My Queue' =>
-                assignee == _currentUserName ||
-                    assignee == 'Self' ||
-                    assignee == null ||
-                    assignee.isEmpty,
-              'Team Queue' => assignee != _currentUserName && assignee != 'Self',
+              'My Queue' => assignee == _currentUserName ||
+                  assignee == 'Self' ||
+                  assignee == null ||
+                  assignee.isEmpty,
+              'Team Queue' =>
+                assignee != _currentUserName && assignee != 'Self',
               'Approval Queue' => task.isAwaitingApproval,
               _ => true,
             };
-            return categoryMatch &&
-                statusMatch &&
-                assigneeMatch &&
-                queueMatch;
+            return categoryMatch && statusMatch && assigneeMatch && queueMatch;
           }).toList();
 
           final pendingCount =
@@ -352,8 +353,8 @@ class _TasksScreenState extends State<TasksScreen> {
                                     ? _currentUserName
                                     : 'Self')
                                 : _assigneeOptions.contains(_selectedAssignee)
-                                ? _selectedAssignee
-                                : _assigneeOptions.first,
+                                    ? _selectedAssignee
+                                    : _assigneeOptions.first,
                             items: _assigneeOptions,
                             onChanged: _queueMode == 'My Queue' ||
                                     _queueMode == 'Approval Queue'
@@ -383,6 +384,7 @@ class _TasksScreenState extends State<TasksScreen> {
                           index: index,
                           child: TaskListItemCard(
                             task: task,
+                            quickActionLabel: _quickActionLabel(task),
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -398,6 +400,7 @@ class _TasksScreenState extends State<TasksScreen> {
                                 ),
                               );
                             },
+                            onQuickAction: () => _openTaskWorkflow(task),
                             onToggleComplete: () {
                               final updated = TaskEntity(
                                 id: task.id,
@@ -551,7 +554,92 @@ class _TasksScreenState extends State<TasksScreen> {
         left.month != right.month ||
         left.day != right.day;
   }
+
+  String? _quickActionLabel(TaskEntity task) {
+    switch (_workflowType(task)) {
+      case _TaskWorkflowType.feeding:
+        return 'Open Feeding';
+      case _TaskWorkflowType.production:
+        return 'Log Production';
+      case _TaskWorkflowType.inventory:
+        return 'Open Inventory';
+      case _TaskWorkflowType.sales:
+        return 'Open Sales';
+      case _TaskWorkflowType.farm:
+        return null;
+      case _TaskWorkflowType.none:
+        return null;
+    }
+  }
+
+  Future<void> _openTaskWorkflow(TaskEntity task) async {
+    final workflow = _workflowType(task);
+    Widget? screen;
+    switch (workflow) {
+      case _TaskWorkflowType.feeding:
+        screen = const AnimalFeedingCalendarScreen();
+        break;
+      case _TaskWorkflowType.production:
+        screen = const ProductionLoggingScreen();
+        break;
+      case _TaskWorkflowType.inventory:
+        screen = const InventoryScreen();
+        break;
+      case _TaskWorkflowType.sales:
+        screen = const SalesScreen();
+        break;
+      case _TaskWorkflowType.farm:
+      case _TaskWorkflowType.none:
+        return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => screen!),
+    );
+    if (!mounted) return;
+    context.read<TasksBloc>().add(const TasksEvent.load());
+  }
+
+  _TaskWorkflowType _workflowType(TaskEntity task) {
+    final source = (task.sourceEventType ?? '').trim().toLowerCase();
+    final text =
+        '${task.title.value} ${task.description ?? ''}'.trim().toLowerCase();
+
+    if (source == 'feeding' ||
+        text.contains('feeding') ||
+        text.contains('ration') ||
+        text.contains('feed plan')) {
+      return _TaskWorkflowType.feeding;
+    }
+    if (source == 'production' ||
+        text.contains('production') ||
+        text.contains('milk') ||
+        text.contains('eggs')) {
+      return _TaskWorkflowType.production;
+    }
+    if (source == 'inventory' ||
+        text.contains('stock') ||
+        text.contains('restock') ||
+        text.contains('inventory')) {
+      return _TaskWorkflowType.inventory;
+    }
+    if (source == 'sale' ||
+        source == 'marketplace' ||
+        text.contains('sale') ||
+        text.contains('buyer') ||
+        text.contains('collection') ||
+        text.contains('payment')) {
+      return _TaskWorkflowType.sales;
+    }
+    if (source == 'harvest' || source == 'crop' || source == 'animal') {
+      return _TaskWorkflowType.farm;
+    }
+    return _TaskWorkflowType.none;
+  }
 }
+
+enum _TaskWorkflowType { none, feeding, production, inventory, sales, farm }
 
 class _TaskRoleFocusCard extends StatelessWidget {
   const _TaskRoleFocusCard({
@@ -714,11 +802,11 @@ class _TaskOperationsCard extends StatelessWidget {
                   color: Colors.deepPurple,
                 ),
               ...roleSummary.entries.take(3).map(
-                (entry) => _TaskMetaChip(
-                  label: '${entry.key}: ${entry.value}',
-                  color: Colors.blueGrey,
-                ),
-              ),
+                    (entry) => _TaskMetaChip(
+                      label: '${entry.key}: ${entry.value}',
+                      color: Colors.blueGrey,
+                    ),
+                  ),
             ],
           ),
         ],
