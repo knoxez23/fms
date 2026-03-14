@@ -4,6 +4,8 @@ import 'package:pamoja_twalima/core/di/injection.dart';
 import 'package:pamoja_twalima/core/presentation/themes.dart';
 import 'package:pamoja_twalima/core/presentation/animations/animated_card.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
+import 'package:pamoja_twalima/data/network/api_service.dart';
+import 'package:pamoja_twalima/data/services/contact_directory_service.dart';
 import 'package:pamoja_twalima/features/farm_mgmt/presentation/tasks/widgets/task_list_item_card.dart';
 import 'add_task_screen.dart';
 import 'task_detail_screen.dart';
@@ -19,8 +21,13 @@ class TasksScreen extends StatefulWidget {
 }
 
 class _TasksScreenState extends State<TasksScreen> {
+  final ContactDirectoryService _contactService =
+      ContactDirectoryService(ApiService());
   String _selectedFilter = 'All';
   String _selectedStatus = 'All';
+  String _selectedAssignee = 'Anyone';
+  Map<String, dynamic>? _farmContext;
+  List<String> _staffNames = const [];
 
   final List<String> _filters = [
     'All',
@@ -39,6 +46,36 @@ class _TasksScreenState extends State<TasksScreen> {
     'Overdue',
     'Completed'
   ];
+
+  List<String> get _assigneeOptions => [
+        'Anyone',
+        'Unassigned',
+        'Self',
+        ..._staffNames.where((name) => name != 'Self'),
+      ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTeamContext();
+  }
+
+  Future<void> _loadTeamContext() async {
+    try {
+      final rows = await _contactService.list(ContactType.staffMember);
+      final contextData = await _contactService.farmContext();
+      if (!mounted) return;
+      setState(() {
+        _farmContext = contextData;
+        _staffNames = rows
+            .map((row) => (row['name'] ?? '').toString().trim())
+            .where((name) => name.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+      });
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +108,14 @@ class _TasksScreenState extends State<TasksScreen> {
                     : _taskCategory(task) == _selectedFilter;
             final statusMatch = _selectedStatus == 'All' ||
                 _statusLabel(task) == _selectedStatus;
-            return categoryMatch && statusMatch;
+            final assignee = task.assignedTo?.trim();
+            final assigneeMatch = switch (_selectedAssignee) {
+              'Anyone' => true,
+              'Unassigned' => assignee == null || assignee.isEmpty,
+              'Self' => assignee == 'Self',
+              _ => assignee == _selectedAssignee,
+            };
+            return categoryMatch && statusMatch && assigneeMatch;
           }).toList();
 
           final pendingCount =
@@ -80,6 +124,12 @@ class _TasksScreenState extends State<TasksScreen> {
               tasks.where((task) => _statusKey(task) == 'overdue').length;
           final completedCount =
               tasks.where((task) => _statusKey(task) == 'completed').length;
+          final assignedCount = tasks
+              .where((task) => (task.assignedTo?.trim().isNotEmpty ?? false))
+              .length;
+          final unassignedCount = tasks.length - assignedCount;
+          final staffSummary = _coerceMap(_farmContext?['team_summary']);
+          final roleSummary = _coerceMap(staffSummary['roles']);
 
           return AppScaffold(
             backgroundColor: theme.colorScheme.surface,
@@ -115,14 +165,29 @@ class _TasksScreenState extends State<TasksScreen> {
                     ),
                   ),
                 ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: _TaskOperationsCard(
+                      theme: theme,
+                      farmContext: _farmContext,
+                      assignedCount: assignedCount,
+                      unassignedCount: unassignedCount,
+                      roleSummary: roleSummary,
+                    ),
+                  ),
+                ),
 
                 // Filter Row
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
                       children: [
-                        Expanded(
+                        SizedBox(
+                          width: 220,
                           child: _TaskFilterDropdown(
                             value: _selectedFilter,
                             items: _filters,
@@ -131,13 +196,25 @@ class _TasksScreenState extends State<TasksScreen> {
                             theme: theme,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
+                        SizedBox(
+                          width: 180,
                           child: _TaskFilterDropdown(
                             value: _selectedStatus,
                             items: _statusOptions,
                             onChanged: (value) =>
                                 setState(() => _selectedStatus = value!),
+                            theme: theme,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 200,
+                          child: _TaskFilterDropdown(
+                            value: _assigneeOptions.contains(_selectedAssignee)
+                                ? _selectedAssignee
+                                : _assigneeOptions.first,
+                            items: _assigneeOptions,
+                            onChanged: (value) =>
+                                setState(() => _selectedAssignee = value!),
                             theme: theme,
                           ),
                         ),
@@ -301,6 +378,124 @@ class _TasksScreenState extends State<TasksScreen> {
       return 'Maintenance';
     }
     return 'Administrative';
+  }
+
+  Map<String, dynamic> _coerceMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      return value.map((key, item) => MapEntry(key.toString(), item));
+    }
+    return const <String, dynamic>{};
+  }
+}
+
+class _TaskOperationsCard extends StatelessWidget {
+  const _TaskOperationsCard({
+    required this.theme,
+    required this.farmContext,
+    required this.assignedCount,
+    required this.unassignedCount,
+    required this.roleSummary,
+  });
+
+  final ThemeData theme;
+  final Map<String, dynamic>? farmContext;
+  final int assignedCount;
+  final int unassignedCount;
+  final Map<String, dynamic> roleSummary;
+
+  @override
+  Widget build(BuildContext context) {
+    final farm = _coerceMap(farmContext?['farm']);
+    final membership = _coerceMap(farmContext?['membership']);
+    final teamSummary = _coerceMap(farmContext?['team_summary']);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${(farm['name'] ?? 'Farm').toString()} task desk',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Signed in as ${(membership['role'] ?? 'owner').toString()}. Assign work clearly so workers see exactly what is theirs and managers can spot bottlenecks quickly.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _TaskMetaChip(
+                label: '${teamSummary['staff_count'] ?? 0} team members',
+                color: theme.colorScheme.primary,
+              ),
+              _TaskMetaChip(
+                label: '$assignedCount assigned tasks',
+                color: Colors.green,
+              ),
+              _TaskMetaChip(
+                label: '$unassignedCount unassigned tasks',
+                color: Colors.orange,
+              ),
+              ...roleSummary.entries.take(3).map(
+                (entry) => _TaskMetaChip(
+                  label: '${entry.key}: ${entry.value}',
+                  color: Colors.blueGrey,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Map<String, dynamic> _coerceMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      return value.map((key, item) => MapEntry(key.toString(), item));
+    }
+    return const <String, dynamic>{};
+  }
+}
+
+class _TaskMetaChip extends StatelessWidget {
+  const _TaskMetaChip({
+    required this.label,
+    required this.color,
+  });
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+      ),
+    );
   }
 }
 
