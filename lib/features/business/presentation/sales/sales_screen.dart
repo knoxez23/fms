@@ -546,6 +546,25 @@ class _BusinessFinancePanel extends StatelessWidget {
         (summary['operationsHealthBand'] ?? 'Needs work').toString();
     final executionPressureBand =
         (summary['executionPressureBand'] ?? 'Stable').toString();
+    final enterpriseFocus = (summary['enterpriseFocus'] ?? 'Mixed farm')
+        .toString()
+        .trim();
+    final costDisciplineBand =
+        (summary['costDisciplineBand'] ?? 'Building').toString();
+    final collectionsDisciplineBand =
+        (summary['collectionsDisciplineBand'] ?? 'Building').toString();
+    final milkTrendBand = (summary['milkTrendBand'] ?? 'No data').toString();
+    final eggsTrendBand = (summary['eggsTrendBand'] ?? 'No data').toString();
+    final breedingReviewsDue =
+        ((summary['breedingReviewsDue'] as num?) ?? 0).toInt();
+    final treatmentFollowUps =
+        ((summary['treatmentFollowUps'] as num?) ?? 0).toInt();
+    final cropStageReviewsDue =
+        ((summary['cropStageReviewsDue'] as num?) ?? 0).toInt();
+    final enterpriseAdvicePrimary =
+        (summary['enterpriseAdvicePrimary'] ?? '').toString().trim();
+    final enterpriseAdviceSecondary =
+        (summary['enterpriseAdviceSecondary'] ?? '').toString().trim();
     final advicePrimary = (summary['advicePrimary'] ?? '').toString().trim();
     final adviceSecondary =
         (summary['adviceSecondary'] ?? '').toString().trim();
@@ -643,6 +662,20 @@ class _BusinessFinancePanel extends StatelessWidget {
             executionPressureBand: executionPressureBand,
             advicePrimary: advicePrimary,
             adviceSecondary: adviceSecondary,
+          ),
+          const SizedBox(height: 14),
+          _OperationsReviewCard(
+            theme: theme,
+            enterpriseFocus: enterpriseFocus,
+            costDisciplineBand: costDisciplineBand,
+            collectionsDisciplineBand: collectionsDisciplineBand,
+            milkTrendBand: milkTrendBand,
+            eggsTrendBand: eggsTrendBand,
+            breedingReviewsDue: breedingReviewsDue,
+            treatmentFollowUps: treatmentFollowUps,
+            cropStageReviewsDue: cropStageReviewsDue,
+            enterpriseAdvicePrimary: enterpriseAdvicePrimary,
+            enterpriseAdviceSecondary: enterpriseAdviceSecondary,
           ),
           const SizedBox(height: 14),
           _OutputPipelineCard(
@@ -882,6 +915,109 @@ class _AdviceRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _OperationsReviewCard extends StatelessWidget {
+  const _OperationsReviewCard({
+    required this.theme,
+    required this.enterpriseFocus,
+    required this.costDisciplineBand,
+    required this.collectionsDisciplineBand,
+    required this.milkTrendBand,
+    required this.eggsTrendBand,
+    required this.breedingReviewsDue,
+    required this.treatmentFollowUps,
+    required this.cropStageReviewsDue,
+    required this.enterpriseAdvicePrimary,
+    required this.enterpriseAdviceSecondary,
+  });
+
+  final ThemeData theme;
+  final String enterpriseFocus;
+  final String costDisciplineBand;
+  final String collectionsDisciplineBand;
+  final String milkTrendBand;
+  final String eggsTrendBand;
+  final int breedingReviewsDue;
+  final int treatmentFollowUps;
+  final int cropStageReviewsDue;
+  final String enterpriseAdvicePrimary;
+  final String enterpriseAdviceSecondary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Operations review',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _TaskPill(label: 'Lead enterprise: $enterpriseFocus'),
+              _TaskPill(label: 'Cost discipline: $costDisciplineBand'),
+              _TaskPill(label: 'Collections: $collectionsDisciplineBand'),
+              _TaskPill(label: 'Milk trend: $milkTrendBand'),
+              _TaskPill(label: 'Egg trend: $eggsTrendBand'),
+              if (breedingReviewsDue > 0)
+                _TaskPill(label: '$breedingReviewsDue breeding due'),
+              if (treatmentFollowUps > 0)
+                _TaskPill(label: '$treatmentFollowUps treatment checks'),
+              if (cropStageReviewsDue > 0)
+                _TaskPill(label: '$cropStageReviewsDue crop timing reviews'),
+            ],
+          ),
+          if (enterpriseAdvicePrimary.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _AdviceRow(theme: theme, text: enterpriseAdvicePrimary),
+          ],
+          if (enterpriseAdviceSecondary.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _AdviceRow(theme: theme, text: enterpriseAdviceSecondary),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TaskPill extends StatelessWidget {
+  const _TaskPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: theme.dividerColor.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.bodySmall?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }

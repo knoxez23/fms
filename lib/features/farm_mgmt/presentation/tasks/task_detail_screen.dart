@@ -596,6 +596,11 @@ class _TaskCard extends StatelessWidget {
               body: task.approvalComment!.trim(),
             ),
           ],
+          const SizedBox(height: 10),
+          _ReviewTimelineCard(
+            theme: theme,
+            task: task,
+          ),
           if (task.assignedTo != null &&
               task.assignedTo!.trim().isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -731,6 +736,122 @@ class _ApprovalCard extends StatelessWidget {
                 ),
               ],
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewTimelineCard extends StatelessWidget {
+  const _ReviewTimelineCard({
+    required this.theme,
+    required this.task,
+  });
+
+  final ThemeData theme;
+  final TaskEntity task;
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = <({IconData icon, String title, String detail, Color color})>[
+      (
+        icon: Icons.event_note_outlined,
+        title: 'Scheduled',
+        detail: task.dueDate == null
+            ? 'No due date set yet.'
+            : 'Due ${task.dueDate!.year}-${task.dueDate!.month.toString().padLeft(2, '0')}-${task.dueDate!.day.toString().padLeft(2, '0')}',
+        color: theme.colorScheme.primary,
+      ),
+      if ((task.completionNotes ?? '').trim().isNotEmpty)
+        (
+          icon: Icons.task_alt_outlined,
+          title: 'Worker submitted update',
+          detail: task.completionNotes!.trim(),
+          color: Colors.teal,
+        ),
+      if (task.isAwaitingApproval)
+        (
+          icon: Icons.hourglass_top_outlined,
+          title: 'Waiting approval',
+          detail: 'This task is complete on the worker side and now needs manager review.',
+          color: Colors.deepPurple,
+        ),
+      if (task.isApproved && task.approvedAt != null)
+        (
+          icon: Icons.verified_outlined,
+          title: 'Approved',
+          detail:
+              '${(task.approvedBy ?? 'Manager').trim().isEmpty ? 'Manager' : task.approvedBy} signed off on ${task.approvedAt!.year}-${task.approvedAt!.month.toString().padLeft(2, '0')}-${task.approvedAt!.day.toString().padLeft(2, '0')}.',
+          color: Colors.green,
+        ),
+      if (task.isRejected)
+        (
+          icon: Icons.reply_outlined,
+          title: 'Sent back',
+          detail: (task.approvalComment ?? '').trim().isEmpty
+              ? 'This task needs changes before it can close.'
+              : task.approvalComment!.trim(),
+          color: Colors.redAccent,
+        ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Review timeline',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...steps.map(
+            (step) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: step.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(step.icon, size: 17, color: step.color),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          step.title,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          step.detail,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.72),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

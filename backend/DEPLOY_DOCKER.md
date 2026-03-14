@@ -79,9 +79,17 @@ docker compose -f docker-compose.prod.yml down
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
+Database backup:
+
+```bash
+docker compose -f docker-compose.prod.yml exec app sh docker/backup-db.sh
+```
+
 ## VPS Notes
 
 - Put Nginx Proxy Manager, Traefik, or host Nginx in front if you want HTTPS and a real domain.
 - Port `8080` is exposed by default for testing.
 - Change the MySQL and Redis exposed ports if they conflict with existing VPS services.
 - For a stricter production setup later, remove bind mounts and bake code into immutable images.
+- Review [PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md) before exposing the API publicly.
+- `app` and `nginx` now expose Docker healthchecks. Use `docker compose -f docker-compose.prod.yml ps` to confirm they stay healthy.

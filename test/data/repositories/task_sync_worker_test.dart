@@ -58,6 +58,9 @@ void main() {
     await db.delete('feeding_schedules');
     await db.delete('feeding_logs');
     await db.delete('crops');
+    await db.delete('animals');
+    await db.delete('animal_health_records');
+    await db.delete('breeding_records');
 
     final dio = ApiService().dio;
     dio.interceptors.clear();
@@ -89,6 +92,18 @@ void main() {
       'type': 'Cow',
       'health_status': 'Good',
     });
+    await db.insert('breeding_records', {
+      'dam_animal_id': 1,
+      'mating_date': now.subtract(const Duration(days: 120)).toIso8601String(),
+      'expected_birth_date': now.add(const Duration(days: 10)).toIso8601String(),
+      'status': 'pregnant',
+    });
+    await db.insert('animal_health_records', {
+      'animal_id': 1,
+      'type': 'Treatment',
+      'name': 'Worm dose',
+      'treated_at': now.subtract(const Duration(days: 1)).toIso8601String(),
+    });
 
     await SyncData().ensureRecurringOperationalTasks();
 
@@ -113,8 +128,23 @@ void main() {
     );
     expect(
       tasks.any((task) =>
-          task.sourceEventType == 'animal' &&
-          task.title == 'Review animal health checks'),
+          task.sourceEventId?.startsWith('daily-health-review-') ?? false),
+      isFalse,
+    );
+    expect(
+      tasks.any((task) =>
+          task.sourceEventType == 'breeding' &&
+          task.title == 'Review breeding timeline'),
+      isTrue,
+    );
+    expect(
+      tasks.any((task) =>
+          task.sourceEventId?.startsWith('daily-treatment-review-') ?? false),
+      isTrue,
+    );
+    expect(
+      tasks.any((task) =>
+          task.sourceEventId?.startsWith('daily-field-timing-') ?? false),
       isTrue,
     );
 
@@ -145,13 +175,27 @@ void main() {
     final cropCareTask = tasks.firstWhere(
       (task) => task.sourceEventId?.startsWith('daily-crop-care-') ?? false,
     );
-    final healthTask = tasks.firstWhere(
-      (task) => task.sourceEventId?.startsWith('daily-health-review-') ?? false,
-    );
     expect(feedingTask.status, 'completed');
     expect(harvestTask.status, 'completed');
     expect(cropCareTask.status, 'completed');
-    expect(healthTask.status, 'completed');
+    expect(
+      tasks.any((task) =>
+          (task.sourceEventId?.startsWith('daily-breeding-review-') ?? false) &&
+          task.status == 'pending'),
+      isTrue,
+    );
+    expect(
+      tasks.any((task) =>
+          (task.sourceEventId?.startsWith('daily-treatment-review-') ?? false) &&
+          task.status == 'pending'),
+      isTrue,
+    );
+    expect(
+      tasks.any((task) =>
+          (task.sourceEventId?.startsWith('daily-field-timing-') ?? false) &&
+          task.status == 'completed'),
+      isTrue,
+    );
   });
 
   test('sync worker drains queued task create and marks task synced', () async {

@@ -29,6 +29,8 @@ void main() {
     await db.delete('feeding_schedules');
     await db.delete('feeding_logs');
     await db.delete('production_logs');
+    await db.delete('breeding_records');
+    await db.delete('animal_health_records');
   });
 
   test('returns high-priority operational insights from live farm records',
@@ -135,6 +137,18 @@ void main() {
       'start_date': now.toIso8601String(),
       'notes': 'measure_label:1 morning bucket',
     });
+    await db.insert('breeding_records', {
+      'dam_animal_id': 1,
+      'mating_date': now.subtract(const Duration(days: 120)).toIso8601String(),
+      'expected_birth_date': now.add(const Duration(days: 10)).toIso8601String(),
+      'status': 'pregnant',
+    });
+    await db.insert('animal_health_records', {
+      'animal_id': 1,
+      'type': 'Treatment',
+      'name': 'Mastitis care',
+      'treated_at': now.subtract(const Duration(days: 1)).toIso8601String(),
+    });
 
     final summary = await LocalData.getFarmSummary();
 
@@ -148,6 +162,9 @@ void main() {
         contains('production review'));
     expect(
         summary['todaysFeedingPreview'], contains('Morning: 1 morning bucket'));
+    expect(summary['breedingReviewsDue'], 1);
+    expect(summary['treatmentFollowUps'], 1);
+    expect(summary['cropStageReviewsDue'], 0);
   });
 
   test('builds today plan and advice from task, feeding, and cash pressure',
@@ -183,6 +200,20 @@ void main() {
       'sale_date': now.toIso8601String(),
       'payment_status': 'pending',
     });
+    await db.insert('production_logs', {
+      'animal_id': 'cow-1',
+      'production_type': 'Milk',
+      'quantity': 6,
+      'unit': 'liters',
+      'date_produced': now.subtract(const Duration(days: 2)).toIso8601String(),
+    });
+    await db.insert('production_logs', {
+      'animal_id': 'cow-1',
+      'production_type': 'Milk',
+      'quantity': 20,
+      'unit': 'liters',
+      'date_produced': now.subtract(const Duration(days: 9)).toIso8601String(),
+    });
 
     final summary = await LocalData.getFarmSummary();
 
@@ -193,6 +224,7 @@ void main() {
     expect(
         (summary['todayAgendaPreview'] ?? '').toString(), contains('overdue'));
     expect((summary['advicePrimary'] ?? '').toString(), isNotEmpty);
+    expect(summary['milkTrendBand'], 'Down');
   });
 
   test('tracks output ready in stock and unsold production signals', () async {

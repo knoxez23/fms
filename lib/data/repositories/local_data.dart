@@ -101,6 +101,24 @@ class LocalData {
     final monthlyExpenses =
         (monthlyExpensesResult.first['total'] as num?)?.toDouble() ?? 0.0;
 
+    final trailing7DaySalesResult = await db.rawQuery(
+      'SELECT SUM(total_amount) as total FROM sales WHERE DATE(sale_date) >= DATE(?)${activeUserId == null ? '' : ' AND user_id = ?'}',
+      activeUserId == null
+          ? [nextDateIso(-6)]
+          : [nextDateIso(-6), activeUserId],
+    );
+    final trailing7DaySales =
+        (trailing7DaySalesResult.first['total'] as num?)?.toDouble() ?? 0.0;
+
+    final trailing7DayExpensesResult = await db.rawQuery(
+      'SELECT SUM(amount) as total FROM expenses WHERE DATE(expense_date) >= DATE(?)${activeUserId == null ? '' : ' AND user_id = ?'}',
+      activeUserId == null
+          ? [nextDateIso(-6)]
+          : [nextDateIso(-6), activeUserId],
+    );
+    final trailing7DayExpenses =
+        (trailing7DayExpensesResult.first['total'] as num?)?.toDouble() ?? 0.0;
+
     final lowStockResult = await db.rawQuery(
       'SELECT COUNT(*) as count FROM inventory WHERE min_stock > 0 AND quantity <= min_stock${activeUserId == null ? '' : ' AND user_id = ?'}',
       activeUserId == null ? null : [activeUserId],
@@ -141,6 +159,42 @@ class LocalData {
     final eggsToday =
         (productionTodayRows.first['eggs_total'] as num?)?.toDouble() ?? 0.0;
     final productionValueToday = (milkToday * 55.0) + (eggsToday * 15.0);
+
+    final milkTrendRows = await db.rawQuery(
+      '''
+      SELECT
+        SUM(CASE WHEN DATE(date_produced) >= DATE(?) THEN COALESCE(quantity, 0) ELSE 0 END) AS current_total,
+        SUM(CASE WHEN DATE(date_produced) >= DATE(?) AND DATE(date_produced) < DATE(?) THEN COALESCE(quantity, 0) ELSE 0 END) AS previous_total
+      FROM production_logs
+      WHERE LOWER(COALESCE(production_type, '')) = 'milk'
+      ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null
+          ? [nextDateIso(-6), nextDateIso(-13), nextDateIso(-6)]
+          : [nextDateIso(-6), nextDateIso(-13), nextDateIso(-6), activeUserId],
+    );
+    final milkCurrent7Days =
+        (milkTrendRows.first['current_total'] as num?)?.toDouble() ?? 0.0;
+    final milkPrevious7Days =
+        (milkTrendRows.first['previous_total'] as num?)?.toDouble() ?? 0.0;
+
+    final eggTrendRows = await db.rawQuery(
+      '''
+      SELECT
+        SUM(CASE WHEN DATE(date_produced) >= DATE(?) THEN COALESCE(quantity, 0) ELSE 0 END) AS current_total,
+        SUM(CASE WHEN DATE(date_produced) >= DATE(?) AND DATE(date_produced) < DATE(?) THEN COALESCE(quantity, 0) ELSE 0 END) AS previous_total
+      FROM production_logs
+      WHERE LOWER(COALESCE(production_type, '')) = 'eggs'
+      ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null
+          ? [nextDateIso(-6), nextDateIso(-13), nextDateIso(-6)]
+          : [nextDateIso(-6), nextDateIso(-13), nextDateIso(-6), activeUserId],
+    );
+    final eggsCurrent7Days =
+        (eggTrendRows.first['current_total'] as num?)?.toDouble() ?? 0.0;
+    final eggsPrevious7Days =
+        (eggTrendRows.first['previous_total'] as num?)?.toDouble() ?? 0.0;
 
     final outputSalesTodayRows = await db.rawQuery(
       '''
@@ -279,6 +333,67 @@ class LocalData {
         (pendingCollectionsResult.first['sale_count'] as num?)?.toInt() ?? 0;
     final pendingCollectionsValue =
         (pendingCollectionsResult.first['total'] as num?)?.toDouble() ?? 0.0;
+    final collectionsRatio =
+        monthlySales <= 0 ? 0.0 : pendingCollectionsValue / monthlySales;
+
+    final revenueByTypeRows = await db.rawQuery(
+      '''
+      SELECT LOWER(COALESCE(type, 'other')) as type_key, SUM(COALESCE(total_amount, 0)) as total
+      FROM sales
+      ${activeUserId == null ? '' : 'WHERE user_id = ?'}
+      GROUP BY LOWER(COALESCE(type, 'other'))
+      ''',
+      activeUserId == null ? null : [activeUserId],
+    );
+    final revenueByType = <String, double>{
+      for (final row in revenueByTypeRows)
+        (row['type_key'] ?? 'other').toString():
+            (row['total'] as num?)?.toDouble() ?? 0.0,
+    };
+    final dairyRevenueMonth = revenueByType['dairy'] ?? 0.0;
+    final poultryRevenueMonth = revenueByType['poultry'] ?? 0.0;
+    final livestockRevenueMonth = revenueByType['livestock'] ?? 0.0;
+    final otherRevenueMonth = revenueByType['other'] ?? 0.0;
+
+    final expenseByCategoryRows = await db.rawQuery(
+      '''
+      SELECT LOWER(COALESCE(category, 'other')) as category_key, SUM(COALESCE(amount, 0)) as total
+      FROM expenses
+      ${activeUserId == null ? '' : 'WHERE user_id = ?'}
+      GROUP BY LOWER(COALESCE(category, 'other'))
+      ''',
+      activeUserId == null ? null : [activeUserId],
+    );
+    final expenseByCategory = <String, double>{
+      for (final row in expenseByCategoryRows)
+        (row['category_key'] ?? 'other').toString():
+            (row['total'] as num?)?.toDouble() ?? 0.0,
+    };
+    final feedCostsMonth = _sumMapValues(expenseByCategory, const {
+      'feed',
+      'animal feed',
+      'feed cost',
+    });
+    final vetCostsMonth = _sumMapValues(expenseByCategory, const {
+      'vet',
+      'veterinary',
+      'animal health',
+      'treatment',
+      'medicine',
+    });
+    final cropCostsMonth = _sumMapValues(expenseByCategory, const {
+      'seeds',
+      'fertilizers',
+      'fertilizer',
+      'chemicals',
+      'crop input',
+    });
+    final laborCostsMonth = _sumMapValues(expenseByCategory, const {
+      'labor',
+      'labour',
+      'wages',
+      'casual labor',
+    });
 
     final todaysFeedingResult = await db.rawQuery(
       '''
@@ -534,6 +649,68 @@ class LocalData {
       activeUserId == null ? null : [activeUserId],
     );
     final cropInputGaps = Sqflite.firstIntValue(cropInputGapResult) ?? 0;
+    final recentTreatmentRows = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM animal_health_records
+      WHERE treated_at IS NOT NULL
+        AND DATE(treated_at) >= DATE(?)
+        AND LOWER(COALESCE(type, '')) IN ('treatment', 'vaccination', 'vaccine', 'deworming')
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null
+          ? [nextDateIso(-3)]
+          : [nextDateIso(-3), activeUserId],
+    );
+    final treatmentFollowUps =
+        Sqflite.firstIntValue(recentTreatmentRows) ?? 0;
+    final breedingDueRows = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM breeding_records
+      WHERE LOWER(COALESCE(status, 'scheduled')) != 'completed'
+        AND expected_birth_date IS NOT NULL
+        AND DATE(expected_birth_date) <= DATE(?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null
+          ? [nextDateIso(21)]
+          : [nextDateIso(21), activeUserId],
+    );
+    final breedingReviewsDue = Sqflite.firstIntValue(breedingDueRows) ?? 0;
+    final cropStageRows = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM crops
+      WHERE LOWER(COALESCE(status, '')) IN ('growing', 'planted', 'flowering')
+        AND planted_date IS NOT NULL
+        AND DATE(planted_date) <= DATE(?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null
+          ? [nextDateIso(-21)]
+          : [nextDateIso(-21), activeUserId],
+    );
+    final cropStageReviewsDue = Sqflite.firstIntValue(cropStageRows) ?? 0;
+    final enterpriseFocus = _enterpriseFocus(
+      dairyRevenueMonth: dairyRevenueMonth,
+      poultryRevenueMonth: poultryRevenueMonth,
+      livestockRevenueMonth: livestockRevenueMonth,
+      otherRevenueMonth: otherRevenueMonth,
+      milkCurrent7Days: milkCurrent7Days,
+      eggsCurrent7Days: eggsCurrent7Days,
+      activeFieldCrops: activeFieldCrops,
+    );
+    final milkTrendBand = _trendBand(milkCurrent7Days, milkPrevious7Days);
+    final eggsTrendBand = _trendBand(eggsCurrent7Days, eggsPrevious7Days);
+    final costDisciplineBand = _costDisciplineBand(
+      monthlySales: monthlySales,
+      monthlyExpenses: monthlyExpenses,
+      feedCostsMonth: feedCostsMonth,
+      cropCostsMonth: cropCostsMonth,
+    );
+    final collectionsDisciplineBand =
+        _collectionsDisciplineBand(collectionsRatio);
 
     final reminderSignals = <String>[
       if (feedReadinessGaps > 0)
@@ -548,6 +725,10 @@ class LocalData {
         '$pendingCollectionsCount unpaid sale${pendingCollectionsCount == 1 ? '' : 's'}',
       if (freshnessRiskCount > 0)
         '$freshnessRiskCount fresh output lot${freshnessRiskCount == 1 ? '' : 's'} to move now',
+      if (breedingReviewsDue > 0)
+        '$breedingReviewsDue breeding follow-up${breedingReviewsDue == 1 ? '' : 's'} due',
+      if (treatmentFollowUps > 0)
+        '$treatmentFollowUps treatment follow-up${treatmentFollowUps == 1 ? '' : 's'} to review',
     ];
     final todayAgendaItems = <String>[
       if (overdueTasks > 0)
@@ -560,6 +741,8 @@ class LocalData {
         '$approvalPendingTasks task${approvalPendingTasks == 1 ? '' : 's'} waiting approval',
       if (pendingCollectionsCount > 0)
         '$pendingCollectionsCount collection${pendingCollectionsCount == 1 ? '' : 's'} to follow up',
+      if (breedingReviewsDue > 0)
+        '$breedingReviewsDue breeding review${breedingReviewsDue == 1 ? '' : 's'} due',
     ];
     final thisWeekFocusItems = <String>[
       if (dueThisWeekTasks > 0)
@@ -570,6 +753,10 @@ class LocalData {
         '$harvestReadyCrops crop${harvestReadyCrops == 1 ? '' : 's'} entering harvest window',
       if (setupTasksNext7Days > 0)
         '$setupTasksNext7Days setup task${setupTasksNext7Days == 1 ? '' : 's'} due soon',
+      if (cropStageReviewsDue > 0)
+        '$cropStageReviewsDue crop block${cropStageReviewsDue == 1 ? '' : 's'} need timing review',
+      if (treatmentFollowUps > 0)
+        '$treatmentFollowUps treatment response check${treatmentFollowUps == 1 ? '' : 's'} this week',
     ];
     final smartReminderPreview = reminderSignals.take(3).join(' • ');
     final monthlyNetCashFlow = monthlySales - monthlyExpenses;
@@ -595,6 +782,22 @@ class LocalData {
         'Too much work is slipping overdue. Reduce the number of open tasks or reassign work before operations become reactive.',
       if (approvalPendingTasks >= 3)
         'Approvals are starting to slow execution. Managers should clear the approval queue earlier in the day.',
+      if (milkTrendBand == 'Down')
+        'Milk output is down against the previous 7-day run. Check feed consistency, health notes, and missed milking logs.',
+      if (eggsTrendBand == 'Down')
+        'Egg production is softening against the last 7 days. Review layer feed quality, water access, and flock health.',
+      if (feedCostsMonth > 0 &&
+          dairyRevenueMonth > 0 &&
+          feedCostsMonth > dairyRevenueMonth * 0.6)
+        'Feed costs are taking too much of dairy income. Tighten ration logging and review waste before buying more.',
+      if (collectionsRatio >= 0.4)
+        'Too much monthly revenue is still unpaid. Tighten buyer follow-up and avoid extending more credit until cash catches up.',
+      if (breedingReviewsDue > 0)
+        'Keep upcoming births visible now so housing, treatment, and feed planning are ready before they become urgent.',
+      if (cropStageReviewsDue > 0)
+        'Several crop blocks are deep into the season. Run a field timing review so irrigation, spraying, and harvest prep stay aligned.',
+      if (treatmentFollowUps > 0)
+        'Recent treatments still need response checks. Close the loop so health records stay useful for the next decision.',
     ];
     final healthReviewRows = await db.rawQuery(
       '''
@@ -666,6 +869,8 @@ class LocalData {
       "monthlySales": monthlySales,
       "expensesToday": expensesToday,
       "monthlyExpenses": monthlyExpenses,
+      "trailing7DaySales": trailing7DaySales,
+      "trailing7DayExpenses": trailing7DayExpenses,
       "netCashFlowToday": salesToday - expensesToday,
       "monthlyNetCashFlow": monthlyNetCashFlow,
       "lowStockItems": lowStockItems,
@@ -697,12 +902,33 @@ class LocalData {
       "harvestReadyCrops": harvestReadyCrops,
       "harvestPrepGap": harvestPrepGap,
       "healthRecordsLast7Days": healthRecordsLast7Days,
+      "breedingReviewsDue": breedingReviewsDue,
+      "treatmentFollowUps": treatmentFollowUps,
+      "cropStageReviewsDue": cropStageReviewsDue,
       "feedReadinessGaps": feedReadinessGaps,
       "cropInputGaps": cropInputGaps,
       "pendingCollectionsCount": pendingCollectionsCount,
       "pendingCollectionsValue": pendingCollectionsValue,
+      "collectionsRatio": collectionsRatio,
       "restockCostEstimate": restockCostEstimate,
       "projectedCashBuffer": projectedCashBuffer,
+      "dairyRevenueMonth": dairyRevenueMonth,
+      "poultryRevenueMonth": poultryRevenueMonth,
+      "livestockRevenueMonth": livestockRevenueMonth,
+      "otherRevenueMonth": otherRevenueMonth,
+      "feedCostsMonth": feedCostsMonth,
+      "vetCostsMonth": vetCostsMonth,
+      "cropCostsMonth": cropCostsMonth,
+      "laborCostsMonth": laborCostsMonth,
+      "enterpriseFocus": enterpriseFocus,
+      "milkCurrent7Days": milkCurrent7Days,
+      "milkPrevious7Days": milkPrevious7Days,
+      "eggsCurrent7Days": eggsCurrent7Days,
+      "eggsPrevious7Days": eggsPrevious7Days,
+      "milkTrendBand": milkTrendBand,
+      "eggsTrendBand": eggsTrendBand,
+      "costDisciplineBand": costDisciplineBand,
+      "collectionsDisciplineBand": collectionsDisciplineBand,
       "todayAgendaCount": todayAgendaItems.length,
       "todayAgendaPreview": todayAgendaItems.take(3).join(' • '),
       "todayAgendaPrimary": todayAgendaItems.isEmpty
@@ -716,6 +942,18 @@ class LocalData {
           : adviceItems.first,
       "adviceSecondary": adviceItems.length > 1 ? adviceItems[1] : '',
       "adviceTertiary": adviceItems.length > 2 ? adviceItems[2] : '',
+      "enterpriseAdvicePrimary": _enterpriseAdvicePrimary(
+        enterpriseFocus: enterpriseFocus,
+        milkTrendBand: milkTrendBand,
+        eggsTrendBand: eggsTrendBand,
+        costDisciplineBand: costDisciplineBand,
+        collectionsDisciplineBand: collectionsDisciplineBand,
+      ),
+      "enterpriseAdviceSecondary": _enterpriseAdviceSecondary(
+        breedingReviewsDue: breedingReviewsDue,
+        treatmentFollowUps: treatmentFollowUps,
+        cropStageReviewsDue: cropStageReviewsDue,
+      ),
       "operationsHealthScore": operationsHealthScore,
       "operationsHealthBand": _scoreBand(operationsHealthScore),
       "executionPressureBand": executionPressureBand,
@@ -871,6 +1109,110 @@ class LocalData {
       score += 4;
     }
     return score.clamp(0, 100);
+  }
+
+  static double _sumMapValues(
+    Map<String, double> source,
+    Set<String> keys,
+  ) {
+    var total = 0.0;
+    for (final entry in source.entries) {
+      if (keys.contains(entry.key.toLowerCase())) {
+        total += entry.value;
+      }
+    }
+    return total;
+  }
+
+  static String _trendBand(double current, double previous) {
+    if (current <= 0 && previous <= 0) return 'No data';
+    if (previous <= 0) return current > 0 ? 'Up' : 'Stable';
+    final ratio = (current - previous) / previous;
+    if (ratio >= 0.12) return 'Up';
+    if (ratio <= -0.12) return 'Down';
+    return 'Stable';
+  }
+
+  static String _costDisciplineBand({
+    required double monthlySales,
+    required double monthlyExpenses,
+    required double feedCostsMonth,
+    required double cropCostsMonth,
+  }) {
+    if (monthlySales <= 0 && monthlyExpenses <= 0) return 'Building';
+    final expenseRatio = monthlySales <= 0 ? 1.0 : monthlyExpenses / monthlySales;
+    if (expenseRatio <= 0.45 &&
+        feedCostsMonth + cropCostsMonth <= monthlySales * 0.55) {
+      return 'Strong';
+    }
+    if (expenseRatio <= 0.8) return 'Watch';
+    return 'Tight';
+  }
+
+  static String _collectionsDisciplineBand(double collectionsRatio) {
+    if (collectionsRatio <= 0.2) return 'Strong';
+    if (collectionsRatio <= 0.4) return 'Watch';
+    return 'Tight';
+  }
+
+  static String _enterpriseFocus({
+    required double dairyRevenueMonth,
+    required double poultryRevenueMonth,
+    required double livestockRevenueMonth,
+    required double otherRevenueMonth,
+    required double milkCurrent7Days,
+    required double eggsCurrent7Days,
+    required int activeFieldCrops,
+  }) {
+    final candidates = <String, double>{
+      'Dairy': dairyRevenueMonth + milkCurrent7Days,
+      'Poultry': poultryRevenueMonth + eggsCurrent7Days,
+      'Livestock': livestockRevenueMonth,
+      'Crops': activeFieldCrops.toDouble() * 10,
+      'Other': otherRevenueMonth,
+    };
+    final sorted = candidates.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return sorted.first.value <= 0 ? 'Mixed farm' : sorted.first.key;
+  }
+
+  static String _enterpriseAdvicePrimary({
+    required String enterpriseFocus,
+    required String milkTrendBand,
+    required String eggsTrendBand,
+    required String costDisciplineBand,
+    required String collectionsDisciplineBand,
+  }) {
+    if (enterpriseFocus == 'Dairy' && milkTrendBand == 'Down') {
+      return 'Dairy is leading the farm, and milk trend is down. Review feed consistency, health, and missed milking logs first.';
+    }
+    if (enterpriseFocus == 'Poultry' && eggsTrendBand == 'Down') {
+      return 'Poultry is carrying the farm, but egg output is softening. Check layer feed, water access, and flock health early.';
+    }
+    if (costDisciplineBand == 'Tight') {
+      return 'Operating costs are tighter than they should be. Review feed, crop inputs, and labor before adding more spend.';
+    }
+    if (collectionsDisciplineBand == 'Tight') {
+      return 'Collections are lagging. Push buyer follow-up before relying on more credit-funded operations.';
+    }
+    return 'Keep your strongest enterprise well logged. Good records there improve the advice Farmly can give across the farm.';
+  }
+
+  static String _enterpriseAdviceSecondary({
+    required int breedingReviewsDue,
+    required int treatmentFollowUps,
+    required int cropStageReviewsDue,
+  }) {
+    if (breedingReviewsDue > 0) {
+      return '$breedingReviewsDue breeding follow-up${breedingReviewsDue == 1 ? '' : 's'} need preparation before due dates tighten.';
+    }
+    if (treatmentFollowUps > 0) {
+      return '$treatmentFollowUps recent treatment follow-up${treatmentFollowUps == 1 ? '' : 's'} still need outcome checks.';
+    }
+    if (cropStageReviewsDue > 0) {
+      return '$cropStageReviewsDue active crop block${cropStageReviewsDue == 1 ? '' : 's'} need irrigation or spray timing review.';
+    }
+    return 'Use weekly reviews to keep field timing, animal care, and finance decisions moving together.';
   }
 
   static String _scoreBand(int score) {

@@ -271,6 +271,9 @@ class SyncData {
     await _ensureDailyHarvestFollowUp(existingTasks);
     await _ensureDailyCropCareFollowUp(existingTasks);
     await _ensureDailyHealthReviewFollowUp(existingTasks);
+    await _ensureDailyBreedingFollowUp(existingTasks);
+    await _ensureDailyTreatmentFollowUp(existingTasks);
+    await _ensureDailyFieldTimingFollowUp(existingTasks);
   }
 
   Future<int> updateTask(Task task) async {
@@ -843,6 +846,129 @@ class SyncData {
       category: 'Animals',
       assignedTo: 'Self',
       sourceEventType: 'animal',
+      sourceEventId: sourceId,
+      approvalRequired: false,
+      approvalStatus: 'not_required',
+      isSynced: false,
+    );
+    await _insertQueuedLocalTask(task);
+  }
+
+  Future<void> _ensureDailyBreedingFollowUp(List<Task> existingTasks) async {
+    final now = DateTime.now();
+    final sourceId = 'daily-breeding-review-${_dateKey(now)}';
+    final existing = _findTaskBySource(existingTasks, 'breeding', sourceId);
+    final db = await DatabaseHelper().database;
+    final activeUserId = await LocalSessionService().getActiveUserId();
+    final rows = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM breeding_records
+      WHERE LOWER(COALESCE(status, 'scheduled')) != 'completed'
+        AND expected_birth_date IS NOT NULL
+        AND DATE(expected_birth_date) <= DATE(?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null
+          ? [_dateKey(now.add(const Duration(days: 21)))]
+          : [_dateKey(now.add(const Duration(days: 21))), activeUserId],
+    );
+    final dueCount = (rows.first['count'] as num?)?.toInt() ?? 0;
+    if (dueCount <= 0) {
+      await _completeRecurringTaskIfNeeded(existing);
+      return;
+    }
+    if (existing != null) return;
+
+    final task = Task(
+      clientUuid: _uuid.v4(),
+      title: 'Review breeding timeline',
+      description:
+          '$dueCount breeding record${dueCount == 1 ? '' : 's'} are nearing expected birth dates. Confirm housing, feed, and treatment readiness.',
+      dueDate: _dueTodayAt(hour: 13).toIso8601String(),
+      status: 'pending',
+      category: 'Animals',
+      assignedTo: 'Self',
+      sourceEventType: 'breeding',
+      sourceEventId: sourceId,
+      approvalRequired: false,
+      approvalStatus: 'not_required',
+      isSynced: false,
+    );
+    await _insertQueuedLocalTask(task);
+  }
+
+  Future<void> _ensureDailyTreatmentFollowUp(List<Task> existingTasks) async {
+    final now = DateTime.now();
+    final sourceId = 'daily-treatment-review-${_dateKey(now)}';
+    final existing = _findTaskBySource(existingTasks, 'animal', sourceId);
+    final records = await LocalData.getAnimalHealthRecords();
+    final recentTreatments = records.where((record) {
+      final treatedAt = DateTime.tryParse(record.treatedAt ?? '');
+      if (treatedAt == null) return false;
+      if (now.difference(treatedAt).inDays > 3) return false;
+      final type = record.type.trim().toLowerCase();
+      return type == 'treatment' ||
+          type == 'vaccination' ||
+          type == 'vaccine' ||
+          type == 'deworming';
+    }).length;
+
+    if (recentTreatments <= 0) {
+      await _completeRecurringTaskIfNeeded(existing);
+      return;
+    }
+    if (existing != null) return;
+
+    final task = Task(
+      clientUuid: _uuid.v4(),
+      title: 'Check treatment response',
+      description:
+          '$recentTreatments recent treatment record${recentTreatments == 1 ? '' : 's'} still need follow-up. Confirm animals are responding well and log any next action.',
+      dueDate: _dueTodayAt(hour: 17).toIso8601String(),
+      status: 'pending',
+      category: 'Animals',
+      assignedTo: 'Self',
+      sourceEventType: 'animal',
+      sourceEventId: sourceId,
+      approvalRequired: false,
+      approvalStatus: 'not_required',
+      isSynced: false,
+    );
+    await _insertQueuedLocalTask(task);
+  }
+
+  Future<void> _ensureDailyFieldTimingFollowUp(List<Task> existingTasks) async {
+    final now = DateTime.now();
+    final sourceId = 'daily-field-timing-${_dateKey(now)}';
+    final existing = _findTaskBySource(existingTasks, 'crop', sourceId);
+    final crops = await LocalData.getCrops();
+    final dueCrops = crops.where((crop) {
+      final status = crop.status.trim().toLowerCase();
+      if (!(status == 'growing' || status == 'planted' || status == 'flowering')) {
+        return false;
+      }
+      final planted = DateTime.tryParse(crop.plantedDate);
+      if (planted == null) return false;
+      return now.difference(planted).inDays >= 21;
+    }).toList();
+
+    if (dueCrops.isEmpty) {
+      await _completeRecurringTaskIfNeeded(existing);
+      return;
+    }
+    if (existing != null) return;
+
+    final task = Task(
+      clientUuid: _uuid.v4(),
+      title: 'Review irrigation and spray timing',
+      description:
+          '${dueCrops.length} crop block${dueCrops.length == 1 ? '' : 's'} are deep enough into the cycle to review irrigation, spray, and field timing before work slips.',
+      dueDate: _dueTodayAt(hour: 11).toIso8601String(),
+      status: 'pending',
+      category: 'Crops',
+      assignedTo: 'Self',
+      sourceEventType: 'crop',
       sourceEventId: sourceId,
       approvalRequired: false,
       approvalStatus: 'not_required',

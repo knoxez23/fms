@@ -14,6 +14,7 @@ It deliberately excludes later growth modules like marketplace expansion, knowle
 
 - Guided farm setup now seeds realistic starter records, tasks, schedules, stock suggestions, and practical feed units.
 - The dashboard behaves more like an operations assistant with blockers, daily plan, weekly focus, advice, and business signals.
+- The advice layer is no longer only generic. It now reads enterprise focus, production trend direction, cash discipline, collections pressure, breeding follow-ups, treatment follow-ups, and crop timing pressure from real farm data.
 - Core workflow bridges already exist:
   - production -> sale draft
   - production -> stock draft
@@ -24,9 +25,12 @@ It deliberately excludes later growth modules like marketplace expansion, knowle
   - worker notes
   - approvals
   - manager feedback
+  - manager review visibility
   - recurring operational follow-ups
+- Daily recurring follow-ups now cover feeding, harvest review, crop field walks, animal health review, breeding timeline review, treatment response checks, and field timing review.
 - Local data isolation is materially stronger across user switching, logout, offline queues, and summaries.
 - Audit trail coverage is much better and more descriptive.
+- The API Docker stack now includes production-oriented healthchecks, backup tooling, and a deployment checklist for VPS rollout.
 
 ## Real Deliverables Left
 
@@ -34,20 +38,12 @@ It deliberately excludes later growth modules like marketplace expansion, knowle
 
 Deliverables left:
 
-- enterprise-level advice, not only global farm advice
-  - dairy advice
-  - poultry advice
-  - crop advice
-  - cashflow advice
-- trend-based advice instead of mostly rule-based alerts
-  - falling output over time
-  - rising cost per unit
-  - repeated overdue work by farm unit
-  - worsening collections pattern
-- confidence and severity model for advice
-  - critical
-  - warning
-  - optimization
+- more explicit confidence/severity ranking for advice
+- repeated-pattern advice by work area or enterprise
+  - repeated missed feeding by group
+  - repeated treatment issues
+  - repeated overdue work by assignee or unit
+- cost-per-unit advice instead of only cost-pressure bands
 
 Why it matters:
 
@@ -57,17 +53,10 @@ This is what makes Farmly feel intelligent rather than just organized.
 
 Deliverables left:
 
-- farmer-configurable reminder timing beyond simple toggles
-- per-reminder category settings
-  - feeding
-  - health
-  - crop work
-  - collections
-  - approvals
-- missed-work escalation logic
-  - remind again if task is still open
-  - notify manager if worker-assigned work is overdue
-- better role-aware reminder routing
+- farmer-configurable reminder timing beyond the current morning/evening controls
+- per-reminder category controls
+- repeated reminder / escalation logic for still-open work
+- stronger role-aware routing for managers vs workers
 
 Why it matters:
 
@@ -77,12 +66,10 @@ A management app becomes sticky when it helps the user remember work without bec
 
 Deliverables left:
 
-- breeding follow-ups
-- treatment/vaccination intervals
-- irrigation and spraying routines
-- crop stage transition follow-ups
-- harvest readiness based on more than expected harvest date
-- finance-linked recurring reviews by enterprise
+- true interval-based treatment and vaccination schedules, not only recent-treatment follow-ups
+- richer irrigation/spraying routines tied to crop type and season
+- crop stage transitions with explicit stage changes
+- finance-linked recurring reviews by enterprise and margin
 
 Why it matters:
 
@@ -94,7 +81,6 @@ Deliverables left:
 
 - deeper staff productivity reporting
 - assignment balancing suggestions
-- manager approval history timeline
 - work-area dashboards
 - staff-specific home/worker mode
 - stronger backend authorization across more farm modules
@@ -112,7 +98,7 @@ Deliverables left:
 - cost per liter / egg / kg / crop block
 - labor/workload reporting
 - bottleneck reporting
-- weekly and monthly operating review screens
+- deeper weekly and monthly operating review screens
 
 Why it matters:
 
@@ -136,11 +122,9 @@ This improves trust, operational proof, and future finance readiness.
 
 Deliverables left:
 
-- production deployment of Laravel API
-- environment hardening
-- queue and scheduler reliability
-- backups
-- observability
+- real VPS deployment and smoke testing
+- queue and scheduler observability
+- automated off-server backups
 - production secrets handling
 - HTTPS / reverse proxy / domain wiring
 
@@ -152,7 +136,7 @@ This is the difference between local feature completeness and usable real-world 
 
 1. Finish advice engine maturity
 2. Expand reminder routing and escalation
-3. Add more recurring automation from treatments, breeding, irrigation, and crop stages
+3. Make recurring automation interval-aware for treatments and crop stages
 4. Build stronger staff performance and work-area reporting
 5. Add farm performance review screens
 6. Harden media and production backend operations

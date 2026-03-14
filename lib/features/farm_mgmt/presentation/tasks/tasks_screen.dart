@@ -178,6 +178,32 @@ class _TasksScreenState extends State<TasksScreen> {
               tasks.where((task) => _statusKey(task) == 'completed').length;
           final waitingApprovalCount =
               tasks.where((task) => task.isAwaitingApproval).length;
+          final approvedThisWeekCount = tasks.where((task) {
+            final approvedAt = task.approvedAt;
+            if (approvedAt == null || !task.isApproved) return false;
+            return DateTime.now().difference(approvedAt).inDays <= 7;
+          }).length;
+          final sentBackThisWeekCount = tasks.where((task) {
+            final approvedAt = task.approvedAt;
+            if (!task.isRejected) return false;
+            if (approvedAt != null) {
+              return DateTime.now().difference(approvedAt).inDays <= 7;
+            }
+            return (task.approvalComment ?? '').trim().isNotEmpty;
+          }).length;
+          final reviewerCounts = <String, int>{};
+          for (final task in tasks) {
+            final reviewer = (task.approvedBy ?? '').trim();
+            if (reviewer.isEmpty) continue;
+            reviewerCounts.update(reviewer, (value) => value + 1,
+                ifAbsent: () => 1);
+          }
+          String topReviewer = '';
+          if (reviewerCounts.isNotEmpty) {
+            final sorted = reviewerCounts.entries.toList()
+              ..sort((a, b) => b.value.compareTo(a.value));
+            topReviewer = sorted.first.key;
+          }
           final myQueueTasks = tasks.where((task) {
             final assignee = task.assignedTo?.trim();
             return assignee == _currentUserName ||
@@ -281,6 +307,9 @@ class _TasksScreenState extends State<TasksScreen> {
                       assignedCount: assignedCount,
                       unassignedCount: unassignedCount,
                       waitingApprovalCount: waitingApprovalCount,
+                      approvedThisWeekCount: approvedThisWeekCount,
+                      sentBackThisWeekCount: sentBackThisWeekCount,
+                      topReviewer: topReviewer,
                       roleSummary: roleSummary,
                     ),
                   ),
@@ -741,6 +770,9 @@ class _TaskOperationsCard extends StatelessWidget {
     required this.assignedCount,
     required this.unassignedCount,
     required this.waitingApprovalCount,
+    required this.approvedThisWeekCount,
+    required this.sentBackThisWeekCount,
+    required this.topReviewer,
     required this.roleSummary,
   });
 
@@ -749,6 +781,9 @@ class _TaskOperationsCard extends StatelessWidget {
   final int assignedCount;
   final int unassignedCount;
   final int waitingApprovalCount;
+  final int approvedThisWeekCount;
+  final int sentBackThisWeekCount;
+  final String topReviewer;
   final Map<String, dynamic> roleSummary;
 
   @override
@@ -801,6 +836,15 @@ class _TaskOperationsCard extends StatelessWidget {
                   label: '$waitingApprovalCount waiting approval',
                   color: Colors.deepPurple,
                 ),
+              _TaskMetaChip(
+                label: '$approvedThisWeekCount approved this week',
+                color: Colors.teal,
+              ),
+              if (sentBackThisWeekCount > 0)
+                _TaskMetaChip(
+                  label: '$sentBackThisWeekCount sent back',
+                  color: Colors.redAccent,
+                ),
               ...roleSummary.entries.take(3).map(
                     (entry) => _TaskMetaChip(
                       label: '${entry.key}: ${entry.value}',
@@ -809,6 +853,19 @@ class _TaskOperationsCard extends StatelessWidget {
                   ),
             ],
           ),
+          if (approvedThisWeekCount > 0 ||
+              sentBackThisWeekCount > 0 ||
+              topReviewer.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              topReviewer.isEmpty
+                  ? 'Recent reviews are moving through the desk. Keep sign-off comments specific so workers know exactly what changed.'
+                  : 'Recent approvals are moving through $topReviewer most often. Use that review history to coach workers and balance manager load.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+              ),
+            ),
+          ],
         ],
       ),
     );

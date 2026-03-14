@@ -690,12 +690,24 @@ class _HomeViewState extends State<HomeView>
     final freshnessRisk = (summary['freshnessRiskCount'] as num?)?.toInt() ?? 0;
     final pendingCollections =
         (summary['pendingCollectionsCount'] as num?)?.toInt() ?? 0;
+    final breedingReviews =
+        (summary['breedingReviewsDue'] as num?)?.toInt() ?? 0;
+    final treatmentFollowUps =
+        (summary['treatmentFollowUps'] as num?)?.toInt() ?? 0;
+    final cropStageReviews =
+        (summary['cropStageReviewsDue'] as num?)?.toInt() ?? 0;
 
     final eveningFocus = <String>[
       if (freshnessRisk > 0)
         '$freshnessRisk fresh output lot${freshnessRisk == 1 ? '' : 's'} still need moving',
       if (pendingCollections > 0)
         '$pendingCollections unpaid sale${pendingCollections == 1 ? '' : 's'} still need follow-up',
+      if (breedingReviews > 0)
+        '$breedingReviews breeding review${breedingReviews == 1 ? '' : 's'} still due',
+      if (treatmentFollowUps > 0)
+        '$treatmentFollowUps treatment check${treatmentFollowUps == 1 ? '' : 's'} still open',
+      if (cropStageReviews > 0)
+        '$cropStageReviews crop timing review${cropStageReviews == 1 ? '' : 's'} still open',
       if (advicePrimary.isNotEmpty) advicePrimary,
     ].join(' • ');
 
