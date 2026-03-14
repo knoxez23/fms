@@ -294,6 +294,8 @@ void main() {
     expect(summary['pendingCollectionsValue'], 150.0);
     expect(summary['restockCostEstimate'], 5400.0);
     expect(summary['smartReminderCount'], greaterThanOrEqualTo(2));
+    expect(summary['operationsHealthScore'], greaterThanOrEqualTo(0));
+    expect((summary['executionPressureBand'] ?? '').toString(), isNotEmpty);
     expect(summary['verificationScore'], greaterThan(0));
     expect(summary['marketplaceTrustScore'], greaterThan(0));
     expect(summary['lendingReadinessScore'], greaterThan(0));

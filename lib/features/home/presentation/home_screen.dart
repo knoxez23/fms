@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pamoja_twalima/core/presentation/settings/app_localizations.dart';
+import 'package:pamoja_twalima/core/presentation/settings/app_settings_controller.dart';
 import 'package:pamoja_twalima/core/services/local_notification_service.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/modern_app_bar.dart';
 import 'package:pamoja_twalima/core/presentation/widgets/app_scaffold.dart';
@@ -676,6 +677,14 @@ class _HomeViewState extends State<HomeView>
   }
 
   Future<void> _syncOperationalNudges(Map<String, dynamic> summary) async {
+    final settings = AppSettingsController.instance;
+    if (!settings.operationalRemindersEnabled) {
+      try {
+        await LocalNotificationService.instance.cancelAll();
+      } catch (_) {}
+      return;
+    }
+
     final morningBody = (summary['todayAgendaPrimary'] ?? '').toString().trim();
     final advicePrimary = (summary['advicePrimary'] ?? '').toString().trim();
     final freshnessRisk = (summary['freshnessRiskCount'] as num?)?.toInt() ?? 0;
@@ -692,12 +701,16 @@ class _HomeViewState extends State<HomeView>
 
     try {
       await LocalNotificationService.instance.scheduleOperationalNudges(
-        morningBody: morningBody.isEmpty
+        morningBody: settings.morningReminderEnabled
+            ? (morningBody.isEmpty
             ? 'Open Farmly and review today\'s operating plan before work starts.'
-            : morningBody,
-        eveningBody: eveningFocus.isEmpty
+            : morningBody)
+            : '',
+        eveningBody: settings.eveningReminderEnabled
+            ? (eveningFocus.isEmpty
             ? 'Check today\'s blockers, collections, and fresh output before the day ends.'
-            : eveningFocus,
+            : eveningFocus)
+            : '',
       );
     } catch (_) {}
   }

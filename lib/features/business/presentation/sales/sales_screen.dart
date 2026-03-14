@@ -540,6 +540,15 @@ class _BusinessFinancePanel extends StatelessWidget {
         ((summary['lendingReadinessScore'] as num?) ?? 0).toInt();
     final lendingReadinessBand =
         (summary['lendingReadinessBand'] ?? 'Needs work').toString();
+    final operationsHealthScore =
+        ((summary['operationsHealthScore'] as num?) ?? 0).toInt();
+    final operationsHealthBand =
+        (summary['operationsHealthBand'] ?? 'Needs work').toString();
+    final executionPressureBand =
+        (summary['executionPressureBand'] ?? 'Stable').toString();
+    final advicePrimary = (summary['advicePrimary'] ?? '').toString().trim();
+    final adviceSecondary =
+        (summary['adviceSecondary'] ?? '').toString().trim();
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -625,6 +634,15 @@ class _BusinessFinancePanel extends StatelessWidget {
             marketplaceTrustBand: marketplaceTrustBand,
             lendingReadinessScore: lendingReadinessScore,
             lendingReadinessBand: lendingReadinessBand,
+          ),
+          const SizedBox(height: 14),
+          _ManagementSignalsCard(
+            theme: theme,
+            operationsHealthScore: operationsHealthScore,
+            operationsHealthBand: operationsHealthBand,
+            executionPressureBand: executionPressureBand,
+            advicePrimary: advicePrimary,
+            adviceSecondary: adviceSecondary,
           ),
           const SizedBox(height: 14),
           _OutputPipelineCard(
@@ -745,6 +763,126 @@ class _BusinessFinancePanel extends StatelessWidget {
     final date = value == null ? null : DateTime.tryParse(value);
     if (date == null) return 'No date';
     return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+class _ManagementSignalsCard extends StatelessWidget {
+  final ThemeData theme;
+  final int operationsHealthScore;
+  final String operationsHealthBand;
+  final String executionPressureBand;
+  final String advicePrimary;
+  final String adviceSecondary;
+
+  const _ManagementSignalsCard({
+    required this.theme,
+    required this.operationsHealthScore,
+    required this.operationsHealthBand,
+    required this.executionPressureBand,
+    required this.advicePrimary,
+    required this.adviceSecondary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scoreColor = operationsHealthScore >= 80
+        ? Colors.teal
+        : operationsHealthScore >= 60
+            ? Colors.orange
+            : Colors.redAccent;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scoreColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scoreColor.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Management signals',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _FinanceMetricTile(
+                  theme: theme,
+                  label: 'Ops health',
+                  value: '$operationsHealthScore',
+                  color: scoreColor,
+                  icon: Icons.health_and_safety_outlined,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _FinanceMetricTile(
+                  theme: theme,
+                  label: 'Execution pressure',
+                  value: executionPressureBand,
+                  color: executionPressureBand == 'High'
+                      ? Colors.redAccent
+                      : executionPressureBand == 'Moderate'
+                          ? Colors.orange
+                          : Colors.teal,
+                  icon: Icons.speed_outlined,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Farmly rates current operations as $operationsHealthBand. Use these advice cues to tighten execution before finance and output quality start slipping.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+            ),
+          ),
+          if (advicePrimary.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _AdviceRow(theme: theme, text: advicePrimary),
+          ],
+          if (adviceSecondary.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _AdviceRow(theme: theme, text: adviceSecondary),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AdviceRow extends StatelessWidget {
+  final ThemeData theme;
+  final String text;
+
+  const _AdviceRow({
+    required this.theme,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.tips_and_updates_outlined,
+            size: 16, color: theme.colorScheme.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

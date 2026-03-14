@@ -181,6 +181,57 @@ class ProfileScreen extends StatelessWidget {
                             currentTheme: currentTheme,
                           ),
                         ),
+                        const Divider(height: 1),
+                        SwitchListTile(
+                          value: appSettings.operationalRemindersEnabled,
+                          onChanged: (value) async {
+                            await appSettings.setOperationalRemindersEnabled(
+                              value,
+                            );
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  value
+                                      ? 'Operational reminders enabled.'
+                                      : 'Operational reminders paused.',
+                                ),
+                              ),
+                            );
+                          },
+                          title: const Text('Operational reminders'),
+                          subtitle: const Text(
+                            'Morning and evening nudges from your live farm data.',
+                          ),
+                        ),
+                        if (appSettings.operationalRemindersEnabled) ...[
+                          const Divider(height: 1),
+                          SwitchListTile(
+                            value: appSettings.morningReminderEnabled,
+                            onChanged: (value) async {
+                              await appSettings.setMorningReminderEnabled(
+                                value,
+                              );
+                            },
+                            title: const Text('Morning planning reminder'),
+                            subtitle: const Text(
+                              'A quick nudge before the workday starts.',
+                            ),
+                          ),
+                          const Divider(height: 1),
+                          SwitchListTile(
+                            value: appSettings.eveningReminderEnabled,
+                            onChanged: (value) async {
+                              await appSettings.setEveningReminderEnabled(
+                                value,
+                              );
+                            },
+                            title: const Text('Evening close-out reminder'),
+                            subtitle: const Text(
+                              'A summary reminder for collections, blockers, and fresh output.',
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

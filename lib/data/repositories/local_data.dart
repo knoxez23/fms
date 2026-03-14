@@ -591,7 +591,25 @@ class LocalData {
         'Restock feed early and keep the unit consistent with your ration schedules so deductions stay automatic.',
       if (cropInputGaps > 0)
         'Source missing crop inputs before the next field operation so planting or spraying does not slip.',
+      if (overdueTasks >= 4)
+        'Too much work is slipping overdue. Reduce the number of open tasks or reassign work before operations become reactive.',
+      if (approvalPendingTasks >= 3)
+        'Approvals are starting to slow execution. Managers should clear the approval queue earlier in the day.',
     ];
+    final healthReviewRows = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM animal_health_records
+      WHERE treated_at IS NOT NULL
+        AND DATE(treated_at) >= DATE(?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null
+          ? [nextDateIso(-7)]
+          : [nextDateIso(-7), activeUserId],
+    );
+    final healthRecordsLast7Days =
+        Sqflite.firstIntValue(healthReviewRows) ?? 0;
     final verificationScore = _computeVerificationScore(
       cropCount: cropCount,
       animalCount: animalCount,
@@ -618,6 +636,26 @@ class LocalData {
       monthlyNetCashFlow: monthlyNetCashFlow,
       pendingCollectionsValue: pendingCollectionsValue,
     );
+    final operationsHealthScore = _computeOperationsHealthScore(
+      overdueTasks: overdueTasks,
+      dueTodayTasks: dueTodayTasks,
+      missedFeedingsToday: missedFeedingsToday,
+      lowStockItems: lowStockItems,
+      feedReadinessGaps: feedReadinessGaps,
+      cropInputGaps: cropInputGaps,
+      approvalPendingTasks: approvalPendingTasks,
+      harvestPrepGap: harvestPrepGap,
+      healthRecordsLast7Days: healthRecordsLast7Days,
+    );
+    final executionPressure = overdueTasks +
+        missedFeedingsToday +
+        approvalPendingTasks +
+        harvestPrepGap;
+    final executionPressureBand = executionPressure >= 8
+        ? 'High'
+        : executionPressure >= 4
+            ? 'Moderate'
+            : 'Stable';
 
     return {
       "crops": cropCount,
@@ -658,6 +696,7 @@ class LocalData {
       "productionReviewsNext7Days": productionReviewsNext7Days,
       "harvestReadyCrops": harvestReadyCrops,
       "harvestPrepGap": harvestPrepGap,
+      "healthRecordsLast7Days": healthRecordsLast7Days,
       "feedReadinessGaps": feedReadinessGaps,
       "cropInputGaps": cropInputGaps,
       "pendingCollectionsCount": pendingCollectionsCount,
@@ -677,6 +716,9 @@ class LocalData {
           : adviceItems.first,
       "adviceSecondary": adviceItems.length > 1 ? adviceItems[1] : '',
       "adviceTertiary": adviceItems.length > 2 ? adviceItems[2] : '',
+      "operationsHealthScore": operationsHealthScore,
+      "operationsHealthBand": _scoreBand(operationsHealthScore),
+      "executionPressureBand": executionPressureBand,
       "smartReminderCount": reminderSignals.length,
       "smartReminderPreview": smartReminderPreview,
       "verificationScore": verificationScore,
@@ -799,6 +841,34 @@ class LocalData {
     if (projectedCashBuffer >= 0) score += 10;
     if (pendingCollectionsValue <= (monthlyNetCashFlow.abs() + 1) * 1.5) {
       score += 5;
+    }
+    return score.clamp(0, 100);
+  }
+
+  static int _computeOperationsHealthScore({
+    required int overdueTasks,
+    required int dueTodayTasks,
+    required int missedFeedingsToday,
+    required int lowStockItems,
+    required int feedReadinessGaps,
+    required int cropInputGaps,
+    required int approvalPendingTasks,
+    required int harvestPrepGap,
+    required int healthRecordsLast7Days,
+  }) {
+    var score = 88;
+    score -= overdueTasks * 7;
+    score -= dueTodayTasks * 2;
+    score -= missedFeedingsToday * 10;
+    score -= lowStockItems * 3;
+    score -= feedReadinessGaps * 6;
+    score -= cropInputGaps * 5;
+    score -= approvalPendingTasks * 4;
+    score -= harvestPrepGap * 6;
+    if (healthRecordsLast7Days == 0) {
+      score -= 8;
+    } else if (healthRecordsLast7Days >= 3) {
+      score += 4;
     }
     return score.clamp(0, 100);
   }
