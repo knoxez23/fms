@@ -12,7 +12,7 @@ class WeatherRepositoryImpl implements WeatherRepository {
   @override
   Future<WeatherSnapshot> getWeather() async {
     final data = await _service.fetchWeather();
-    final current = _mapCurrent(data['current'] as Map<String, dynamic>? ?? data);
+    final current = _mapCurrent(_coerceMap(data['current']) ?? data);
     final weeklyRaw = (data['weekly'] ?? data['forecast'] ?? []) as List;
     final weekly = weeklyRaw
         .whereType<Map>()
@@ -47,5 +47,16 @@ class WeatherRepositoryImpl implements WeatherRepository {
     if (value is int) return value;
     if (value is double) return value.round();
     return int.tryParse(value.toString()) ?? 0;
+  }
+
+  Map<String, dynamic>? _coerceMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      return value.map((key, item) => MapEntry(key.toString(), item));
+    }
+    if (value is List && value.isNotEmpty) {
+      return _coerceMap(value.first);
+    }
+    return null;
   }
 }

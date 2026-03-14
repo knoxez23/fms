@@ -510,16 +510,10 @@ class _StaffOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final farm = (contextData?['farm'] as Map?)?.cast<String, dynamic>() ??
-        const <String, dynamic>{};
-    final membership =
-        (contextData?['membership'] as Map?)?.cast<String, dynamic>() ??
-            const <String, dynamic>{};
-    final teamSummary =
-        (contextData?['team_summary'] as Map?)?.cast<String, dynamic>() ??
-            const <String, dynamic>{};
-    final roles = (teamSummary['roles'] as Map?)?.cast<String, dynamic>() ??
-        const <String, dynamic>{};
+    final farm = _coerceMap(contextData?['farm']);
+    final membership = _coerceMap(contextData?['membership']);
+    final teamSummary = _coerceMap(contextData?['team_summary']);
+    final roles = _coerceRoleMap(teamSummary['roles']);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -565,6 +559,41 @@ class _StaffOverviewCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Map<String, dynamic> _coerceMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      return value.map(
+        (key, item) => MapEntry(key.toString(), item),
+      );
+    }
+    return const <String, dynamic>{};
+  }
+
+  Map<String, dynamic> _coerceRoleMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      return value.map(
+        (key, item) => MapEntry(key.toString(), item),
+      );
+    }
+    if (value is List) {
+      final result = <String, dynamic>{};
+      for (final item in value) {
+        if (item is Map) {
+          final key = item['role'] ?? item['name'] ?? item['label'];
+          final count = item['count'] ?? item['total'] ?? item['value'];
+          if (key != null && count != null) {
+            result[key.toString()] = count;
+          }
+        } else if (item != null) {
+          result[item.toString()] = 1;
+        }
+      }
+      return result;
+    }
+    return const <String, dynamic>{};
   }
 }
 

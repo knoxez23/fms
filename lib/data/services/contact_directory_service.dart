@@ -63,6 +63,13 @@ class ContactDirectoryService {
     if (value is Map) {
       return value.map((key, v) => MapEntry(key.toString(), v));
     }
+    if (value is List && value.isNotEmpty) {
+      final first = value.first;
+      if (first is Map<String, dynamic>) return first;
+      if (first is Map) {
+        return first.map((key, v) => MapEntry(key.toString(), v));
+      }
+    }
     return <String, dynamic>{};
   }
 }
