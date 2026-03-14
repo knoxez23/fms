@@ -13,6 +13,8 @@ class AddTaskScreen extends StatefulWidget {
   final String? sourceEventId;
   final String? initialTitle;
   final String? initialDescription;
+  final String currentRole;
+  final String currentUserName;
 
   const AddTaskScreen({
     super.key,
@@ -20,6 +22,8 @@ class AddTaskScreen extends StatefulWidget {
     this.sourceEventId,
     this.initialTitle,
     this.initialDescription,
+    this.currentRole = 'owner',
+    this.currentUserName = 'Self',
   });
 
   @override
@@ -65,6 +69,16 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   Map<String, String> _staffIdByName = const {};
   Map<String, Map<String, dynamic>> _staffByName = const {};
 
+  bool get _isWorkerRole {
+    final role = widget.currentRole.trim().toLowerCase();
+    return role == 'worker' || role == 'staff';
+  }
+
+  bool get _canApproveTasks {
+    final role = widget.currentRole.trim().toLowerCase();
+    return const {'owner', 'manager', 'accountant'}.contains(role);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -100,10 +114,14 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           for (final entry in entries)
             (entry['name'] ?? '').toString().trim(): entry,
         };
-        final set = {..._defaultAssignees, ..._staffIdByName.keys};
+        final set = _isWorkerRole
+            ? <String>{'Self'}
+            : {..._defaultAssignees, ..._staffIdByName.keys};
         _assignees = set.toList()..sort();
         if (!_assignees.contains(_selectedAssignee)) {
-          _selectedAssignee = _assignees.first;
+          _selectedAssignee = _isWorkerRole
+              ? 'Self'
+              : (_assignees.isNotEmpty ? _assignees.first : 'Self');
         }
       });
     } catch (_) {}
@@ -261,8 +279,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                                 border: OutlineInputBorder(),
                               ),
                               onChanged: (value) {
+                                if (value == null) return;
                                 setState(() {
-                                  _selectedAssignee = value!;
+                                  _selectedAssignee = value;
                                   _syncApprovalSuggestion();
                                 });
                               },
@@ -271,7 +290,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                           const SizedBox(width: 8),
                           IconButton(
                             tooltip: 'Manage staff',
-                            onPressed: () async {
+                            onPressed: _isWorkerRole
+                                ? null
+                                : () async {
                               await Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -284,6 +305,16 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                           ),
                         ],
                       ),
+                      if (_isWorkerRole) ...[
+                        const SizedBox(height: 12),
+                        _AssignmentHintCard(
+                          theme: theme,
+                          icon: Icons.lock_outline,
+                          title: 'Worker assignment is kept simple',
+                          subtitle:
+                              'Tasks you create stay with you, so work does not get reassigned by mistake.',
+                        ),
+                      ],
                       if (_selectedAssignee != 'Self' &&
                           _selectedAssignee != 'Team' &&
                           _staffByName.containsKey(_selectedAssignee)) ...[
@@ -350,6 +381,15 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                           return null;
                         },
                       ),
+                      if (_dueDate != null) ...[
+                        const SizedBox(height: 12),
+                        _AssignmentHintCard(
+                          theme: theme,
+                          icon: _dueUrgencyIcon(),
+                          title: _dueUrgencyTitle(),
+                          subtitle: _dueUrgencySubtitle(),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _estimatedTimeController,
@@ -382,7 +422,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         value: _approvalRequired,
-                        onChanged: (value) {
+                        onChanged: !_canApproveTasks
+                            ? null
+                            : (value) {
                           setState(() {
                             _approvalTouched = true;
                             _approvalRequired = value;
@@ -390,11 +432,24 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                         },
                         title: const Text('Manager approval needed'),
                         subtitle: Text(
-                          _approvalRequired
+                          !_canApproveTasks
+                              ? 'Sensitive tasks can still be sent for review automatically, but only a manager, owner, or accountant can change approval settings.'
+                              : _approvalRequired
                               ? 'Use this for sensitive work like spending, repairs, stock movement, or tasks that should be checked before closing.'
                               : 'Leave this off for ordinary daily work that can be completed without sign-off.',
                         ),
                       ),
+                      if (_approvalReason() != null) ...[
+                        const SizedBox(height: 8),
+                        _AssignmentHintCard(
+                          theme: theme,
+                          icon: Icons.policy_outlined,
+                          title: _approvalRequired
+                              ? 'Review suggested for this task'
+                              : 'This task looks safe to complete directly',
+                          subtitle: _approvalReason()!,
+                        ),
+                      ],
                       if (_approvalRequired)
                         Container(
                           width: double.infinity,
@@ -535,9 +590,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       final title = _titleController.text.trim();
       final task = TaskEntity(
         title: TaskTitle(title),
-        description: _descriptionController.text.trim().isEmpty
-            ? null
-            : _descriptionController.text.trim(),
+        description: _buildTaskDescription(),
         dueDate: _dueDate,
         isCompleted: false,
         assignedTo: _selectedAssignee,
@@ -574,6 +627,72 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         normalizedCategory == 'inventory' ||
         normalizedCategory == 'maintenance' ||
         normalizedCategory == 'administrative';
+  }
+
+  String? _approvalReason() {
+    final reasons = <String>[];
+    if (_selectedPriority.toLowerCase() == 'high') {
+      reasons.add('High-priority work usually deserves a quick manager check.');
+    }
+    if (_selectedAssignee == 'Team') {
+      reasons.add('Shared team tasks are easier to review when ownership is less specific.');
+    }
+    final category = _selectedCategory.toLowerCase();
+    if (category == 'inventory' ||
+        category == 'maintenance' ||
+        category == 'administrative') {
+      reasons.add(
+          'This category often affects spending, stock, or operational controls.');
+    }
+    if (reasons.isEmpty) return null;
+    return reasons.join(' ');
+  }
+
+  String? _buildTaskDescription() {
+    final description = _descriptionController.text.trim();
+    final notes = _notesController.text.trim();
+    if (description.isEmpty && notes.isEmpty) return null;
+    if (notes.isEmpty) return description;
+    if (description.isEmpty) return 'Instructions: $notes';
+    return '$description\n\nInstructions: $notes';
+  }
+
+  IconData _dueUrgencyIcon() {
+    final days = _daysUntilDue();
+    if (days <= 0) return Icons.warning_amber_outlined;
+    if (days <= 2) return Icons.schedule_outlined;
+    return Icons.event_available_outlined;
+  }
+
+  String _dueUrgencyTitle() {
+    final days = _daysUntilDue();
+    if (days < 0) return 'This due date is already behind';
+    if (days == 0) return 'This task is due today';
+    if (days == 1) return 'This task is due tomorrow';
+    if (days <= 2) return 'This task is coming up soon';
+    return 'This timing looks workable';
+  }
+
+  String _dueUrgencySubtitle() {
+    final days = _daysUntilDue();
+    if (days < 0) {
+      return 'Pick a later date if this task is not already overdue.';
+    }
+    if (days <= 1) {
+      return 'Use this for urgent work the team needs to see right away.';
+    }
+    if (days <= 2) {
+      return 'Good for near-term work that should stay visible in this week’s plan.';
+    }
+    return 'This gives the farm enough time to plan, assign, and follow through.';
+  }
+
+  int _daysUntilDue() {
+    if (_dueDate == null) return 99;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final due = DateTime(_dueDate!.year, _dueDate!.month, _dueDate!.day);
+    return due.difference(today).inDays;
   }
 
   @override

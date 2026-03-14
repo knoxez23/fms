@@ -392,6 +392,7 @@ class _TasksScreenState extends State<TasksScreen> {
                                     child: TaskDetailScreen.fromEntity(
                                       entity: task,
                                       currentRole: currentRole,
+                                      currentUserName: _currentUserName,
                                     ),
                                   ),
                                 ),
@@ -457,7 +458,10 @@ class _TasksScreenState extends State<TasksScreen> {
                       final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => const AddTaskScreen()),
+                            builder: (_) => AddTaskScreen(
+                                  currentRole: currentRole,
+                                  currentUserName: _currentUserName,
+                                )),
                       );
                       if (result is! TaskEntity) return;
                       if (!context.mounted) return;

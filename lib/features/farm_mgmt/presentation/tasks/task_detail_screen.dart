@@ -11,18 +11,26 @@ import 'package:pamoja_twalima/features/farm_mgmt/presentation/bloc/tasks/tasks_
 class TaskDetailScreen extends StatelessWidget {
   final TaskEntity entity;
   final String currentRole;
+  final String currentUserName;
 
   const TaskDetailScreen({
     super.key,
     required this.entity,
     this.currentRole = 'owner',
+    this.currentUserName = 'Self',
   });
 
   const TaskDetailScreen.fromEntity({
     Key? key,
     required TaskEntity entity,
     String currentRole = 'owner',
-  }) : this(key: key, entity: entity, currentRole: currentRole);
+    String currentUserName = 'Self',
+  }) : this(
+          key: key,
+          entity: entity,
+          currentRole: currentRole,
+          currentUserName: currentUserName,
+        );
 
   @override
   Widget build(BuildContext context) {
@@ -260,8 +268,10 @@ class TaskDetailScreen extends StatelessWidget {
   }
 
   bool _canCompleteTask(TaskEntity task) {
-    if (task.isCompleted) return true;
-    return true;
+    if (_canManageTask(currentRole)) return true;
+    if (task.assignedTo == null || task.assignedTo!.trim().isEmpty) return true;
+    final assignee = task.assignedTo!.trim().toLowerCase();
+    return assignee == 'self' || assignee == currentUserName.trim().toLowerCase();
   }
 
   Future<void> _captureCompletion(BuildContext context, TaskEntity task) async {
