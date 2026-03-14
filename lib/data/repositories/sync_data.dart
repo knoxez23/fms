@@ -228,10 +228,11 @@ class SyncData {
   }
 
   Future<int> insertTask(Task task) async {
+    final normalizedTask = _applyTaskApprovalDefaults(task);
     final taskWithClientUuid =
-        task.clientUuid == null || task.clientUuid!.isEmpty
-            ? task.copyWith(clientUuid: _uuid.v4())
-            : task;
+        normalizedTask.clientUuid == null || normalizedTask.clientUuid!.isEmpty
+            ? normalizedTask.copyWith(clientUuid: _uuid.v4())
+            : normalizedTask;
     final payload = _taskPayload(taskWithClientUuid);
     if (await _isOnline()) {
       try {
@@ -264,10 +265,12 @@ class SyncData {
   }
 
   Future<int> updateTask(Task task) async {
+    final normalizedTask = _applyTaskApprovalDefaults(task);
     if (await _isOnline()) {
       try {
         final response =
-            await _apiService.put('/tasks/${task.id}', data: _taskPayload(task));
+            await _apiService.put('/tasks/${normalizedTask.id}',
+                data: _taskPayload(normalizedTask));
         final updatedTask =
             Task.fromMap(response.data).copyWith(isSynced: true);
         return await LocalData.updateTask(updatedTask);
@@ -275,26 +278,26 @@ class SyncData {
         developer.log('updateTask API failed, updating local only: $e',
             error: e, stackTrace: st);
         final updated =
-            await LocalData.updateTask(task.copyWith(isSynced: false));
-        final localId = task.id;
+            await LocalData.updateTask(normalizedTask.copyWith(isSynced: false));
+        final localId = normalizedTask.id;
         if (localId != null) {
           await LocalData.queueTaskAction(
             localId: localId,
             action: 'update',
-            payload: _taskPayload(task),
+            payload: _taskPayload(normalizedTask),
           );
         }
         return updated;
       }
     } else {
       final updated =
-          await LocalData.updateTask(task.copyWith(isSynced: false));
-      final localId = task.id;
+          await LocalData.updateTask(normalizedTask.copyWith(isSynced: false));
+      final localId = normalizedTask.id;
       if (localId != null) {
         await LocalData.queueTaskAction(
           localId: localId,
           action: 'update',
-          payload: _taskPayload(task),
+          payload: _taskPayload(normalizedTask),
         );
       }
       return updated;
@@ -387,6 +390,50 @@ class SyncData {
       'approved_by': task.approvedBy,
       'approved_at': task.approvedAt,
     }..removeWhere((key, value) => value == null);
+  }
+
+  Task _applyTaskApprovalDefaults(Task task) {
+    if (task.approvalRequired != null || task.approvalStatus != null) {
+      return task;
+    }
+
+    final category = (task.category ?? '').toLowerCase();
+    final sourceType = (task.sourceEventType ?? '').toLowerCase();
+    final title = task.title.toLowerCase();
+    final description = (task.description ?? '').toLowerCase();
+    final sensitiveTitle = [
+      'approve',
+      'buyer terms',
+      'repair',
+      'payment',
+      'stock',
+      'market',
+      'sale or storage',
+      'sale',
+      'transport',
+    ].any((needle) => title.contains(needle) || description.contains(needle));
+    final sensitiveCategory = category == 'inventory' ||
+        category == 'maintenance' ||
+        category == 'administrative';
+    final sensitiveSource = sourceType == 'harvest' ||
+        sourceType == 'inventory' ||
+        sourceType == 'marketplace' ||
+        sourceType == 'sale';
+
+    final requiresApproval =
+        sensitiveTitle || sensitiveCategory || sensitiveSource;
+
+    if (!requiresApproval) {
+      return task.copyWith(
+        approvalRequired: false,
+        approvalStatus: 'not_required',
+      );
+    }
+
+    return task.copyWith(
+      approvalRequired: true,
+      approvalStatus: 'pending',
+    );
   }
 
   // Feeding Schedule operations

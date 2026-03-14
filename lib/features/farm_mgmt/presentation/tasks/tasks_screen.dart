@@ -60,10 +60,23 @@ class _TasksScreenState extends State<TasksScreen> {
       ];
 
   List<String> get _queueModes => [
-        'Overview',
+        if (!_isWorkerRole) 'Overview',
         'My Queue',
         'Team Queue',
+        if (_canApproveRole) 'Approval Queue',
       ];
+
+  bool get _isWorkerRole {
+    final membership = _coerceMap(_farmContext?['membership']);
+    final role = (membership['role'] ?? 'owner').toString().toLowerCase();
+    return role == 'worker' || role == 'staff';
+  }
+
+  bool get _canApproveRole {
+    final membership = _coerceMap(_farmContext?['membership']);
+    final role = (membership['role'] ?? 'owner').toString().toLowerCase();
+    return const {'owner', 'manager', 'accountant'}.contains(role);
+  }
 
   @override
   void initState() {
@@ -94,6 +107,9 @@ class _TasksScreenState extends State<TasksScreen> {
         if (membershipRole == 'worker' || membershipRole == 'staff') {
           _queueMode = 'My Queue';
           _selectedAssignee = _currentUserName;
+        } else if (_canApproveRole) {
+          _queueMode = 'Approval Queue';
+          _selectedStatus = 'Waiting approval';
         }
       });
     } catch (_) {}
@@ -144,6 +160,7 @@ class _TasksScreenState extends State<TasksScreen> {
                     assignee == null ||
                     assignee.isEmpty,
               'Team Queue' => assignee != _currentUserName && assignee != 'Self',
+              'Approval Queue' => task.isAwaitingApproval,
               _ => true,
             };
             return categoryMatch &&
@@ -160,6 +177,21 @@ class _TasksScreenState extends State<TasksScreen> {
               tasks.where((task) => _statusKey(task) == 'completed').length;
           final waitingApprovalCount =
               tasks.where((task) => task.isAwaitingApproval).length;
+          final myQueueTasks = tasks.where((task) {
+            final assignee = task.assignedTo?.trim();
+            return assignee == _currentUserName ||
+                assignee == 'Self' ||
+                assignee == null ||
+                assignee.isEmpty;
+          }).toList();
+          final myDueTodayCount = myQueueTasks
+              .where((task) =>
+                  task.dueDate != null &&
+                  !_isDifferentDay(task.dueDate!, DateTime.now()))
+              .length;
+          final myReadyToFinishCount = myQueueTasks
+              .where((task) => !task.isCompleted && !task.isAwaitingApproval)
+              .length;
           final assignedCount = tasks
               .where((task) => (task.assignedTo?.trim().isNotEmpty ?? false))
               .length;
@@ -205,11 +237,37 @@ class _TasksScreenState extends State<TasksScreen> {
                         const SizedBox(width: 12),
                         _TaskStat(
                           count: waitingApprovalCount,
-                          label: 'Approval',
+                          label: 'Waiting approval',
                           color: Colors.deepPurple,
                           theme: theme,
                         ),
                       ],
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: _TaskRoleFocusCard(
+                      theme: theme,
+                      currentRole: currentRole,
+                      queueMode: _queueMode,
+                      currentUserName: _currentUserName,
+                      waitingApprovalCount: waitingApprovalCount,
+                      myDueTodayCount: myDueTodayCount,
+                      myReadyToFinishCount: myReadyToFinishCount,
+                      onJumpToMyQueue: () => setState(() {
+                        _queueMode = 'My Queue';
+                        _selectedAssignee = _currentUserName;
+                        _selectedStatus = 'All';
+                      }),
+                      onJumpToApproval: _canApproveRole
+                          ? () => setState(() {
+                                _queueMode = 'Approval Queue';
+                                _selectedStatus = 'Waiting approval';
+                                _selectedAssignee = 'Anyone';
+                              })
+                          : null,
                     ),
                   ),
                 ),
@@ -242,6 +300,10 @@ class _TasksScreenState extends State<TasksScreen> {
                           _queueMode = mode;
                           if (mode == 'My Queue') {
                             _selectedAssignee = _currentUserName;
+                            _selectedStatus = 'All';
+                          } else if (mode == 'Approval Queue') {
+                            _selectedStatus = 'Waiting approval';
+                            _selectedAssignee = 'Anyone';
                           } else if (mode == 'Team Queue' &&
                               _selectedAssignee == _currentUserName) {
                             _selectedAssignee = 'Anyone';
@@ -263,8 +325,10 @@ class _TasksScreenState extends State<TasksScreen> {
                           child: _TaskFilterDropdown(
                             value: _selectedFilter,
                             items: _filters,
-                            onChanged: (value) =>
-                                setState(() => _selectedFilter = value!),
+                            onChanged: _queueMode == 'Approval Queue'
+                                ? null
+                                : (value) =>
+                                    setState(() => _selectedFilter = value!),
                             theme: theme,
                           ),
                         ),
@@ -273,8 +337,10 @@ class _TasksScreenState extends State<TasksScreen> {
                           child: _TaskFilterDropdown(
                             value: _selectedStatus,
                             items: _statusOptions,
-                            onChanged: (value) =>
-                                setState(() => _selectedStatus = value!),
+                            onChanged: _queueMode == 'Approval Queue'
+                                ? null
+                                : (value) =>
+                                    setState(() => _selectedStatus = value!),
                             theme: theme,
                           ),
                         ),
@@ -289,7 +355,8 @@ class _TasksScreenState extends State<TasksScreen> {
                                 ? _selectedAssignee
                                 : _assigneeOptions.first,
                             items: _assigneeOptions,
-                            onChanged: _queueMode == 'My Queue'
+                            onChanged: _queueMode == 'My Queue' ||
+                                    _queueMode == 'Approval Queue'
                                 ? null
                                 : (value) => setState(
                                       () => _selectedAssignee = value!,
@@ -473,6 +540,105 @@ class _TasksScreenState extends State<TasksScreen> {
       return value.map((key, item) => MapEntry(key.toString(), item));
     }
     return const <String, dynamic>{};
+  }
+
+  bool _isDifferentDay(DateTime left, DateTime right) {
+    return left.year != right.year ||
+        left.month != right.month ||
+        left.day != right.day;
+  }
+}
+
+class _TaskRoleFocusCard extends StatelessWidget {
+  const _TaskRoleFocusCard({
+    required this.theme,
+    required this.currentRole,
+    required this.queueMode,
+    required this.currentUserName,
+    required this.waitingApprovalCount,
+    required this.myDueTodayCount,
+    required this.myReadyToFinishCount,
+    required this.onJumpToMyQueue,
+    this.onJumpToApproval,
+  });
+
+  final ThemeData theme;
+  final String currentRole;
+  final String queueMode;
+  final String currentUserName;
+  final int waitingApprovalCount;
+  final int myDueTodayCount;
+  final int myReadyToFinishCount;
+  final VoidCallback onJumpToMyQueue;
+  final VoidCallback? onJumpToApproval;
+
+  @override
+  Widget build(BuildContext context) {
+    final role = currentRole.toLowerCase();
+    final isWorker = role == 'worker' || role == 'staff';
+    final headline = isWorker
+        ? 'Work from your queue and finish what is on your hands first.'
+        : waitingApprovalCount > 0
+            ? '$waitingApprovalCount task${waitingApprovalCount == 1 ? '' : 's'} need sign-off.'
+            : 'Team work is flowing. Review queue health and reassign when needed.';
+    final detail = isWorker
+        ? '$myReadyToFinishCount task${myReadyToFinishCount == 1 ? '' : 's'} are ready for you to finish, and $myDueTodayCount are due today.'
+        : queueMode == 'Approval Queue'
+            ? 'Approve clear work quickly and send back anything that still needs changes.'
+            : 'Use the approval queue for repairs, stock movement, spending, and other sensitive work.';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isWorker
+            ? Colors.green.withValues(alpha: 0.08)
+            : Colors.deepPurple.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isWorker ? '$currentUserName work queue' : 'Manager review lane',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            headline,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            detail,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: onJumpToMyQueue,
+                icon: const Icon(Icons.assignment_outlined),
+                label: const Text('My Queue'),
+              ),
+              if (!isWorker && onJumpToApproval != null)
+                ElevatedButton.icon(
+                  onPressed: onJumpToApproval,
+                  icon: const Icon(Icons.verified_outlined),
+                  label: const Text('Approval Queue'),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 

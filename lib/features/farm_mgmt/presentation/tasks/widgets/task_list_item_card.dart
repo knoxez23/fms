@@ -111,12 +111,14 @@ class TaskListItemCard extends StatelessWidget {
   }
 
   String _statusText(BuildContext context, TaskEntity task) {
+    if (task.isAwaitingApproval) return 'Waiting approval';
     if (task.isCompleted) return context.tr('task_completed');
     if (task.isOverdue) return context.tr('task_overdue');
     return context.tr('task_pending');
   }
 
   Color _statusColor(TaskEntity task) {
+    if (task.isAwaitingApproval) return Colors.deepPurple;
     if (task.isCompleted) return Colors.green;
     if (task.isOverdue) return Colors.red;
     return Colors.orange;
