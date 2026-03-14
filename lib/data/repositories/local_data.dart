@@ -239,13 +239,17 @@ class LocalData {
           ((normalized['reserved_quantity'] as num?)?.toDouble() ?? 0.0);
       if (quantity <= 0) continue;
       final timestampValue =
-          (normalized['last_restock'] ?? normalized['last_updated'])?.toString();
+          (normalized['last_restock'] ?? normalized['last_updated'])
+              ?.toString();
       final timestamp = timestampValue == null
           ? null
           : DateTime.tryParse(timestampValue)?.toLocal();
       final expiryValue = normalized['expiry_date']?.toString();
-      final expiry = expiryValue == null ? null : DateTime.tryParse(expiryValue)?.toLocal();
-      final freshnessHours = (normalized['freshness_hours'] as num?)?.toDouble();
+      final expiry = expiryValue == null
+          ? null
+          : DateTime.tryParse(expiryValue)?.toLocal();
+      final freshnessHours =
+          (normalized['freshness_hours'] as num?)?.toDouble();
       final ageHours = _ageInHours(timestamp, freshnessNow);
       if (ageHours > oldestFreshOutputAgeHours) {
         oldestFreshOutputAgeHours = ageHours;
@@ -289,6 +293,20 @@ class LocalData {
       activeUserId == null ? [today, today] : [today, today, activeUserId],
     );
     final todaysFeedings = Sqflite.firstIntValue(todaysFeedingResult) ?? 0;
+
+    final feedingLogsTodayResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM feeding_logs
+      WHERE DATE(fed_at) = DATE(?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null ? [today] : [today, activeUserId],
+    );
+    final feedingLogsToday = Sqflite.firstIntValue(feedingLogsTodayResult) ?? 0;
+    final missedFeedingsToday = todaysFeedings > feedingLogsToday
+        ? (todaysFeedings - feedingLogsToday)
+        : 0;
 
     final todaysFeedingPreviewRows = await db.rawQuery(
       '''
@@ -408,6 +426,89 @@ class LocalData {
     );
     final harvestReadyCrops = Sqflite.firstIntValue(harvestReadyResult) ?? 0;
 
+    final overdueTasksResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM tasks
+      WHERE status != ?
+        AND due_date IS NOT NULL
+        AND DATE(due_date) < DATE(?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null
+          ? ['completed', today]
+          : ['completed', today, activeUserId],
+    );
+    final overdueTasks = Sqflite.firstIntValue(overdueTasksResult) ?? 0;
+
+    final dueTodayTasksResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM tasks
+      WHERE status != ?
+        AND due_date IS NOT NULL
+        AND DATE(due_date) = DATE(?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null
+          ? ['completed', today]
+          : ['completed', today, activeUserId],
+    );
+    final dueTodayTasks = Sqflite.firstIntValue(dueTodayTasksResult) ?? 0;
+
+    final dueThisWeekTasksResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM tasks
+      WHERE status != ?
+        AND due_date IS NOT NULL
+        AND DATE(due_date) > DATE(?)
+        AND DATE(due_date) <= DATE(?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null
+          ? ['completed', today, nextDateIso(7)]
+          : ['completed', today, nextDateIso(7), activeUserId],
+    );
+    final dueThisWeekTasks = Sqflite.firstIntValue(dueThisWeekTasksResult) ?? 0;
+
+    final approvalPendingTasksResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM tasks
+      WHERE status != ?
+        AND approval_required = 1
+        AND LOWER(COALESCE(approval_status, 'pending')) = 'pending'
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null ? ['completed'] : ['completed', activeUserId],
+    );
+    final approvalPendingTasks =
+        Sqflite.firstIntValue(approvalPendingTasksResult) ?? 0;
+
+    final harvestPrepTaskResult = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count
+      FROM tasks
+      WHERE status != ?
+        AND (
+          LOWER(COALESCE(title, '')) LIKE '%harvest%'
+          OR LOWER(COALESCE(title, '')) LIKE '%stock%'
+          OR LOWER(COALESCE(title, '')) LIKE '%market%'
+        )
+        AND due_date IS NOT NULL
+        AND DATE(due_date) <= DATE(?)
+        ${activeUserId == null ? '' : 'AND user_id = ?'}
+      ''',
+      activeUserId == null
+          ? ['completed', nextDateIso(14)]
+          : ['completed', nextDateIso(14), activeUserId],
+    );
+    final harvestPrepTasks = Sqflite.firstIntValue(harvestPrepTaskResult) ?? 0;
+    final harvestPrepGap = harvestReadyCrops > harvestPrepTasks
+        ? (harvestReadyCrops - harvestPrepTasks)
+        : 0;
+
     final feedGapResult = await db.rawQuery(
       '''
       SELECT COUNT(*) as count
@@ -448,10 +549,49 @@ class LocalData {
       if (freshnessRiskCount > 0)
         '$freshnessRiskCount fresh output lot${freshnessRiskCount == 1 ? '' : 's'} to move now',
     ];
+    final todayAgendaItems = <String>[
+      if (overdueTasks > 0)
+        '$overdueTasks overdue task${overdueTasks == 1 ? '' : 's'}',
+      if (dueTodayTasks > 0)
+        '$dueTodayTasks task${dueTodayTasks == 1 ? '' : 's'} due today',
+      if (missedFeedingsToday > 0)
+        '$missedFeedingsToday feeding session${missedFeedingsToday == 1 ? '' : 's'} still unlogged',
+      if (approvalPendingTasks > 0)
+        '$approvalPendingTasks task${approvalPendingTasks == 1 ? '' : 's'} waiting approval',
+      if (pendingCollectionsCount > 0)
+        '$pendingCollectionsCount collection${pendingCollectionsCount == 1 ? '' : 's'} to follow up',
+    ];
+    final thisWeekFocusItems = <String>[
+      if (dueThisWeekTasks > 0)
+        '$dueThisWeekTasks task${dueThisWeekTasks == 1 ? '' : 's'} due this week',
+      if (productionReviewsNext7Days > 0)
+        '$productionReviewsNext7Days production review${productionReviewsNext7Days == 1 ? '' : 's'} to run',
+      if (harvestReadyCrops > 0)
+        '$harvestReadyCrops crop${harvestReadyCrops == 1 ? '' : 's'} entering harvest window',
+      if (setupTasksNext7Days > 0)
+        '$setupTasksNext7Days setup task${setupTasksNext7Days == 1 ? '' : 's'} due soon',
+    ];
     final smartReminderPreview = reminderSignals.take(3).join(' • ');
     final monthlyNetCashFlow = monthlySales - monthlyExpenses;
     final projectedCashBuffer =
         monthlyNetCashFlow + pendingCollectionsValue - restockCostEstimate;
+    final adviceItems = <String>[
+      if (missedFeedingsToday > 0)
+        'Log feeding as it happens so feed usage, animal care, and costs stay accurate.',
+      if (freshnessPriorityLabel.isNotEmpty) freshnessPriorityLabel,
+      if (harvestPrepGap > 0)
+        'Create harvest prep for $harvestPrepGap crop${harvestPrepGap == 1 ? '' : 's'} so stock and sales do not lag behind the field.',
+      if (pendingCollectionsValue > 0 &&
+          monthlySales > 0 &&
+          pendingCollectionsValue > monthlySales * 0.4)
+        'Collections are tying up too much cash. Follow up unpaid buyers before adding more spend.',
+      if (projectedCashBuffer < 0)
+        'Your current cash buffer is negative. Delay non-essential buying until sales or collections improve.',
+      if (feedReadinessGaps > 0)
+        'Restock feed early and keep the unit consistent with your ration schedules so deductions stay automatic.',
+      if (cropInputGaps > 0)
+        'Source missing crop inputs before the next field operation so planting or spraying does not slip.',
+    ];
     final verificationScore = _computeVerificationScore(
       cropCount: cropCount,
       animalCount: animalCount,
@@ -505,18 +645,38 @@ class LocalData {
       "freshnessPriorityLabel": freshnessPriorityLabel,
       "productionValueToday": productionValueToday,
       "todaysFeedings": todaysFeedings,
+      "feedingLogsToday": feedingLogsToday,
+      "missedFeedingsToday": missedFeedingsToday,
       "todaysFeedingPreview": todaysFeedingPreview,
+      "overdueTasks": overdueTasks,
+      "dueTodayTasks": dueTodayTasks,
+      "dueThisWeekTasks": dueThisWeekTasks,
+      "approvalPendingTasks": approvalPendingTasks,
       "setupTasksNext7Days": setupTasksNext7Days,
       "setupTasksNext30Days": setupTasksNext30Days,
       "activeFieldCrops": activeFieldCrops,
       "productionReviewsNext7Days": productionReviewsNext7Days,
       "harvestReadyCrops": harvestReadyCrops,
+      "harvestPrepGap": harvestPrepGap,
       "feedReadinessGaps": feedReadinessGaps,
       "cropInputGaps": cropInputGaps,
       "pendingCollectionsCount": pendingCollectionsCount,
       "pendingCollectionsValue": pendingCollectionsValue,
       "restockCostEstimate": restockCostEstimate,
       "projectedCashBuffer": projectedCashBuffer,
+      "todayAgendaCount": todayAgendaItems.length,
+      "todayAgendaPreview": todayAgendaItems.take(3).join(' • '),
+      "todayAgendaPrimary": todayAgendaItems.isEmpty
+          ? 'No urgent actions lined up'
+          : todayAgendaItems.first,
+      "thisWeekFocusCount": thisWeekFocusItems.length,
+      "thisWeekFocusPreview": thisWeekFocusItems.take(3).join(' • '),
+      "adviceCount": adviceItems.length,
+      "advicePrimary": adviceItems.isEmpty
+          ? 'Keep logging farm work as it happens so Farmly can automate the rest reliably.'
+          : adviceItems.first,
+      "adviceSecondary": adviceItems.length > 1 ? adviceItems[1] : '',
+      "adviceTertiary": adviceItems.length > 2 ? adviceItems[2] : '',
       "smartReminderCount": reminderSignals.length,
       "smartReminderPreview": smartReminderPreview,
       "verificationScore": verificationScore,
@@ -780,7 +940,8 @@ class LocalData {
         continue;
       }
       final timestampValue =
-          (normalized['last_restock'] ?? normalized['last_updated'])?.toString();
+          (normalized['last_restock'] ?? normalized['last_updated'])
+              ?.toString();
       final timestamp = timestampValue == null
           ? null
           : DateTime.tryParse(timestampValue)?.toLocal();

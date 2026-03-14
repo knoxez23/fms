@@ -27,6 +27,7 @@ void main() {
     await db.delete('crops');
     await db.delete('sales');
     await db.delete('feeding_schedules');
+    await db.delete('feeding_logs');
     await db.delete('production_logs');
   });
 
@@ -141,8 +142,57 @@ void main() {
     expect(summary['cropInputGaps'], 2);
     expect(summary['productionReviewsNext7Days'], 1);
     expect(summary['harvestReadyCrops'], 1);
+    expect(summary['dueThisWeekTasks'], 1);
+    expect(summary['todayAgendaCount'], greaterThan(0));
+    expect((summary['thisWeekFocusPreview'] ?? '').toString(),
+        contains('production review'));
     expect(
         summary['todaysFeedingPreview'], contains('Morning: 1 morning bucket'));
+  });
+
+  test('builds today plan and advice from task, feeding, and cash pressure',
+      () async {
+    final db = await DatabaseHelper().database;
+    final now = DateTime.now();
+    final yesterday = now.subtract(const Duration(days: 1));
+
+    await db.insert('tasks', {
+      'title': 'Follow up milk buyers',
+      'status': 'pending',
+      'due_date': now.toIso8601String(),
+      'approval_required': 1,
+      'approval_status': 'pending',
+    });
+    await db.insert('tasks', {
+      'title': 'Check calf pen',
+      'status': 'pending',
+      'due_date': yesterday.toIso8601String(),
+    });
+    await db.insert('feeding_schedules', {
+      'animal_id': 1,
+      'feed_type': 'Dairy meal',
+      'quantity': 1,
+      'unit': 'bucket',
+      'time_of_day': 'Morning',
+      'start_date': yesterday.toIso8601String(),
+      'notes': 'measure_label:1 morning bucket',
+    });
+    await db.insert('sales', {
+      'product_name': 'Milk',
+      'total_amount': 800,
+      'sale_date': now.toIso8601String(),
+      'payment_status': 'pending',
+    });
+
+    final summary = await LocalData.getFarmSummary();
+
+    expect(summary['overdueTasks'], 1);
+    expect(summary['dueTodayTasks'], 1);
+    expect(summary['approvalPendingTasks'], 1);
+    expect(summary['missedFeedingsToday'], 1);
+    expect(
+        (summary['todayAgendaPreview'] ?? '').toString(), contains('overdue'));
+    expect((summary['advicePrimary'] ?? '').toString(), isNotEmpty);
   });
 
   test('tracks output ready in stock and unsold production signals', () async {

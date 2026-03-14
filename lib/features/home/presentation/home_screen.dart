@@ -207,6 +207,27 @@ class _HomeViewState extends State<HomeView>
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
+                  SliverToBoxAdapter(
+                    child: SectionHeader(
+                      title: 'Today\'s Operating Plan',
+                      icon: Icons.today_outlined,
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _TodayOperationsSection(
+                        theme: theme,
+                        summary: summary,
+                        onOpenFarm: () => widget.onNavigateTab?.call(1),
+                        onOpenInventory: () => widget.onNavigateTab?.call(2),
+                        onOpenBusiness: () => widget.onNavigateTab?.call(3),
+                      ),
+                    ),
+                  ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
                   // Quick Stats Grid
                   SliverToBoxAdapter(
                     child: SectionHeader(
@@ -333,18 +354,40 @@ class _HomeViewState extends State<HomeView>
 
                   SliverToBoxAdapter(
                     child: SectionHeader(
-                      title: 'Setup Momentum',
-                      icon: Icons.playlist_add_check_circle_outlined,
+                      title: 'This Week',
+                      icon: Icons.view_week_outlined,
                     ),
                   ),
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _SetupMomentumSection(
+                      child: _ThisWeekAheadSection(
                         theme: theme,
                         summary: summary,
                         onOpenFarm: () => widget.onNavigateTab?.call(1),
                         onOpenInventory: () => widget.onNavigateTab?.call(2),
+                        onOpenBusiness: () => widget.onNavigateTab?.call(3),
+                      ),
+                    ),
+                  ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+                  SliverToBoxAdapter(
+                    child: SectionHeader(
+                      title: 'Farm Advice',
+                      icon: Icons.tips_and_updates_outlined,
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _FarmAdviceSection(
+                        theme: theme,
+                        summary: summary,
+                        onOpenFarm: () => widget.onNavigateTab?.call(1),
+                        onOpenInventory: () => widget.onNavigateTab?.call(2),
+                        onOpenBusiness: () => widget.onNavigateTab?.call(3),
                       ),
                     ),
                   ),
@@ -445,7 +488,8 @@ class _HomeViewState extends State<HomeView>
   int _notificationCount(Map<String, dynamic> summary) {
     final lowStock = (summary['lowStockItems'] as num?)?.toInt() ?? 0;
     final pendingTasks = (summary['pendingTasks'] as num?)?.toInt() ?? 0;
-    final smartReminders = (summary['smartReminderCount'] as num?)?.toInt() ?? 0;
+    final smartReminders =
+        (summary['smartReminderCount'] as num?)?.toInt() ?? 0;
     final freshnessRisk = (summary['freshnessRiskCount'] as num?)?.toInt() ?? 0;
     return (lowStock > 0 ? 1 : 0) +
         (pendingTasks > 0 ? 1 : 0) +
@@ -457,7 +501,8 @@ class _HomeViewState extends State<HomeView>
   void _openNotifications(Map<String, dynamic> summary) {
     final lowStock = (summary['lowStockItems'] as num?)?.toInt() ?? 0;
     final pendingTasks = (summary['pendingTasks'] as num?)?.toInt() ?? 0;
-    final smartReminders = (summary['smartReminderCount'] as num?)?.toInt() ?? 0;
+    final smartReminders =
+        (summary['smartReminderCount'] as num?)?.toInt() ?? 0;
     final smartReminderPreview =
         (summary['smartReminderPreview'] ?? '').toString().trim();
     final freshnessRisk = (summary['freshnessRiskCount'] as num?)?.toInt() ?? 0;
@@ -584,22 +629,144 @@ class _HomeViewState extends State<HomeView>
   }
 }
 
-class _SetupMomentumSection extends StatelessWidget {
+class _TodayOperationsSection extends StatelessWidget {
   final ThemeData theme;
   final Map<String, dynamic> summary;
   final VoidCallback onOpenFarm;
   final VoidCallback onOpenInventory;
+  final VoidCallback onOpenBusiness;
 
-  const _SetupMomentumSection({
+  const _TodayOperationsSection({
     required this.theme,
     required this.summary,
     required this.onOpenFarm,
     required this.onOpenInventory,
+    required this.onOpenBusiness,
   });
 
   @override
   Widget build(BuildContext context) {
+    final overdueTasks = (summary['overdueTasks'] as num?)?.toInt() ?? 0;
+    final dueTodayTasks = (summary['dueTodayTasks'] as num?)?.toInt() ?? 0;
     final todaysFeedings = (summary['todaysFeedings'] as num?)?.toInt() ?? 0;
+    final feedingLogsToday =
+        (summary['feedingLogsToday'] as num?)?.toInt() ?? 0;
+    final missedFeedingsToday =
+        (summary['missedFeedingsToday'] as num?)?.toInt() ?? 0;
+    final approvalPendingTasks =
+        (summary['approvalPendingTasks'] as num?)?.toInt() ?? 0;
+    final pendingCollectionsCount =
+        (summary['pendingCollectionsCount'] as num?)?.toInt() ?? 0;
+    final todayAgendaPreview =
+        (summary['todayAgendaPreview'] ?? '').toString().trim();
+    final todaysFeedingPreview =
+        (summary['todaysFeedingPreview'] ?? '').toString().trim();
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _SetupMomentumCard(
+                theme: theme,
+                title: 'Must Finish',
+                value: '${overdueTasks + dueTodayTasks}',
+                subtitle: overdueTasks > 0
+                    ? '$overdueTasks overdue and $dueTodayTasks due today'
+                    : dueTodayTasks > 0
+                        ? '$dueTodayTasks task${dueTodayTasks == 1 ? '' : 's'} due before day ends'
+                        : 'No urgent task deadlines right now',
+                icon: Icons.task_alt_outlined,
+                color: overdueTasks > 0 ? Colors.redAccent : Colors.indigo,
+                onTap: onOpenFarm,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _SetupMomentumCard(
+                theme: theme,
+                title: 'Feeding Check',
+                value: '$todaysFeedings',
+                subtitle: missedFeedingsToday > 0
+                    ? '$missedFeedingsToday session${missedFeedingsToday == 1 ? '' : 's'} still need logging'
+                    : todaysFeedingPreview.isNotEmpty
+                        ? todaysFeedingPreview
+                        : feedingLogsToday > 0
+                            ? '$feedingLogsToday feeding log${feedingLogsToday == 1 ? '' : 's'} recorded today'
+                            : 'No active feeding schedules yet',
+                icon: Icons.local_dining_outlined,
+                color: missedFeedingsToday > 0 ? Colors.teal : Colors.green,
+                onTap: onOpenFarm,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _SetupMomentumCard(
+                theme: theme,
+                title: 'Approvals',
+                value: '$approvalPendingTasks',
+                subtitle: approvalPendingTasks > 0
+                    ? 'Sensitive work is waiting for manager review'
+                    : 'No task approvals blocking work right now',
+                icon: Icons.verified_outlined,
+                color:
+                    approvalPendingTasks > 0 ? Colors.deepPurple : Colors.blue,
+                onTap: onOpenFarm,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _SetupMomentumCard(
+                theme: theme,
+                title: 'Collections',
+                value: '$pendingCollectionsCount',
+                subtitle: pendingCollectionsCount > 0
+                    ? 'Follow up unpaid buyers before spending more'
+                    : 'No unpaid sales are pressuring today’s cash',
+                icon: Icons.payments_outlined,
+                color:
+                    pendingCollectionsCount > 0 ? Colors.orange : Colors.green,
+                onTap: onOpenBusiness,
+              ),
+            ),
+          ],
+        ),
+        if (todayAgendaPreview.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _ManagementBanner(
+            theme: theme,
+            icon: Icons.play_circle_outline,
+            color: Colors.indigo,
+            title: 'How to win today',
+            message: todayAgendaPreview,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ThisWeekAheadSection extends StatelessWidget {
+  final ThemeData theme;
+  final Map<String, dynamic> summary;
+  final VoidCallback onOpenFarm;
+  final VoidCallback onOpenInventory;
+  final VoidCallback onOpenBusiness;
+
+  const _ThisWeekAheadSection({
+    required this.theme,
+    required this.summary,
+    required this.onOpenFarm,
+    required this.onOpenInventory,
+    required this.onOpenBusiness,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final setupTasks7 = (summary['setupTasksNext7Days'] as num?)?.toInt() ?? 0;
     final setupTasks30 =
         (summary['setupTasksNext30Days'] as num?)?.toInt() ?? 0;
@@ -609,11 +776,17 @@ class _SetupMomentumSection extends StatelessWidget {
         (summary['productionReviewsNext7Days'] as num?)?.toInt() ?? 0;
     final harvestReadyCrops =
         (summary['harvestReadyCrops'] as num?)?.toInt() ?? 0;
+    final dueThisWeekTasks =
+        (summary['dueThisWeekTasks'] as num?)?.toInt() ?? 0;
+    final approvalPendingTasks =
+        (summary['approvalPendingTasks'] as num?)?.toInt() ?? 0;
     final todaysFeedingPreview =
         (summary['todaysFeedingPreview'] ?? '').toString().trim();
     final feedGaps = (summary['feedReadinessGaps'] as num?)?.toInt() ?? 0;
     final cropInputGaps = (summary['cropInputGaps'] as num?)?.toInt() ?? 0;
     final totalReadinessGaps = feedGaps + cropInputGaps;
+    final thisWeekFocusPreview =
+        (summary['thisWeekFocusPreview'] ?? '').toString().trim();
 
     return Column(
       children: [
@@ -622,17 +795,16 @@ class _SetupMomentumSection extends StatelessWidget {
             Expanded(
               child: _SetupMomentumCard(
                 theme: theme,
-                title: 'Today\'s Feeding',
-                value: '$todaysFeedings',
-                subtitle: feedGaps > 0
-                    ? '$feedGaps feed item${feedGaps == 1 ? '' : 's'} need sourcing'
-                    : todaysFeedingPreview.isNotEmpty
-                        ? todaysFeedingPreview
-                        : todaysFeedings == 0
-                            ? 'No active schedules yet'
-                            : 'Feeding sessions ready',
-                icon: Icons.local_dining_outlined,
-                color: Colors.teal,
+                title: 'This Week Tasks',
+                value:
+                    '${dueThisWeekTasks > 0 ? dueThisWeekTasks : setupTasks7}',
+                subtitle: dueThisWeekTasks > 0
+                    ? 'Planned work due before the week closes'
+                    : setupTasks7 > 0
+                        ? 'Setup and follow-up work due soon'
+                        : 'This week is relatively clear so far',
+                icon: Icons.event_note_outlined,
+                color: Colors.indigo,
                 onTap: onOpenFarm,
               ),
             ),
@@ -640,14 +812,18 @@ class _SetupMomentumSection extends StatelessWidget {
             Expanded(
               child: _SetupMomentumCard(
                 theme: theme,
-                title: 'Next 7 Days',
+                title: 'Production Rhythm',
                 value:
-                    '${productionReviews > 0 ? productionReviews : setupTasks7}',
+                    '${productionReviews > 0 ? productionReviews : approvalPendingTasks}',
                 subtitle: productionReviews > 0
-                    ? 'Production reviews queued'
-                    : 'Setup tasks due soon',
-                icon: Icons.event_available_outlined,
-                color: Colors.indigo,
+                    ? 'Production reviews are queued'
+                    : approvalPendingTasks > 0
+                        ? 'Approvals still affect work pacing'
+                        : todaysFeedingPreview.isNotEmpty
+                            ? 'Use feeding and production logs to keep rhythm'
+                            : 'No production reviews due yet',
+                icon: Icons.insights_outlined,
+                color: Colors.deepPurple,
                 onTap: onOpenFarm,
               ),
             ),
@@ -678,29 +854,129 @@ class _SetupMomentumSection extends StatelessWidget {
             Expanded(
               child: _SetupMomentumCard(
                 theme: theme,
-                title: '30-Day Plan',
-                value: '$setupTasks30',
+                title: 'Inventory Readiness',
+                value: '$totalReadinessGaps',
                 subtitle: totalReadinessGaps > 0
-                    ? '$totalReadinessGaps startup blocker${totalReadinessGaps == 1 ? '' : 's'} visible'
-                    : 'Operational checklist seeded',
-                icon: Icons.fact_check_outlined,
-                color: Colors.deepOrange,
-                onTap: onOpenInventory,
+                    ? '$totalReadinessGaps blocker${totalReadinessGaps == 1 ? '' : 's'} visible in feed or inputs'
+                    : setupTasks30 > 0
+                        ? '$setupTasks30 longer-range task${setupTasks30 == 1 ? '' : 's'} already planned'
+                        : 'Inputs look ready for the next week',
+                icon: Icons.inventory_2_outlined,
+                color:
+                    totalReadinessGaps > 0 ? Colors.deepOrange : Colors.green,
+                onTap:
+                    totalReadinessGaps > 0 ? onOpenInventory : onOpenBusiness,
               ),
             ),
           ],
         ),
-        if (totalReadinessGaps > 0) ...[
+        if (thisWeekFocusPreview.isNotEmpty || totalReadinessGaps > 0) ...[
           const SizedBox(height: 12),
-          _SetupReadinessBanner(
+          _ManagementBanner(
             theme: theme,
-            feedGaps: feedGaps,
-            cropInputGaps: cropInputGaps,
-            onOpenInventory: onOpenInventory,
+            icon: totalReadinessGaps > 0
+                ? Icons.warning_amber_outlined
+                : Icons.view_timeline_outlined,
+            color: totalReadinessGaps > 0 ? Colors.deepOrange : Colors.indigo,
+            title: totalReadinessGaps > 0
+                ? 'Keep this week unblocked'
+                : 'What to watch this week',
+            message: thisWeekFocusPreview.isNotEmpty
+                ? thisWeekFocusPreview
+                : _readinessMessage(
+                    feedGaps: feedGaps, cropInputGaps: cropInputGaps),
           ),
         ],
       ],
     );
+  }
+
+  String _readinessMessage({
+    required int feedGaps,
+    required int cropInputGaps,
+  }) {
+    final parts = <String>[
+      if (feedGaps > 0)
+        '$feedGaps feed item${feedGaps == 1 ? '' : 's'} need restocking',
+      if (cropInputGaps > 0)
+        '$cropInputGaps crop input gap${cropInputGaps == 1 ? '' : 's'} need sourcing',
+    ];
+    return parts.join(' • ');
+  }
+}
+
+class _FarmAdviceSection extends StatelessWidget {
+  final ThemeData theme;
+  final Map<String, dynamic> summary;
+  final VoidCallback onOpenFarm;
+  final VoidCallback onOpenInventory;
+  final VoidCallback onOpenBusiness;
+
+  const _FarmAdviceSection({
+    required this.theme,
+    required this.summary,
+    required this.onOpenFarm,
+    required this.onOpenInventory,
+    required this.onOpenBusiness,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final adviceCards = <_AdviceCardData>[
+      _AdviceCardData(
+        title: 'Best next move',
+        message: (summary['advicePrimary'] ?? '').toString().trim(),
+        icon: Icons.lightbulb_outline,
+        color: Colors.amber.shade800,
+        onTap: _resolvePrimaryAction(),
+      ),
+      if ((summary['adviceSecondary'] ?? '').toString().trim().isNotEmpty)
+        _AdviceCardData(
+          title: 'Protect your margin',
+          message: (summary['adviceSecondary'] ?? '').toString().trim(),
+          icon: Icons.shield_outlined,
+          color: Colors.teal,
+          onTap: onOpenInventory,
+        ),
+      if ((summary['adviceTertiary'] ?? '').toString().trim().isNotEmpty)
+        _AdviceCardData(
+          title: 'Keep operations smooth',
+          message: (summary['adviceTertiary'] ?? '').toString().trim(),
+          icon: Icons.auto_graph_outlined,
+          color: Colors.indigo,
+          onTap: onOpenFarm,
+        ),
+    ];
+
+    return Column(
+      children: adviceCards
+          .map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _AdviceCard(theme: theme, item: item),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  VoidCallback _resolvePrimaryAction() {
+    final missedFeedingsToday =
+        (summary['missedFeedingsToday'] as num?)?.toInt() ?? 0;
+    final feedReadinessGaps =
+        (summary['feedReadinessGaps'] as num?)?.toInt() ?? 0;
+    final cropInputGaps = (summary['cropInputGaps'] as num?)?.toInt() ?? 0;
+    final freshnessRiskCount =
+        (summary['freshnessRiskCount'] as num?)?.toInt() ?? 0;
+    final pendingCollectionsCount =
+        (summary['pendingCollectionsCount'] as num?)?.toInt() ?? 0;
+
+    if (missedFeedingsToday > 0) return onOpenFarm;
+    if (feedReadinessGaps > 0 || cropInputGaps > 0) return onOpenInventory;
+    if (freshnessRiskCount > 0 || pendingCollectionsCount > 0) {
+      return onOpenBusiness;
+    }
+    return onOpenFarm;
   }
 }
 
@@ -1048,53 +1324,145 @@ class _SetupMomentumCard extends StatelessWidget {
   }
 }
 
-class _SetupReadinessBanner extends StatelessWidget {
+class _ManagementBanner extends StatelessWidget {
   final ThemeData theme;
-  final int feedGaps;
-  final int cropInputGaps;
-  final VoidCallback onOpenInventory;
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String message;
 
-  const _SetupReadinessBanner({
+  const _ManagementBanner({
     required this.theme,
-    required this.feedGaps,
-    required this.cropInputGaps,
-    required this.onOpenInventory,
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.message,
   });
 
   @override
   Widget build(BuildContext context) {
-    final blockers = <String>[
-      if (feedGaps > 0)
-        '$feedGaps feed item${feedGaps == 1 ? '' : 's'} below starter level',
-      if (cropInputGaps > 0)
-        '$cropInputGaps crop input${cropInputGaps == 1 ? '' : 's'} still missing',
-    ];
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.amber.withValues(alpha: 0.12),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.warning_amber_rounded, color: Colors.amber),
-          const SizedBox(width: 12),
+          Icon(icon, color: color),
+          const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              blockers.join(' • '),
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+                  ),
+                ),
+              ],
             ),
           ),
-          TextButton(
-            onPressed: onOpenInventory,
-            child: const Text('Resolve'),
-          ),
         ],
+      ),
+    );
+  }
+}
+
+class _AdviceCardData {
+  final String title;
+  final String message;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _AdviceCardData({
+    required this.title,
+    required this.message,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+}
+
+class _AdviceCard extends StatelessWidget {
+  final ThemeData theme;
+  final _AdviceCardData item;
+
+  const _AdviceCard({
+    required this.theme,
+    required this.item,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: item.onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: item.color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: item.color.withValues(alpha: 0.18)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: item.color.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(item.icon, color: item.color),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.message,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.72),
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 14,
+                color: item.color,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

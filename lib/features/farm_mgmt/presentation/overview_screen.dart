@@ -160,6 +160,48 @@ class _OverviewScreenState extends State<OverviewScreen>
               ),
             ),
             SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              sliver: SliverToBoxAdapter(
+                child: _OverviewOpsCard(
+                  theme: theme,
+                  title: 'Today on the farm',
+                  icon: Icons.today_outlined,
+                  color: Colors.indigo,
+                  detail: feed.todayAgendaPreview.isNotEmpty
+                      ? feed.todayAgendaPreview
+                      : 'No urgent actions are stacked right now.',
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+              sliver: SliverToBoxAdapter(
+                child: _OverviewOpsCard(
+                  theme: theme,
+                  title: 'This week',
+                  icon: Icons.view_week_outlined,
+                  color: Colors.green,
+                  detail: feed.thisWeekPreview.isNotEmpty
+                      ? feed.thisWeekPreview
+                      : 'Keep logging work consistently so this week stays easy to manage.',
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              sliver: SliverToBoxAdapter(
+                child: _OverviewOpsCard(
+                  theme: theme,
+                  title: 'Farm advice',
+                  icon: Icons.tips_and_updates_outlined,
+                  color: Colors.amber.shade800,
+                  detail: feed.advicePrimary.isNotEmpty
+                      ? feed.advicePrimary
+                      : 'Farmly will show practical advice here as your records grow.',
+                ),
+              ),
+            ),
+            SliverPadding(
               padding: const EdgeInsets.all(16),
               sliver: SliverToBoxAdapter(
                 child: Column(
@@ -336,6 +378,9 @@ class _OverviewScreenState extends State<OverviewScreen>
       feedingPreview: (farmSummary['todaysFeedingPreview'] ?? '').toString(),
       feedReadinessGaps:
           (farmSummary['feedReadinessGaps'] as num?)?.toInt() ?? 0,
+      todayAgendaPreview: (farmSummary['todayAgendaPreview'] ?? '').toString(),
+      thisWeekPreview: (farmSummary['thisWeekFocusPreview'] ?? '').toString(),
+      advicePrimary: (farmSummary['advicePrimary'] ?? '').toString(),
     );
   }
 
@@ -372,13 +417,76 @@ class _OverviewFeedData {
   final List<double> productionTrend;
   final String feedingPreview;
   final int feedReadinessGaps;
+  final String todayAgendaPreview;
+  final String thisWeekPreview;
+  final String advicePrimary;
 
   const _OverviewFeedData({
     this.sales = const [],
     this.productionTrend = const [],
     this.feedingPreview = '',
     this.feedReadinessGaps = 0,
+    this.todayAgendaPreview = '',
+    this.thisWeekPreview = '',
+    this.advicePrimary = '',
   });
+}
+
+class _OverviewOpsCard extends StatelessWidget {
+  final ThemeData theme;
+  final String title;
+  final String detail;
+  final IconData icon;
+  final Color color;
+
+  const _OverviewOpsCard({
+    required this.theme,
+    required this.title,
+    required this.detail,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  detail,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.74),
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ProductionTrendCard extends StatelessWidget {
