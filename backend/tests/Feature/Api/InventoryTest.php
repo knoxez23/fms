@@ -196,3 +196,48 @@ test('delete by client_uuid is idempotent', function () {
     );
     $second->assertStatus(204);
 });
+
+test('sale create deducts matched output inventory and delete restores it', function () {
+    $inventory = Inventory::factory()->create([
+        'user_id' => $this->user->id,
+        'item_name' => 'Milk',
+        'category' => 'Dairy',
+        'quantity' => 40,
+        'unit' => 'liters',
+        'unit_price' => 55,
+        'total_value' => 2200,
+        'last_restock' => now()->subHours(6),
+    ]);
+
+    $response = $this->postJson('/api/v1/sales', [
+        'product_name' => 'Milk',
+        'quantity' => 15,
+        'unit' => 'liters',
+        'price' => 60,
+        'total_amount' => 900,
+        'date' => now()->toDateString(),
+    ], [
+        'Authorization' => "Bearer {$this->token}",
+    ]);
+
+    $sale = $response->assertCreated()->json();
+
+    $this->assertDatabaseHas('inventories', [
+        'id' => $inventory->id,
+        'quantity' => 25,
+        'total_value' => 1375,
+    ]);
+
+    expect($sale['stock_deduction_plan'])->toBeArray();
+    expect($sale['stock_deduction_plan'][0]['inventory_id'])->toBe($inventory->id);
+
+    $this->deleteJson("/api/v1/sales/{$sale['id']}", [], [
+        'Authorization' => "Bearer {$this->token}",
+    ])->assertNoContent();
+
+    $this->assertDatabaseHas('inventories', [
+        'id' => $inventory->id,
+        'quantity' => 40,
+        'total_value' => 2200,
+    ]);
+});

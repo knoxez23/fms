@@ -8,7 +8,10 @@ use Illuminate\Support\Collection;
 
 class CustomerService
 {
-    public function __construct(private readonly AuditEventService $auditService)
+    public function __construct(
+        private readonly AuditEventService $auditService,
+        private readonly FarmContextService $farmContextService,
+    )
     {
     }
 
@@ -22,6 +25,7 @@ class CustomerService
 
     public function createForUser(int $userId, array $validated): Customer
     {
+        $this->farmContextService->assertCanManageCommercialOps($userId);
         $customer = Customer::create(array_merge($validated, ['user_id' => $userId]));
 
         $this->auditService->record(
@@ -45,6 +49,7 @@ class CustomerService
 
     public function updateForUser(int $userId, string $id, array $validated): Customer
     {
+        $this->farmContextService->assertCanManageCommercialOps($userId);
         $customer = $this->showForUser($userId, $id);
         $customer->update($validated);
 
@@ -65,6 +70,7 @@ class CustomerService
 
     public function deleteForUser(int $userId, string $id): void
     {
+        $this->farmContextService->assertCanManageCommercialOps($userId);
         $customer = $this->showForUser($userId, $id);
         $customerRef = (string) $customer->id;
         $name = $customer->name;

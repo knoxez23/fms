@@ -5,6 +5,7 @@ namespace App\Services\Farm;
 use App\Models\Farm;
 use App\Models\FarmMembership;
 use App\Models\User;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Collection;
@@ -143,5 +144,41 @@ class FarmContextService
             'joined_at' => now(),
             'invited_by' => $user->id,
         ]);
+    }
+
+    public function roleForUser(int $userId): string
+    {
+        $membership = $this->getDefaultMembership($userId);
+
+        return strtolower((string) ($membership?->role ?? 'owner'));
+    }
+
+    public function canManageTeam(int $userId): bool
+    {
+        return in_array($this->roleForUser($userId), ['owner', 'manager'], true);
+    }
+
+    public function canManageCommercialOps(int $userId): bool
+    {
+        return in_array($this->roleForUser($userId), ['owner', 'manager', 'accountant'], true);
+    }
+
+    public function canApproveTasks(int $userId): bool
+    {
+        return in_array($this->roleForUser($userId), ['owner', 'manager', 'accountant'], true);
+    }
+
+    public function assertCanManageTeam(int $userId): void
+    {
+        if (! $this->canManageTeam($userId)) {
+            throw new AuthorizationException('Only owners or managers can manage farm team records.');
+        }
+    }
+
+    public function assertCanManageCommercialOps(int $userId): void
+    {
+        if (! $this->canManageCommercialOps($userId)) {
+            throw new AuthorizationException('Only owners, managers, or accountants can manage sales and commercial records.');
+        }
     }
 }

@@ -4,6 +4,7 @@ use App\Models\Customer;
 use App\Models\StaffMember;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Services\Farm\FarmContextService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -137,6 +138,35 @@ test('staff records support richer role and work context fields', function () {
         'assignment_area' => 'Finance desk',
         'can_login' => true,
     ]);
+});
+
+test('worker membership cannot create staff records', function () {
+    $service = app(FarmContextService::class);
+    $membership = $service->createDefaultFarmForUser($this->user);
+    $membership->update(['role' => 'worker']);
+
+    $this->postJson('/api/v1/staff-members', [
+        'name' => 'Blocked Worker',
+        'role' => 'Worker',
+    ], [
+        'Authorization' => "Bearer {$this->token}",
+    ])->assertStatus(403);
+});
+
+test('worker membership cannot create sales records', function () {
+    $service = app(FarmContextService::class);
+    $membership = $service->createDefaultFarmForUser($this->user);
+    $membership->update(['role' => 'worker']);
+
+    $this->postJson('/api/v1/sales', [
+        'product_name' => 'Milk',
+        'quantity' => 10,
+        'unit' => 'liters',
+        'price' => 60,
+        'date' => now()->toDateString(),
+    ], [
+        'Authorization' => "Bearer {$this->token}",
+    ])->assertStatus(403);
 });
 
 test('tasks rejects staff_member_id that belongs to another user', function () {

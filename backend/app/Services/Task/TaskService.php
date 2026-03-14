@@ -212,9 +212,6 @@ class TaskService
 
     private function canApproveTasks(int $userId): bool
     {
-        $membership = $this->farmContextService->getDefaultMembership($userId);
-        $role = strtolower((string) ($membership?->role ?? 'owner'));
-
-        return in_array($role, ['owner', 'manager', 'accountant'], true);
+        return $this->farmContextService->canApproveTasks($userId);
     }
 }

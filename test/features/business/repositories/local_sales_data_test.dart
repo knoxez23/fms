@@ -124,6 +124,33 @@ void main() {
     expect(rows.first['payment_status'], 'Paid');
   });
 
+  test('sale rows persist stock deduction plans', () async {
+    final localId = await LocalData.insertSale({
+      'product_name': 'Milk',
+      'quantity': 12,
+      'unit': 'liters',
+      'price': 65,
+      'total_amount': 780,
+      'customer_name': 'Co-op',
+      'sale_date': '2026-02-16T07:00:00.000',
+      'payment_status': 'Pending',
+      'stock_deduction_plan': [
+        {
+          'inventory_local_id': 4,
+          'quantity': 12,
+          'item_name': 'Milk',
+          'unit': 'liters',
+        }
+      ],
+    });
+
+    final rows = await LocalData.getSales();
+    expect(rows, hasLength(1));
+    expect(rows.first['id'], localId);
+    expect(rows.first['stock_deduction_plan'], isNotNull);
+    expect(rows.first['stock_deduction_plan'].toString(), contains('inventory_local_id'));
+  });
+
   test('deleteSaleByIdOrServerId deletes by server identifier', () async {
     await LocalData.upsertSaleFromServer({
       'id': 9123,

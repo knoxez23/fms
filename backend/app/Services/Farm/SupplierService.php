@@ -8,7 +8,10 @@ use Illuminate\Support\Collection;
 
 class SupplierService
 {
-    public function __construct(private readonly AuditEventService $auditService)
+    public function __construct(
+        private readonly AuditEventService $auditService,
+        private readonly FarmContextService $farmContextService,
+    )
     {
     }
 
@@ -22,6 +25,7 @@ class SupplierService
 
     public function createForUser(int $userId, array $validated): Supplier
     {
+        $this->farmContextService->assertCanManageCommercialOps($userId);
         $supplier = Supplier::create(array_merge($validated, ['user_id' => $userId]));
 
         $this->auditService->record(
@@ -45,6 +49,7 @@ class SupplierService
 
     public function updateForUser(int $userId, string $id, array $validated): Supplier
     {
+        $this->farmContextService->assertCanManageCommercialOps($userId);
         $supplier = $this->showForUser($userId, $id);
         $supplier->update($validated);
 
@@ -65,6 +70,7 @@ class SupplierService
 
     public function deleteForUser(int $userId, string $id): void
     {
+        $this->farmContextService->assertCanManageCommercialOps($userId);
         $supplier = $this->showForUser($userId, $id);
         $supplierRef = (string) $supplier->id;
         $name = $supplier->name;

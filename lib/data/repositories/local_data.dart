@@ -1644,6 +1644,9 @@ class LocalData {
       'sale_date': sale['sale_date'] ?? sale['date'], // Handle both formats
       'payment_status': sale['payment_status'] ?? 'Pending',
       'notes': sale['notes'] ?? '',
+      'stock_deduction_plan': sale['stock_deduction_plan'] == null
+          ? null
+          : jsonEncode(sale['stock_deduction_plan']),
       'user_id': sale['user_id'],
     });
 
@@ -1679,6 +1682,9 @@ class LocalData {
       'sale_date': sale['sale_date'] ?? sale['date'],
       'payment_status': sale['payment_status'] ?? 'Pending',
       'notes': sale['notes'] ?? '',
+      'stock_deduction_plan': sale['stock_deduction_plan'] == null
+          ? null
+          : jsonEncode(sale['stock_deduction_plan']),
       'user_id': sale['user_id'],
     });
 
@@ -1718,6 +1724,9 @@ class LocalData {
       'sale_date': sale['sale_date'] ?? sale['date'],
       'payment_status': sale['payment_status'] ?? 'Pending',
       'notes': sale['notes'] ?? '',
+      'stock_deduction_plan': sale['stock_deduction_plan'] == null
+          ? null
+          : jsonEncode(sale['stock_deduction_plan']),
       'user_id': sale['user_id'],
     });
 
@@ -1747,6 +1756,9 @@ class LocalData {
       'sale_date': sale['sale_date'] ?? sale['date'],
       'payment_status': sale['payment_status'] ?? 'Pending',
       'notes': sale['notes'] ?? '',
+      'stock_deduction_plan': sale['stock_deduction_plan'] == null
+          ? null
+          : jsonEncode(sale['stock_deduction_plan']),
       'user_id': sale['user_id'],
     });
 

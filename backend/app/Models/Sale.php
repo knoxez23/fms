@@ -19,6 +19,7 @@ class Sale extends Model
         'customer_id',
         'payment_status',
         'notes',
+        'stock_deduction_plan',
         'sale_date',
         'date',
         'user_id',
@@ -30,6 +31,7 @@ class Sale extends Model
         'total_amount' => 'decimal:2',
         'sale_date' => 'date',
         'date' => 'date',
+        'stock_deduction_plan' => 'array',
     ];
 
     public function user()

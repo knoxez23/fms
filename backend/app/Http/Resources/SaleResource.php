@@ -25,6 +25,7 @@ class SaleResource extends JsonResource
             'customer_id' => $this->customer_id,
             'payment_status' => $this->payment_status,
             'notes' => $this->notes,
+            'stock_deduction_plan' => $this->stock_deduction_plan,
             'date' => optional($this->date)?->toDateString(),
             'sale_date' => optional($this->sale_date ?? $this->date)?->toDateString(),
             'created_at' => optional($this->created_at)?->toISOString(),

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:injectable/injectable.dart';
 import '../domain/repositories/sales_repository.dart';
 import '../domain/entities/sale_entity.dart';
@@ -39,12 +41,18 @@ class SalesRepositoryImpl implements SalesRepository {
       final created = await _service.create(payload);
       await LocalData.insertSale(created);
       final entity = _mapToEntity(created);
-      await _deductOutputStockIfMatched(entity);
+      await _applyInventoryPlan(_readStockPlan(created));
       return entity;
     } catch (_) {
-      final localId = await LocalData.insertSale(payload);
+      final stockPlan = await _buildLocalStockPlan(sale);
+      final localId = await LocalData.insertSale({
+        ...payload,
+        'stock_deduction_plan': stockPlan,
+      });
+      await _applyInventoryPlan(stockPlan);
       await LocalData.insertPendingSale({
         ...payload,
+        'stock_deduction_plan': stockPlan,
         'local_id': localId,
       });
       final entity = SaleEntity(
@@ -62,7 +70,6 @@ class SalesRepositoryImpl implements SalesRepository {
         animal: sale.animal,
         notes: sale.notes,
       );
-      await _deductOutputStockIfMatched(entity);
       return entity;
     }
   }
@@ -73,12 +80,22 @@ class SalesRepositoryImpl implements SalesRepository {
     final payload = _entityToPayload(sale);
     final parsedId = int.tryParse(sale.id!);
     if (parsedId == null) return sale;
+    final existing = await _findSaleRow(parsedId);
+    if (existing != null) {
+      await _restoreInventoryPlan(_readStockPlan(existing));
+    }
     try {
       final updated = await _service.update(parsedId, payload);
       await LocalData.updateSaleByIdOrServerId(parsedId, updated);
+      await _applyInventoryPlan(_readStockPlan(updated));
       return _mapToEntity(updated);
     } catch (_) {
-      await LocalData.updateSaleByIdOrServerId(parsedId, payload);
+      final stockPlan = await _buildLocalStockPlan(sale);
+      await LocalData.updateSaleByIdOrServerId(parsedId, {
+        ...payload,
+        'stock_deduction_plan': stockPlan,
+      });
+      await _applyInventoryPlan(stockPlan);
       return sale;
     }
   }
@@ -87,85 +104,107 @@ class SalesRepositoryImpl implements SalesRepository {
   Future<void> deleteSale(String id) async {
     final parsed = int.tryParse(id);
     if (parsed == null) return;
-    final existing = await _findSaleSnapshot(parsed);
+    final existing = await _findSaleRow(parsed);
     try {
       await _service.delete(parsed);
     } finally {
-      await LocalData.deleteSaleByIdOrServerId(parsed);
       if (existing != null) {
-        await _restoreOutputStockIfMatched(existing);
+        await _restoreInventoryPlan(_readStockPlan(existing));
       }
+      await LocalData.deleteSaleByIdOrServerId(parsed);
     }
   }
 
-  Future<void> _deductOutputStockIfMatched(SaleEntity sale) async {
-    final matched = await _findMatchingOutputStock(sale);
-    if (matched == null) return;
-    if (matched.quantity < sale.quantity.value) return;
+  Future<List<Map<String, dynamic>>> _buildLocalStockPlan(SaleEntity sale) async {
+    final items = await _findMatchingOutputStocks(sale);
+    var remaining = sale.quantity.value;
+    final plan = <Map<String, dynamic>>[];
 
-    await _inventoryRepository.updateItem(
-      InventoryItem(
-        id: matched.id,
-        clientUuid: matched.clientUuid,
-        supplierId: matched.supplierId,
-        itemName: matched.itemName,
-        category: matched.category,
-        quantity: matched.quantity - sale.quantity.value,
-        unit: matched.unit,
-        minStock: matched.minStock,
-        unitPrice: matched.unitPrice,
-        totalValue: matched.unitPrice != null
-            ? (matched.quantity - sale.quantity.value) * matched.unitPrice!
-            : matched.totalValue,
-        supplier: matched.supplier,
-        expiryDate: matched.expiryDate,
-        lastRestock: matched.lastRestock,
-        isSynced: false,
-        hasConflict: matched.hasConflict,
-      ),
-    );
+    for (final item in items) {
+      if (remaining <= 0) break;
+      if (item.quantity <= 0) continue;
+      final deducted = remaining < item.quantity ? remaining : item.quantity;
+      plan.add({
+        'inventory_local_id': item.id != null ? int.tryParse(item.id!) : null,
+        'inventory_server_id':
+            item.id == null ? null : int.tryParse(item.id!),
+        'client_uuid': item.clientUuid,
+        'quantity': deducted,
+        'item_name': item.itemName,
+        'unit': item.unit,
+        'lot_label': _lotLabelFor(item),
+      });
+      remaining -= deducted;
+    }
+
+    return plan;
   }
 
-  Future<void> _restoreOutputStockIfMatched(SaleEntity sale) async {
-    final matched = await _findMatchingOutputStock(sale);
-    if (matched == null) return;
-
-    await _inventoryRepository.updateItem(
-      InventoryItem(
-        id: matched.id,
-        clientUuid: matched.clientUuid,
-        supplierId: matched.supplierId,
-        itemName: matched.itemName,
-        category: matched.category,
-        quantity: matched.quantity + sale.quantity.value,
-        unit: matched.unit,
-        minStock: matched.minStock,
-        unitPrice: matched.unitPrice,
-        totalValue: matched.unitPrice != null
-            ? (matched.quantity + sale.quantity.value) * matched.unitPrice!
-            : matched.totalValue,
-        supplier: matched.supplier,
-        expiryDate: matched.expiryDate,
-        lastRestock: matched.lastRestock,
-        isSynced: false,
-        hasConflict: matched.hasConflict,
-      ),
-    );
+  Future<void> _applyInventoryPlan(List<Map<String, dynamic>> plan) async {
+    if (plan.isEmpty) return;
+    final items = await _inventoryRepository.getItems();
+    for (final step in plan) {
+      final matched = _findInventoryByPlan(items, step);
+      if (matched == null) continue;
+      final qty = (step['quantity'] as num?)?.toDouble() ?? 0;
+      if (qty <= 0 || matched.quantity < qty) continue;
+      await _inventoryRepository.updateItem(
+        _copyInventoryWithQuantity(matched, matched.quantity - qty),
+      );
+    }
   }
 
-  Future<InventoryItem?> _findMatchingOutputStock(SaleEntity sale) async {
-    if (!_isOutputProduct(sale.productName)) return null;
+  Future<void> _restoreInventoryPlan(List<Map<String, dynamic>> plan) async {
+    if (plan.isEmpty) return;
+    final items = await _inventoryRepository.getItems();
+    for (final step in plan) {
+      final matched = _findInventoryByPlan(items, step);
+      if (matched == null) continue;
+      final qty = (step['quantity'] as num?)?.toDouble() ?? 0;
+      if (qty <= 0) continue;
+      await _inventoryRepository.updateItem(
+        _copyInventoryWithQuantity(matched, matched.quantity + qty),
+      );
+    }
+  }
+
+  Future<List<InventoryItem>> _findMatchingOutputStocks(SaleEntity sale) async {
+    if (!_isOutputProduct(sale.productName)) return const [];
     final items = await _inventoryRepository.getItems();
     final normalizedProduct = sale.productName.trim().toLowerCase();
     final normalizedCategory = _outputCategoryFor(sale.productName);
-
-    for (final item in items) {
+    final filtered = items.where((item) {
       if (item.unit.trim().toLowerCase() != sale.unit.trim().toLowerCase()) {
-        continue;
+        return false;
       }
       final itemName = item.itemName.trim().toLowerCase();
       final itemCategory = item.category.trim().toLowerCase();
-      if (itemName == normalizedProduct && itemCategory == normalizedCategory) {
+      return itemName == normalizedProduct && itemCategory == normalizedCategory;
+    }).toList();
+    filtered.sort((a, b) {
+      final aTime = a.lastRestock ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bTime = b.lastRestock ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return aTime.compareTo(bTime);
+    });
+    return filtered;
+  }
+
+  InventoryItem? _findInventoryByPlan(
+    List<InventoryItem> items,
+    Map<String, dynamic> step,
+  ) {
+    final localId = step['inventory_local_id']?.toString();
+    final serverId = step['inventory_server_id']?.toString();
+    final clientUuid = (step['client_uuid'] ?? '').toString();
+
+    for (final item in items) {
+      if (localId != null && localId.isNotEmpty && item.id == localId) {
+        return item;
+      }
+      if (serverId != null && serverId.isNotEmpty && item.id == serverId) {
+        return item;
+      }
+      if (clientUuid.isNotEmpty && item.clientUuid == clientUuid) {
         return item;
       }
     }
@@ -173,13 +212,13 @@ class SalesRepositoryImpl implements SalesRepository {
     return null;
   }
 
-  Future<SaleEntity?> _findSaleSnapshot(int id) async {
+  Future<Map<String, dynamic>?> _findSaleRow(int id) async {
     final rows = await LocalData.getSales();
     for (final row in rows) {
       final localId = row['id'];
       final serverId = row['server_id'];
       if (localId == id || serverId == id) {
-        return _mapToEntity(Map<String, dynamic>.from(row));
+        return Map<String, dynamic>.from(row);
       }
     }
     return null;
@@ -188,6 +227,31 @@ class SalesRepositoryImpl implements SalesRepository {
   bool _isOutputProduct(String productName) {
     final normalized = productName.trim().toLowerCase();
     return normalized == 'milk' || normalized == 'eggs';
+  }
+
+  String _lotLabelFor(InventoryItem item) {
+    final date = item.lastRestock;
+    if (date == null) return 'Current lot';
+    final month = _monthLabel(date.month);
+    return 'Lot from $month ${date.day}';
+  }
+
+  String _monthLabel(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return months[month - 1];
   }
 
   String _outputCategoryFor(String productName) {
@@ -221,6 +285,43 @@ class SalesRepositoryImpl implements SalesRepository {
       animal: map['animal'],
       date: dateString != null ? DateTime.tryParse(dateString) : null,
       notes: map['notes'],
+    );
+  }
+
+  List<Map<String, dynamic>> _readStockPlan(Map<String, dynamic> map) {
+    final raw = map['stock_deduction_plan'];
+    if (raw is List) {
+      return raw.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList();
+    }
+    if (raw is String && raw.trim().isNotEmpty) {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .whereType<Map>()
+            .map((row) => Map<String, dynamic>.from(row))
+            .toList();
+      }
+    }
+    return const [];
+  }
+
+  InventoryItem _copyInventoryWithQuantity(InventoryItem item, double quantity) {
+    return InventoryItem(
+      id: item.id,
+      clientUuid: item.clientUuid,
+      supplierId: item.supplierId,
+      itemName: item.itemName,
+      category: item.category,
+      quantity: quantity,
+      unit: item.unit,
+      minStock: item.minStock,
+      unitPrice: item.unitPrice,
+      totalValue: item.unitPrice != null ? quantity * item.unitPrice! : item.totalValue,
+      supplier: item.supplier,
+      expiryDate: item.expiryDate,
+      lastRestock: item.lastRestock,
+      isSynced: false,
+      hasConflict: item.hasConflict,
     );
   }
 

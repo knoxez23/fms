@@ -36,6 +36,7 @@ class StaffMemberService
 
     public function createForUser(int $userId, array $validated): StaffMember
     {
+        $this->farmContextService->assertCanManageTeam($userId);
         $farm = $this->farmContextService->requireCurrentFarm($userId);
         $staffMember = StaffMember::create(array_merge($validated, [
             'user_id' => $userId,
@@ -80,6 +81,7 @@ class StaffMemberService
 
     public function updateForUser(int $userId, string $id, array $validated): StaffMember
     {
+        $this->farmContextService->assertCanManageTeam($userId);
         $staffMember = $this->showForUser($userId, $id);
         $staffMember->update($validated);
 
@@ -103,6 +105,7 @@ class StaffMemberService
 
     public function deleteForUser(int $userId, string $id): void
     {
+        $this->farmContextService->assertCanManageTeam($userId);
         $staffMember = $this->showForUser($userId, $id);
         $staffRef = (string) $staffMember->id;
         $name = $staffMember->name;
